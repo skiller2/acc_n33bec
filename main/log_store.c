@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_LOGS 1000
+
 typedef struct
 {
     uint64_t id;
@@ -20,9 +22,43 @@ void log_store_init()
 
 void log_add(uint64_t id, int64_t ts, int ok)
 {
-    FILE *f = fopen("/fs/logs.dat", "ab");
-    log_t l = {id, ts, ok};
-    fwrite(&l, sizeof(l), 1, f);
+    FILE *f = fopen("/fs/logs.dat", "r+b");
+    if (!f) {
+        f = fopen("/fs/logs.dat", "wb");
+        if (!f) return;
+    }
+
+    // Count existing logs
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    int log_count = file_size / sizeof(log_t);
+
+    if (log_count >= MAX_LOGS) {
+        // Circular buffer: read all logs, shift left by 1, add new at end
+        log_t *logs = malloc(log_count * sizeof(log_t));
+        rewind(f);
+        fread(logs, sizeof(log_t), log_count, f);
+
+        // Shift logs left (remove oldest)
+        for (int i = 0; i < log_count - 1; i++) {
+            logs[i] = logs[i + 1];
+        }
+
+        // Add new log at the end
+        logs[log_count - 1] = (log_t){id, ts, ok};
+
+        // Rewrite entire file
+        rewind(f);
+        fwrite(logs, sizeof(log_t), log_count, f);
+
+        free(logs);
+    } else {
+        // Just append new log
+        fseek(f, 0, SEEK_END);
+        log_t l = {id, ts, ok};
+        fwrite(&l, sizeof(l), 1, f);
+    }
+
     fclose(f);
 }
 
