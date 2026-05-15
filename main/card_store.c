@@ -21,3 +21,19 @@ void card_add(uint64_t id){
  cards[count++]=id;
  FILE*f=fopen("/fs/cards.dat","ab"); fwrite(&id,8,1,f); fclose(f);
 }
+
+
+void card_del(uint64_t id)
+{
+    FILE *f = fopen("/fs/cards.dat", "wb");
+
+    size_t new_count = 0;
+    for (int i = 0; i < count; i++) {
+        if (cards[i] != id) {
+            fwrite(&cards[i], sizeof(uint64_t), 1, f);
+            cards[new_count++] = cards[i];
+        }
+    }
+    count = new_count;
+    fclose(f);
+}

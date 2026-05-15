@@ -1,9 +1,12 @@
 
 #include "esp_http_server.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 extern void card_add(uint64_t);
+extern void card_del(uint64_t);
+extern char *log_read_all_json(void);
 
 static esp_err_t index_handler(httpd_req_t *req)
 {
@@ -16,6 +19,30 @@ static esp_err_t index_handler(httpd_req_t *req)
         httpd_resp_send_chunk(req, buf, r);
     fclose(f);
     httpd_resp_send_chunk(req, NULL, 0);
+    return ESP_OK;
+}
+
+static esp_err_t del_card(httpd_req_t *req)
+{
+    char buf[64];
+    int len = httpd_req_recv(req, buf, sizeof(buf));
+    buf[len] = 0;
+
+    uint64_t id = strtoull(buf, NULL, 10);
+    card_del(id);
+
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
+static esp_err_t get_logs(httpd_req_t *req)
+{
+
+    char* json = log_read_all_json();
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json);
+    free(json);
+
     return ESP_OK;
 }
 
@@ -35,8 +62,29 @@ void http_init()
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
     httpd_handle_t s;
     httpd_start(&s, &c);
+
+    httpd_uri_t put_uri = {
+        .uri = "/card",
+        .method = HTTP_PUT,
+        .handler = add_card};
+
+    httpd_uri_t del_uri = {
+        .uri = "/card",
+        .method = HTTP_DELETE,
+        .handler = del_card};
+
+    httpd_uri_t logs_uri = {
+        .uri = "/logs",
+        .method = HTTP_GET,
+        .handler = get_logs};
+
+
     httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = index_handler};
-    httpd_uri_t u2 = {.uri = "/card", .method = HTTP_PUT, .handler = add_card};
     httpd_register_uri_handler(s, &u1);
-    httpd_register_uri_handler(s, &u2);
+
+    httpd_register_uri_handler(s, &put_uri);
+    httpd_register_uri_handler(s, &del_uri);
+    httpd_register_uri_handler(s, &logs_uri);
+
+
 }
