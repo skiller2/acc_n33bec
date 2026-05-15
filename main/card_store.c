@@ -1,0 +1,1 @@
+void card_store_init(){}
