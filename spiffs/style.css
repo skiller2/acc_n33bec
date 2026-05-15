@@ -1,1 +1,2 @@
-body{background:#111;color:#eee}
+body { background:#111; color:#eee; font-family:Arial; }
+.card { background:#222; padding:10px; margin:10px; }
