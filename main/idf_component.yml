@@ -5,3 +5,5 @@ dependencies:
     version: "^1.21.1"
   espressif/ethernet_init:
     version: "~1.2.0"
+  esp-idf-lib/wiegand:
+    version: "^1.1.6"

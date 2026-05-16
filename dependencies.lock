@@ -1,4 +1,44 @@
 dependencies:
+  esp-idf-lib/esp_idf_lib_helpers:
+    component_hash: 689853bb8993434f9556af0f2816e808bf77b5d22100144b21f3519993daf237
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 1.4.0
+  esp-idf-lib/wiegand:
+    component_hash: 1cb2211f0a61f3e531fb06ae24efbc8ba0ac46456208cbaea4875107c72e89b5
+    dependencies:
+    - name: esp-idf-lib/esp_idf_lib_helpers
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 1.2.0
   espressif/cjson:
     component_hash: 002c6d1872ee4c97d333938ebe107a29841cc847f9de89e676714bd2844057ea
     dependencies:
@@ -162,9 +202,10 @@ dependencies:
       type: service
     version: 1.21.1
 direct_dependencies:
+- esp-idf-lib/wiegand
 - espressif/ethernet_init
 - espressif/network_provisioning
 - joltwallet/littlefs
-manifest_hash: 3b0f3513131edfca2ed4b0a9922c80b6f0d704ca097fe390fb5d616ccd9274de
+manifest_hash: f73cebbdb85e29492669d58e3e8ed9bf09976e56c2879c5f70cd932d162f2633
 target: esp32s3
 version: 3.0.0

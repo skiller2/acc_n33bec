@@ -9,6 +9,7 @@
 #include "log_store.h"
 #include "time_sync.h"
 
+
 static const char *TAG = "main";
 
 extern void fs_init();
@@ -82,7 +83,7 @@ void app_main()
         return;
     }
 
-    wiegand_init(4, 5, wiegand_cb);
+    wiegand_init(48, 47, wiegand_cb);
 
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS) {

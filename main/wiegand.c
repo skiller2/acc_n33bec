@@ -1,36 +1,81 @@
+#include <stdio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/queue.h>
+#include <wiegand.h>
+#include <esp_log.h>
+#include <string.h>
 
-#include "driver/gpio.h"
-#include "esp_timer.h"
-#include "esp_attr.h"
-#include "esp_log.h"
+static const char *TAG = "wiegand_reader";
 
-static volatile int bits=0;
-static volatile uint64_t data=0;
-static int64_t last=0;
-static void (*cb)(uint64_t);
-static int D0,D1;
-static const char *TAG = "wiegand";
+static wiegand_reader_t reader;
+static QueueHandle_t queue = NULL;
 
-static void IRAM_ATTR isr(void* arg){
- int pin=(int)arg;
- int64_t now=esp_timer_get_time();
- if(now-last>30000){bits=0;data=0;}
- last=now;
- data<<=1;
- if(pin==D1)data|=1;
- bits++;
- if(bits==26){ cb(data); bits=0; data=0; }
+
+#define CONFIG_EXAMPLE_BUF_SIZE 64
+#define CONFIG_EXAMPLE_D0_GPIO 47
+#define CONFIG_EXAMPLE_D1_GPIO 48
+// Single data packet
+typedef struct
+{
+    uint8_t data[CONFIG_EXAMPLE_BUF_SIZE];
+    size_t bits;
+} data_packet_t;
+
+// callback on new data in reader
+static void reader_callback(wiegand_reader_t *r)
+{
+    // you can decode raw data from reader buffer here, but remember:
+    // reader will ignore any new incoming data while executing callback
+
+    // create simple undecoded data packet
+    data_packet_t p;
+    p.bits = r->bits;
+    memcpy(p.data, r->buf, CONFIG_EXAMPLE_BUF_SIZE);
+
+    // Send it to the queue
+    xQueueSendToBack(queue, &p, 0);
 }
 
-void wiegand_init(int d0,int d1,void(*f)(uint64_t)){
+static void task(void *arg)
+{
+    // Create queue
+    queue = xQueueCreate(5, sizeof(data_packet_t));
+    if (!queue)
+    {
+        ESP_LOGE(TAG, "Error creating queue");
+        ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
+    }
+
+    // Initialize reader
+    ESP_ERROR_CHECK(wiegand_reader_init(&reader, CONFIG_EXAMPLE_D0_GPIO, CONFIG_EXAMPLE_D1_GPIO,
+                                        true, CONFIG_EXAMPLE_BUF_SIZE, reader_callback, WIEGAND_MSB_FIRST, WIEGAND_LSB_FIRST));
+
+    data_packet_t p;
+    while (1)
+    {
+        ESP_LOGI(TAG, "Waiting for Wiegand data...");
+        xQueueReceive(queue, &p, portMAX_DELAY);
+
+        // dump received data
+        printf("==========================================\n");
+        printf("Bits received: %d\n", p.bits);
+        printf("Received data:");
+        int bytes = p.bits / 8;
+        int tail = p.bits % 8;
+        for (size_t i = 0; i < bytes + (tail ? 1 : 0); i++)
+            printf(" 0x%02x", p.data[i]);
+        printf("\n==========================================\n");
+    }
+}
+
+void wiegand_init(int d0, int d1, void (*f)(uint64_t))
+{
     ESP_LOGI(TAG, "Initializing Wiegand input on D0=%d, D1=%d", d0, d1);
 
- D0=d0;D1=d1;cb=f;
- gpio_set_direction(D0,GPIO_MODE_INPUT);
- gpio_set_direction(D1,GPIO_MODE_INPUT);
- gpio_set_intr_type(D0,GPIO_INTR_NEGEDGE);
- gpio_set_intr_type(D1,GPIO_INTR_NEGEDGE);
- //gpio_install_isr_service(0);
- gpio_isr_handler_add(D0,isr,(void*)D0);
- gpio_isr_handler_add(D1,isr,(void*)D1);
+    if (xTaskCreate(task, TAG, configMINIMAL_STACK_SIZE * 4, NULL, 5, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create Wiegand task");
+        return;
+    }
 }
