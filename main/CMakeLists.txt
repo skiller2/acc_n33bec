@@ -1,4 +1,4 @@
-idf_component_register(SRCS "card_store.c"
+idf_component_register(SRCS "connect.c" "eth_connect.c" "card_store.c"
                             "fs.c"
                             "http.c"
                             "log_store.c"
@@ -7,6 +7,8 @@ idf_component_register(SRCS "card_store.c"
                             "wiegand.c"
                             "ws.c"
                             "wifi.c"
+                            "eth_connect.c"
+                            "connect.c"
                         INCLUDE_DIRS ".")
 component_compile_options(-DMG_ENABLE_LINES=1)
 component_compile_options(-DMG_ENABLE_PACKED_FS=1)

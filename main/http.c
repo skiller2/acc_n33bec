@@ -1,12 +1,13 @@
-
 #include "esp_http_server.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "esp_log.h"
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
 extern char *log_read_all_json(void);
+static const char *TAG = "http";
 
 static esp_err_t index_handler(httpd_req_t *req)
 {
@@ -38,7 +39,7 @@ static esp_err_t del_card(httpd_req_t *req)
 static esp_err_t get_logs(httpd_req_t *req)
 {
 
-    char* json = log_read_all_json();
+    char *json = log_read_all_json();
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, json);
     free(json);
@@ -59,32 +60,37 @@ static esp_err_t add_card(httpd_req_t *req)
 
 void http_init()
 {
+    ESP_LOGI(TAG, "Initializing HTTP server");
+
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
     httpd_handle_t s;
+    ESP_LOGI(TAG, "Starting server on port: '%d'", c.server_port);
     httpd_start(&s, &c);
+    if (httpd_start(&s, &c) == ESP_OK)
+    {
+        httpd_uri_t put_uri = {
+            .uri = "/card",
+            .method = HTTP_PUT,
+            .handler = add_card};
 
-    httpd_uri_t put_uri = {
-        .uri = "/card",
-        .method = HTTP_PUT,
-        .handler = add_card};
+        httpd_uri_t del_uri = {
+            .uri = "/card",
+            .method = HTTP_DELETE,
+            .handler = del_card};
 
-    httpd_uri_t del_uri = {
-        .uri = "/card",
-        .method = HTTP_DELETE,
-        .handler = del_card};
+        httpd_uri_t logs_uri = {
+            .uri = "/logs",
+            .method = HTTP_GET,
+            .handler = get_logs};
 
-    httpd_uri_t logs_uri = {
-        .uri = "/logs",
-        .method = HTTP_GET,
-        .handler = get_logs};
+        httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = index_handler};
+        httpd_register_uri_handler(s, &u1);
 
-
-    httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = index_handler};
-    httpd_register_uri_handler(s, &u1);
-
-    httpd_register_uri_handler(s, &put_uri);
-    httpd_register_uri_handler(s, &del_uri);
-    httpd_register_uri_handler(s, &logs_uri);
-
-
+        httpd_register_uri_handler(s, &put_uri);
+        httpd_register_uri_handler(s, &del_uri);
+        httpd_register_uri_handler(s, &logs_uri);
+        ESP_LOGI(TAG, "End Initializing HTTP server");
+    } else {
+        ESP_LOGE(TAG, "Failed to start HTTP server!");
+    }
 }

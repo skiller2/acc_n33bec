@@ -1,10 +1,13 @@
-
+#include <stdint.h>
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_log.h"
-#include <stdint.h>
+#include "esp_netif.h"
+#include "connect.h"
+
+static const char *TAG = "main";
 
 extern void fs_init();
 extern void http_init();
@@ -18,23 +21,72 @@ static QueueHandle_t queue;
 
 typedef struct { uint64_t card; } evt_t;
 
-void wiegand_cb(uint64_t c){ evt_t e={.card=c}; xQueueSendFromISR(queue,&e,NULL);} 
-
-void worker(void* p){ evt_t e;
- while(1){
-  if(xQueueReceive(queue,&e,portMAX_DELAY)){
-    process_card(e.card);
-  }
- }
+void wiegand_cb(uint64_t c)
+{
+    evt_t e = {.card = c};
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    if (xQueueSendFromISR(queue, &e, &xHigherPriorityTaskWoken) != pdTRUE) {
+        ESP_EARLY_LOGW(TAG, "wiegand_cb: queue full, card=%llu", c);
+    } else {
+        ESP_EARLY_LOGI(TAG, "wiegand_cb: queued card=%llu", c);
+    }
 }
 
-void app_main(){
- fs_init();
- card_store_init();
- log_store_init();
- http_init();
- ws_init();
- queue=xQueueCreate(64,sizeof(evt_t));
- wiegand_init(4,5,wiegand_cb);
- xTaskCreate(worker,"worker",4096,NULL,5,NULL);
+void worker(void* p)
+{
+    ESP_LOGI(TAG, "worker started");
+    evt_t e;
+    while (1) {
+        if (xQueueReceive(queue, &e, portMAX_DELAY)) {
+            ESP_LOGI(TAG, "worker: processing card=%llu", e.card);
+            process_card(e.card);
+        }
+    }
+}
+
+void app_main()
+{
+    ESP_LOGI(TAG, "app_main start");
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    ESP_LOGI(TAG, "Initializing filesystem");
+    fs_init();
+
+    ESP_LOGI(TAG, "Initializing card store");
+    card_store_init();
+
+    ESP_LOGI(TAG, "Initializing log store");
+    log_store_init();
+
+
+    ESP_ERROR_CHECK(esp_netif_init());    
+    ESP_ERROR_CHECK(example_ethernet_connect());
+
+    
+    ESP_ERROR_CHECK(esp_register_shutdown_handler(&example_ethernet_shutdown));
+
+
+
+    
+    http_init();
+
+    ESP_LOGI(TAG, "Initializing WebSocket server");
+    ws_init();
+
+    ESP_LOGI(TAG, "Creating event queue");
+    queue = xQueueCreate(64, sizeof(evt_t));
+    if (!queue) {
+        ESP_LOGE(TAG, "Failed to create queue");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Initializing Wiegand input");
+    wiegand_init(4, 5, wiegand_cb);
+
+    ESP_LOGI(TAG, "Creating worker task");
+    if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create worker task");
+    }
+
+    ESP_LOGI(TAG, "app_main complete");
 }
