@@ -2,11 +2,14 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "esp_attr.h"
+#include "esp_log.h"
+
 static volatile int bits=0;
 static volatile uint64_t data=0;
 static int64_t last=0;
 static void (*cb)(uint64_t);
 static int D0,D1;
+static const char *TAG = "wiegand";
 
 static void IRAM_ATTR isr(void* arg){
  int pin=(int)arg;
@@ -20,12 +23,14 @@ static void IRAM_ATTR isr(void* arg){
 }
 
 void wiegand_init(int d0,int d1,void(*f)(uint64_t)){
+    ESP_LOGI(TAG, "Initializing Wiegand input on D0=%d, D1=%d", d0, d1);
+
  D0=d0;D1=d1;cb=f;
  gpio_set_direction(D0,GPIO_MODE_INPUT);
  gpio_set_direction(D1,GPIO_MODE_INPUT);
  gpio_set_intr_type(D0,GPIO_INTR_NEGEDGE);
  gpio_set_intr_type(D1,GPIO_INTR_NEGEDGE);
- gpio_install_isr_service(0);
+ //gpio_install_isr_service(0);
  gpio_isr_handler_add(D0,isr,(void*)D0);
  gpio_isr_handler_add(D1,isr,(void*)D1);
 }

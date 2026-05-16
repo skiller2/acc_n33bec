@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "connect.h"
+#include "log_store.h"
 
 static const char *TAG = "main";
 
@@ -80,7 +81,6 @@ void app_main()
         return;
     }
 
-    ESP_LOGI(TAG, "Initializing Wiegand input");
     wiegand_init(4, 5, wiegand_cb);
 
     ESP_LOGI(TAG, "Creating worker task");
@@ -88,5 +88,6 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
 
+    log_add(123456789, 0, 1);
     ESP_LOGI(TAG, "app_main complete");
 }

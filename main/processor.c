@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include "esp_timer.h"
+#include "log_store.h"
 
 extern int card_exists(uint64_t);
-extern void log_add(uint64_t, int64_t, int);
 extern void ws_broadcast(uint64_t, int64_t, int);
 
 void process_card(uint64_t id)

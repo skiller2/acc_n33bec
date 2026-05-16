@@ -61,11 +61,13 @@ static esp_err_t add_card(httpd_req_t *req)
 void http_init()
 {
     ESP_LOGI(TAG, "Initializing HTTP server");
+    httpd_handle_t s;
 
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
-    httpd_handle_t s;
+    c.max_open_sockets = 3;
+    c.lru_purge_enable = true;             
+
     ESP_LOGI(TAG, "Starting server on port: '%d'", c.server_port);
-    httpd_start(&s, &c);
     if (httpd_start(&s, &c) == ESP_OK)
     {
         httpd_uri_t put_uri = {
