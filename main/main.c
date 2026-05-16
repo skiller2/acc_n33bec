@@ -7,6 +7,7 @@
 #include "esp_netif.h"
 #include "connect.h"
 #include "log_store.h"
+#include "time_sync.h"
 
 static const char *TAG = "main";
 
@@ -87,7 +88,7 @@ void app_main()
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS) {
         ESP_LOGE(TAG, "Failed to create worker task");
     }
-
+    initialize_sntp();
     log_add(123456789, 0, 1);
     ESP_LOGI(TAG, "app_main complete");
 }

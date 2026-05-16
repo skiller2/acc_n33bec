@@ -9,6 +9,7 @@ idf_component_register(SRCS "connect.c" "eth_connect.c" "card_store.c"
                             "wifi.c"
                             "eth_connect.c"
                             "connect.c"
+                            "time_sync.c"
                         INCLUDE_DIRS ".")
 component_compile_options(-DMG_ENABLE_LINES=1)
 component_compile_options(-DMG_ENABLE_PACKED_FS=1)

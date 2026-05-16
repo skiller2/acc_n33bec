@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "esp_timer.h"
 
 #define MAX_LOGS 1000
 
@@ -22,6 +23,9 @@ void log_store_init()
 
 void log_add(uint64_t id, int64_t ts, int ok)
 {
+    if (ts==0)
+        ts=esp_timer_get_time();
+
     FILE *f = fopen("/fs/logs.dat", "r+b");
     if (!f) {
         f = fopen("/fs/logs.dat", "wb");
