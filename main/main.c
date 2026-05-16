@@ -83,7 +83,7 @@ void app_main()
         return;
     }
 
-    wiegand_init(48, 47, wiegand_cb);
+    wiegand_init(47, 48, wiegand_cb);
 
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS) {
