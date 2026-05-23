@@ -11,6 +11,7 @@ typedef struct
 {
     uint64_t id;
     int64_t ts;
+    int reader_id;
     int ok;
 } log_t;
 
@@ -21,7 +22,7 @@ void log_store_init()
         fclose(f);
 }
 
-void log_add(uint64_t id, int64_t ts, int ok)
+void log_add(uint64_t id, int64_t ts, int reader_id,int ok)
 {
     if (ts==0)
         ts=esp_timer_get_time();
@@ -49,7 +50,7 @@ void log_add(uint64_t id, int64_t ts, int ok)
         }
 
         // Add new log at the end
-        logs[log_count - 1] = (log_t){id, ts, ok};
+        logs[log_count - 1] = (log_t){id, ts, reader_id, ok};
 
         // Rewrite entire file
         rewind(f);
@@ -59,7 +60,7 @@ void log_add(uint64_t id, int64_t ts, int ok)
     } else {
         // Just append new log
         fseek(f, 0, SEEK_END);
-        log_t l = {id, ts, ok};
+        log_t l = {id, ts, reader_id, ok};
         fwrite(&l, sizeof(l), 1, f);
     }
 
@@ -81,9 +82,9 @@ char* log_read_all_json()
     while (fread(&e, sizeof(e), 1, f)) {
         char temp[128];
         snprintf(temp, sizeof(temp),
-            "%s{\"card\":%llu,\"ts\":%lld}",
+            "%s{\"card\":%llu,\"ts\":%lld,\"reader\":%d}",
             first ? "" : ",",
-            e.id, e.ts);
+            e.id, e.ts, e.reader_id);
 
         if (strlen(json) + strlen(temp) + 2 > buf_size) {
             buf_size *= 2;

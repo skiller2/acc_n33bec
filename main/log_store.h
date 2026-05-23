@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-void log_add(uint64_t, int64_t, int);
+void log_add(uint64_t id, int64_t ts, int reader_id,int ok);
 
 
 
