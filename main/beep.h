@@ -14,13 +14,15 @@ extern "C" {
  * @param duration_ms Duration in milliseconds
  */
 void beep(gpio_num_t gpio, uint32_t duration_ms);
-void led(gpio_num_t gpio, uint32_t duration_ms);
 
 typedef struct {
     int freq;
     int duration;
     int pause;
 } tone_t;
+
+void play_melody(gpio_num_t gpio, const tone_t *melody, int length, float incdur);
+void pulse_output(gpio_num_t gpio, uint32_t duration_ms);
 
 
 #ifdef __cplusplus

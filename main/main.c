@@ -14,6 +14,16 @@
 
 static const char *TAG = "main";
 
+#define DOOR1_GPIO GPIO_NUM_21
+#define DOOR2_GPIO GPIO_NUM_17
+#define REX1_GPIO GPIO_NUM_16
+#define REX2_GPIO GPIO_NUM_18
+#define RELE3_GPIO GPIO_NUM_33
+#define READER1_LED GPIO_NUM_45
+#define READER2_LED GPIO_NUM_39
+#define READER1_BUZZER GPIO_NUM_46
+#define READER2_BUZZER GPIO_NUM_40
+
 extern void fs_init();
 extern void http_init();
 extern void ws_init();
@@ -32,22 +42,84 @@ void worker(void *p)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
         {
-            if (e.reader==1)
-                beep(46, 500);
-            else 
-                beep(40, 500);
+            if (e.reader == 1)
+                beep(READER1_BUZZER, 500);
+            else
+                beep(READER2_BUZZER, 500);
 
-            if (e.reader==1)
-                led(45, 1000);
-            else 
-                led(39, 1000);
+            if (e.reader == 1)
+                pulse_output(READER1_LED, 1000);
+                //led(45, 1000);
+            else
+                pulse_output(READER2_LED, 1000);
+                //led(39, 1000);
 
             ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
             int ok = card_exists(e.card);
             int64_t ts = esp_timer_get_time();
-            log_add(e.card, ts, e.reader,ok);
+            log_add(e.card, ts, e.reader, ok);
             ws_broadcast(e.card, ts, ok);
         }
+    }
+}
+
+static void input_task(void *arg)
+{
+    static const char *TAG = "inputs";
+
+    gpio_config_t io = {
+        .pin_bit_mask =
+            (1ULL << DOOR1_GPIO) |
+            (1ULL << DOOR2_GPIO) |
+            (1ULL << REX1_GPIO) |
+            (1ULL << REX2_GPIO),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE, // typical for switches
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE};
+
+    gpio_config(&io);
+
+    int last_door1 = -1;
+    int last_door2 = -1;
+    int last_rex1 = -1;
+    int last_rex2 = -1;
+
+    while (1)
+    {
+        int door1 = gpio_get_level(DOOR1_GPIO);
+        int door2 = gpio_get_level(DOOR2_GPIO);
+        int rex1 = gpio_get_level(REX1_GPIO);
+        int rex2 = gpio_get_level(REX2_GPIO);
+
+        if (door1 != last_door1)
+        {
+            ESP_LOGI(TAG, "Door1: %s", door1 ? "OPEN" : "CLOSED");
+
+            last_door1 = door1;
+        }
+
+        if (door2 != last_door2)
+        {
+            ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
+            last_door2 = door2;
+        }
+
+        if (rex1 != last_rex1)
+        {
+            ESP_LOGI(TAG, "REX1: %s", !rex1 ? "ACTIVE" : "OFF");
+            pulse_output(RELE3_GPIO,2000);
+            last_rex1 = rex1;
+        }
+
+        if (rex2 != last_rex2)
+        {
+            ESP_LOGI(TAG, "REX2: %s", !rex2 ? "ACTIVE" : "OFF");
+            pulse_output(RELE3_GPIO,2000);
+            last_rex2 = rex2;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(500)); // debounce + CPU friendly
     }
 }
 
@@ -85,7 +157,6 @@ void app_main()
     // Init Reader 1  //BEEP 46  //LED 45
     wiegand_init(47, 48, 1, queue_cards);
 
-
     // Init Reader 2  //BEEP 40  //LED 39
     wiegand_init(42, 41, 2, queue_cards);
 
@@ -95,6 +166,41 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
     initialize_sntp();
-    log_add(123456789, 0, 0,1);
+    log_add(0, 0, 0, 0);
     ESP_LOGI(TAG, "app_main complete");
+
+    tone_t mario[] = {
+        {660, 100, 50},
+        {660, 100, 150},
+        {660, 100, 150},
+        {510, 100, 50},
+        {660, 100, 150},
+        {770, 100, 300},
+        {380, 100, 300},
+
+        {510, 100, 200},
+        {380, 100, 200},
+        {320, 100, 200},
+
+        {440, 100, 150},
+        {480, 80, 100},
+        {450, 100, 150},
+        {430, 100, 150},
+        {380, 100, 200},
+
+        {660, 80, 100},
+        {760, 50, 100},
+        {860, 100, 150},
+        {700, 80, 100},
+        {760, 50, 100},
+        {660, 80, 100},
+
+        {520, 80, 100},
+        {580, 80, 100},
+        {480, 80, 200},
+    };
+
+    play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
+
+    xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL);
 }
