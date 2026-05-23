@@ -8,6 +8,13 @@
 static const char *TAG = "beep";
 
 
+typedef struct {
+    gpio_num_t gpio;
+    const tone_t *melody;
+    int length;
+    float incdur;
+} melody_ctx_t;
+
 void beep_tone(gpio_num_t gpio, int freq_hz, int duration_ms)
 {
     
@@ -125,4 +132,49 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
     if (timer != NULL) {
         xTimerStart(timer, 0);
     }
+}
+
+static void melody_task(void *arg)
+{
+    melody_ctx_t *ctx = (melody_ctx_t *)arg;
+
+    for (int i = 0; i < ctx->length; i++) {
+
+        if (ctx->melody[i].freq > 0) {
+            beep_tone(ctx->gpio,
+                      ctx->melody[i].freq,
+                      ctx->melody[i].duration * ctx->incdur);
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(ctx->melody[i].duration));
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(ctx->melody[i].pause));
+    }
+
+    // cleanup
+    free(ctx);
+
+    vTaskDelete(NULL); // kill task when done
+}
+
+void play_melody_async(gpio_num_t gpio,
+                       const tone_t *melody,
+                       int length,
+                       float incdur)
+{
+    melody_ctx_t *ctx = malloc(sizeof(melody_ctx_t));
+
+    ctx->gpio = gpio;
+    ctx->melody = melody;
+    ctx->length = length;
+    ctx->incdur = incdur;
+
+    xTaskCreate(
+        melody_task,
+        "melody_task",
+        2048,
+        ctx,
+        5,
+        NULL
+    );
 }

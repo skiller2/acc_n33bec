@@ -14,6 +14,36 @@
 
 static const char *TAG = "main";
 
+
+tone_t darth_vader[] = {
+    {440, 500, 100},
+    {440, 500, 100},
+    {440, 500, 100},
+
+    {349, 350, 50},
+    {523, 150, 100},
+
+    {440, 500, 100},
+    {349, 350, 50},
+    {523, 150, 100},
+
+    {440, 1000, 200},
+
+    {659, 500, 100},
+    {659, 500, 100},
+    {659, 500, 100},
+
+    {698, 350, 50},
+    {523, 150, 100},
+
+    {415, 500, 100},
+    {349, 350, 50},
+    {523, 150, 100},
+
+    {440, 1000, 200},
+};
+
+
 #define DOOR1_GPIO GPIO_NUM_21
 #define DOOR2_GPIO GPIO_NUM_17
 #define REX1_GPIO GPIO_NUM_16
@@ -200,7 +230,9 @@ void app_main()
         {480, 80, 200},
     };
 
-    play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
+    //play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
+    play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
+
 
     xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL);
 }
