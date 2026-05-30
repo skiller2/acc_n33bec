@@ -86,7 +86,7 @@ void beep(gpio_num_t gpio, uint32_t duration_ms)
         {1800, 250, 0}
     };
 
-    play_melody(gpio, melody, sizeof(melody) / sizeof(tone_t),1);
+    play_melody_async(gpio, melody, sizeof(melody) / sizeof(tone_t),1);
 
 /*    
     // Set GPIO high
@@ -162,6 +162,7 @@ void play_melody_async(gpio_num_t gpio,
                        int length,
                        float incdur)
 {
+    static TaskHandle_t melody_task_handle = NULL;
     melody_ctx_t *ctx = malloc(sizeof(melody_ctx_t));
 
     ctx->gpio = gpio;
@@ -169,12 +170,15 @@ void play_melody_async(gpio_num_t gpio,
     ctx->length = length;
     ctx->incdur = incdur;
 
+ 
+    vTaskDelete(melody_task_handle); // kill previous task if still running 
+ 
     xTaskCreate(
         melody_task,
         "melody_task",
         2048,
         ctx,
         5,
-        NULL
+        &melody_task_handle
     );
 }

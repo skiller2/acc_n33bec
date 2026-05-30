@@ -1,4 +1,4 @@
-idf_component_register(SRCS "beep.c" "connect.c" "eth_connect.c" "card_store.c"
+idf_component_register(SRCS "config.c" "beep.c" "connect.c" "eth_connect.c" "card_store.c"
                             "fs.c"
                             "http.c"
                             "log_store.c"

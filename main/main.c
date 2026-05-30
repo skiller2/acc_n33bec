@@ -11,6 +11,7 @@
 #include "wiegand_local.h"
 #include "esp_timer.h"
 #include "beep.h"
+#include "config.h"
 
 static const char *TAG = "main";
 
@@ -48,9 +49,6 @@ tone_t darth_vader[] = {
 #define DOOR2_GPIO GPIO_NUM_17
 #define REX1_GPIO GPIO_NUM_16
 #define REX2_GPIO GPIO_NUM_18
-#define RELE3_GPIO GPIO_NUM_33
-#define READER1_LED GPIO_NUM_45
-#define READER2_LED GPIO_NUM_39
 #define READER1_BUZZER GPIO_NUM_46
 #define READER2_BUZZER GPIO_NUM_40
 
@@ -63,6 +61,7 @@ extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
 
 static QueueHandle_t queue_cards;
+static config_t g_config = {0};
 
 void worker(void *p)
 {
@@ -72,17 +71,13 @@ void worker(void *p)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
         {
-            if (e.reader == 1)
+            if (e.reader == 1) {
+                pulse_output(g_config.reader1_relay_gpio, g_config.reader1_relay_duration_ms);
                 beep(READER1_BUZZER, 500);
-            else
+            } else {
+                pulse_output(g_config.reader2_relay_gpio, g_config.reader2_relay_duration_ms);
                 beep(READER2_BUZZER, 500);
-
-            if (e.reader == 1)
-                pulse_output(READER1_LED, 1000);
-                //led(45, 1000);
-            else
-                pulse_output(READER2_LED, 1000);
-                //led(39, 1000);
+            }
 
             ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
             int ok = card_exists(e.card);
@@ -138,14 +133,20 @@ static void input_task(void *arg)
         if (rex1 != last_rex1)
         {
             ESP_LOGI(TAG, "REX1: %s", !rex1 ? "ACTIVE" : "OFF");
-            pulse_output(RELE3_GPIO,2000);
+            if (!rex1) {  // only trigger on transition to ACTIVE (0)
+                pulse_output(g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
+                ESP_LOGI(TAG, "REX1 activated relay %d for %u ms", g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
+            }
             last_rex1 = rex1;
         }
 
         if (rex2 != last_rex2)
         {
             ESP_LOGI(TAG, "REX2: %s", !rex2 ? "ACTIVE" : "OFF");
-            pulse_output(RELE3_GPIO,2000);
+            if (!rex2) {  // only trigger on transition to ACTIVE (0)
+                pulse_output(g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
+                ESP_LOGI(TAG, "REX2 activated relay %d for %u ms", g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
+            }
             last_rex2 = rex2;
         }
 
@@ -160,6 +161,11 @@ void app_main()
 
     ESP_LOGI(TAG, "Initializing filesystem");
     fs_init();
+
+    ESP_LOGI(TAG, "Loading REX configuration");
+    if (config_load(&g_config) != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to load REX config, using defaults");
+    }
 
     ESP_LOGI(TAG, "Initializing card store");
     card_store_init();

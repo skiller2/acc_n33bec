@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "esp_log.h"
+#include "config.h"
+#include "cJSON.h"
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
@@ -58,6 +60,105 @@ static esp_err_t add_card(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t post_config(httpd_req_t *req)
+{
+    size_t len = req->content_len;
+    if (len == 0 || len > 4096) {
+        httpd_resp_sendstr(req, "ERR: invalid content length");
+        return ESP_FAIL;
+    }
+
+    char *buf = malloc(len + 1);
+    if (!buf) {
+        httpd_resp_sendstr(req, "ERR: alloc");
+        return ESP_FAIL;
+    }
+
+    int r = httpd_req_recv(req, buf, len);
+    if (r <= 0) {
+        free(buf);
+        httpd_resp_sendstr(req, "ERR: recv");
+        return ESP_FAIL;
+    }
+    buf[r] = 0;
+
+    config_t cfg;
+    if (config_load(&cfg) != ESP_OK) {
+        // start from defaults if load fails
+    }
+
+    cJSON *json = cJSON_Parse(buf);
+    free(buf);
+    if (!json) {
+        httpd_resp_sendstr(req, "ERR: invalid json");
+        return ESP_FAIL;
+    }
+
+    cJSON *item = NULL;
+    item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_gpio");
+    if (cJSON_IsNumber(item)) cfg.rex1_relay_gpio = (gpio_num_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_gpio");
+    if (cJSON_IsNumber(item)) cfg.rex2_relay_gpio = (gpio_num_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "reader1_relay_gpio");
+    if (cJSON_IsNumber(item)) cfg.reader1_relay_gpio = (gpio_num_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "reader2_relay_gpio");
+    if (cJSON_IsNumber(item)) cfg.reader2_relay_gpio = (gpio_num_t)item->valuedouble;
+
+    item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_duration_ms");
+    if (cJSON_IsNumber(item)) cfg.rex1_relay_duration_ms = (uint32_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_duration_ms");
+    if (cJSON_IsNumber(item)) cfg.rex2_relay_duration_ms = (uint32_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "reader1_relay_duration_ms");
+    if (cJSON_IsNumber(item)) cfg.reader1_relay_duration_ms = (uint32_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "reader2_relay_duration_ms");
+    if (cJSON_IsNumber(item)) cfg.reader2_relay_duration_ms = (uint32_t)item->valuedouble;
+
+    cJSON_Delete(json);
+
+    if (config_save(&cfg) != ESP_OK) {
+        httpd_resp_sendstr(req, "ERR: save failed");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
+static esp_err_t get_config(httpd_req_t *req)
+{
+    config_t cfg;
+    if (config_load(&cfg) != ESP_OK) {
+        ESP_LOGW(TAG, "get_config: using defaults");
+    }
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        httpd_resp_sendstr(req, "ERR: alloc json");
+        return ESP_FAIL;
+    }
+
+    cJSON_AddNumberToObject(json, "rex1_relay_gpio", cfg.rex1_relay_gpio);
+    cJSON_AddNumberToObject(json, "rex2_relay_gpio", cfg.rex2_relay_gpio);
+    cJSON_AddNumberToObject(json, "reader1_relay_gpio", cfg.reader1_relay_gpio);
+    cJSON_AddNumberToObject(json, "reader2_relay_gpio", cfg.reader2_relay_gpio);
+    cJSON_AddNumberToObject(json, "rex1_relay_duration_ms", cfg.rex1_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "rex2_relay_duration_ms", cfg.rex2_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "reader1_relay_duration_ms", cfg.reader1_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "reader2_relay_duration_ms", cfg.reader2_relay_duration_ms);
+
+    char *s = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!s) {
+        httpd_resp_sendstr(req, "ERR: print json");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, s);
+    free(s);
+    return ESP_OK;
+}
+
 void http_init()
 {
     ESP_LOGI(TAG, "Initializing HTTP server");
@@ -85,12 +186,24 @@ void http_init()
             .method = HTTP_GET,
             .handler = get_logs};
 
+        httpd_uri_t cfg_uri = {
+            .uri = "/config",
+            .method = HTTP_POST,
+            .handler = post_config};
+
+        httpd_uri_t get_cfg_uri = {
+            .uri = "/config",
+            .method = HTTP_GET,
+            .handler = get_config};
+
         httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = index_handler};
         httpd_register_uri_handler(s, &u1);
 
         httpd_register_uri_handler(s, &put_uri);
         httpd_register_uri_handler(s, &del_uri);
         httpd_register_uri_handler(s, &logs_uri);
+        httpd_register_uri_handler(s, &cfg_uri);
+        httpd_register_uri_handler(s, &get_cfg_uri);
         ESP_LOGI(TAG, "End Initializing HTTP server");
     } else {
         ESP_LOGE(TAG, "Failed to start HTTP server!");
