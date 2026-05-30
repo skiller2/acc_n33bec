@@ -3,7 +3,12 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(tab + '-tab').classList.add('active');
   event.target.classList.add('active');
-  if (tab === 'config') {
+  
+  if (tab === 'cards') {
+    loadCards();
+  } else if (tab === 'logs') {
+    loadLogs();
+  } else if (tab === 'config') {
     loadConfig();
   }
 }

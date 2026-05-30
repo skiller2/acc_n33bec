@@ -232,7 +232,8 @@ void app_main()
     wiegand_init(47, 48, 1, queue_cards);
 
     // Init Reader 2  //BEEP 40  //LED 39
-    wiegand_init(42, 41, 2, queue_cards);
+
+    wiegand_init(1, 2, 2, queue_cards);
 
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)

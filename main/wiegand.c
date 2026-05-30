@@ -132,6 +132,9 @@ void wiegand_init(int d0, int d1, int reader, QueueHandle_t qh)
 {
     ESP_LOGI(TAG, "Initializing Wiegand Reader %d input on D0=%d, D1=%d", reader, d0, d1);
 
+    gpio_set_direction(d0, GPIO_MODE_INPUT);
+    gpio_set_direction(d1, GPIO_MODE_INPUT);
+
     wiegand_task_args_t *task_args = calloc(1, sizeof(wiegand_task_args_t));
     if (!task_args) {
         ESP_LOGE(TAG, "Failed to allocate task args");
