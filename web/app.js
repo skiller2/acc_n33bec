@@ -78,3 +78,60 @@ ws.onmessage = (e)=>{
   li.innerText = data.card + ' ' + (data.ok?'OK':'DENIED');
   document.getElementById('live').appendChild(li);
 };
+
+function loadCards() {
+  fetch('/cards')
+    .then(r => r.json())
+    .then(cards => {
+      const container = document.getElementById('cards-list');
+      container.innerHTML = '';
+
+      // Support both array or object format
+      if (Array.isArray(cards)) {
+        cards.forEach(card => {
+          const div = document.createElement('div');
+          div.className = 'card';
+          div.innerText = card;
+          container.appendChild(div);
+        });
+      } else {
+        // If it's an object like {id: status}
+        Object.keys(cards).forEach(key => {
+          const div = document.createElement('div');
+          div.className = 'card';
+          div.innerText = key + ' : ' + cards[key];
+          container.appendChild(div);
+        });
+      }
+    })
+    .catch(e => {
+      document.getElementById('cards-list').innerText = 'Error loading cards: ' + e;
+    });
+}
+
+function loadLogs() {
+  fetch('/logs')
+    .then(r => r.json())
+    .then(logs => {
+      const container = document.getElementById('logs-list');
+      container.innerHTML = '';
+
+      logs.forEach(log => {
+        const div = document.createElement('div');
+        div.className = 'card';
+
+        // Adjust to your JSON structure
+        if (typeof log === 'object') {
+//          div.innerText = JSON.stringify(log);
+          div.innerText = `${log.time} - ${log.card} - ${log.ok ? 'OK' : 'DENIED'}`;
+        } else {
+          div.innerText = log;
+        }
+
+        container.appendChild(div);
+      });
+    })
+    .catch(e => {
+      document.getElementById('logs-list').innerText = 'Error loading logs: ' + e;
+    });
+}
