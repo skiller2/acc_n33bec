@@ -21,7 +21,7 @@ static const char* get_content_type(const char *uri)
 
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
-    char filepath[550];
+    char filepath[1024];
     
     if (strcmp(req->uri, "/") == 0) {
         snprintf(filepath, sizeof(filepath), "/fs/index.html");
