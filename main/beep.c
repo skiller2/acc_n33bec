@@ -5,7 +5,7 @@
 #include <esp_log.h>
 #include <driver/ledc.h>
 
-static const char *TAG = "beep";
+static const char *TAG = "melody";
 
 
 typedef struct {
@@ -51,59 +51,6 @@ void beep_tone(gpio_num_t gpio, int freq_hz, int duration_ms)
     
 }
 
-
-void play_melody(gpio_num_t gpio, const tone_t *melody, int length, float incdur)
-{
-    for (int i = 0; i < length; i++) {
-
-        if (melody[i].freq > 0) {
-            beep_tone(gpio, melody[i].freq, melody[i].duration * incdur);
-        } else {
-            // rest
-            vTaskDelay(pdMS_TO_TICKS(melody[i].duration));
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(melody[i].pause));
-    }
-}
-
-
-void beep(gpio_num_t gpio, uint32_t duration_ms)
-{
-    if (duration_ms == 0) {
-        ESP_LOGW(TAG, "beep: duration is 0");
-        return;
-    }
-
-    // Ensure GPIO is set as output
-    gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
-
-    tone_t melody[] = {
-        {1200, 120, 30},
-        {1600, 120, 30},
-        {2000, 180, 60},
-        {0,    50,  0},   // pause
-        {1800, 250, 0}
-    };
-
-    play_melody_async(gpio, melody, sizeof(melody) / sizeof(tone_t),1);
-
-/*    
-    // Set GPIO high
-    gpio_set_level(gpio, 0);
-    ESP_LOGI(TAG, "beep: GPIO %d ON for %u ms", gpio, duration_ms);
-
-    // Wait for specified duration
-    vTaskDelay(pdMS_TO_TICKS(duration_ms));
-
-    // Set GPIO low
-    gpio_set_level(gpio, 1);
-    ESP_LOGI(TAG, "beep: GPIO %d OFF", gpio);
-  */  
-   //gpio_set_level(gpio, 1);
-}
-
-
 static void output_off_cb(TimerHandle_t xTimer)
 {
     gpio_num_t gpio = (gpio_num_t) pvTimerGetTimerID(xTimer);
@@ -120,6 +67,7 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
     // set HIGH immediately
     gpio_set_level(gpio, 1);
 
+    ESP_LOGI(TAG, "pulse_output: GPIO %d ON for %u ms", gpio, duration_ms);
     // create one-shot timer
     TimerHandle_t timer = xTimerCreate(
         "pulse_timer",
@@ -170,8 +118,10 @@ void play_melody_async(gpio_num_t gpio,
     ctx->length = length;
     ctx->incdur = incdur;
 
- 
-    vTaskDelete(melody_task_handle); // kill previous task if still running 
+    gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
+    gpio_set_level(gpio, 0); // ensure off
+
+    //vTaskDelete(melody_task_handle); // kill previous task if still running 
  
     xTaskCreate(
         melody_task,

@@ -14,4 +14,6 @@ idf_component_register(SRCS "config.c" "beep.c" "connect.c" "eth_connect.c" "car
 component_compile_options(-DMG_ENABLE_LINES=1)
 component_compile_options(-DMG_ENABLE_PACKED_FS=1)
 component_compile_options(-DUART_API_IMPLEMENTED=1)
+spiffs_create_partition_image(storage ../web FLASH_IN_PROJECT)
+
 set(EXCLUDE_COMPONENTS wifi_provisioning)

@@ -1,0 +1,154 @@
+body { background:#111; color:#eee; font-family:Arial; margin:0; padding:10px; }
+
+.tabs {
+  display:flex;
+  gap:5px;
+  margin-bottom:10px;
+  border-bottom:2px solid #444;
+}
+
+.tab-btn {
+  background:#333;
+  color:#eee;
+  border:1px solid #555;
+  padding:10px 20px;
+  cursor:pointer;
+  transition:all 0.3s;
+}
+
+.tab-btn:hover {
+  background:#444;
+}
+
+.tab-btn.active {
+  background:#007bff;
+  border-color:#007bff;
+}
+
+.tab-content {
+  display:none;
+}
+
+.tab-content.active {
+  display:block;
+}
+
+.card { 
+  background:#222; 
+  padding:15px; 
+  margin:10px 0;
+  border-radius:5px;
+  border:1px solid #444;
+}
+
+.card h2 {
+  margin-top:0;
+  color:#00ff00;
+}
+
+.card h3 {
+  margin-top:15px;
+  margin-bottom:10px;
+  color:#00ccff;
+  font-size:16px;
+}
+
+.config-section {
+  margin-bottom:20px;
+  padding-bottom:15px;
+  border-bottom:1px solid #444;
+}
+
+.config-section:last-child {
+  border-bottom:none;
+}
+
+label {
+  display:block;
+  margin:8px 0;
+  color:#ccc;
+}
+
+input[type="number"] {
+  background:#333;
+  color:#0f0;
+  border:1px solid #555;
+  padding:8px;
+  margin-left:10px;
+  width:120px;
+  border-radius:3px;
+}
+
+input[type="number"]:focus {
+  outline:none;
+  border-color:#007bff;
+}
+
+#cardId {
+  background:#333;
+  color:#0f0;
+  border:1px solid #555;
+  padding:8px;
+  border-radius:3px;
+  width:200px;
+}
+
+#cardId:focus {
+  outline:none;
+  border-color:#007bff;
+}
+
+button {
+  background:#007bff;
+  color:#fff;
+  border:none;
+  padding:10px 20px;
+  margin:5px 5px 5px 0;
+  cursor:pointer;
+  border-radius:3px;
+  transition:all 0.2s;
+}
+
+button:hover {
+  background:#0056b3;
+}
+
+button:active {
+  background:#003d82;
+}
+
+.config-buttons {
+  margin-top:20px;
+  padding-top:15px;
+  border-top:1px solid #444;
+}
+
+.status {
+  margin-top:10px;
+  padding:10px;
+  border-radius:3px;
+  font-weight:bold;
+}
+
+.status.success {
+  background:#2d5a1f;
+  color:#00ff00;
+}
+
+.status.error {
+  background:#5a1f1f;
+  color:#ff6b6b;
+}
+
+ul {
+  list-style:none;
+  padding:0;
+}
+
+li {
+  background:#333;
+  padding:8px;
+  margin:5px 0;
+  border-left:3px solid #00ff00;
+  border-radius:3px;
+}

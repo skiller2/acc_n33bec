@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"> 
+<title>ESP32 Access</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<h1>Access Dashboard</h1>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('cards')">Cards</button>
+  <button class="tab-btn" onclick="switchTab('config')">Config</button>
+</div>
+
+<!-- Cards Tab -->
+<div id="cards-tab" class="tab-content active">
+  <div class="card">
+    <input id="cardId" placeholder="Card ID">
+    <button onclick="addCard()">Add</button>
+  </div>
+
+  <div class="card">
+    <ul id="live"></ul>
+  </div>
+</div>
+
+<!-- Config Tab -->
+<div id="config-tab" class="tab-content">
+  <div class="card">
+    <h2>Relay Configuration</h2>
+    
+    <div class="config-section">
+      <h3>REX1</h3>
+      <label>Relay GPIO:
+        <input type="number" id="rex1_relay_gpio" min="0" max="48">
+      </label>
+      <label>Duration (ms):
+        <input type="number" id="rex1_relay_duration_ms" min="0" max="60000">
+      </label>
+    </div>
+
+    <div class="config-section">
+      <h3>REX2</h3>
+      <label>Relay GPIO:
+        <input type="number" id="rex2_relay_gpio" min="0" max="48">
+      </label>
+      <label>Duration (ms):
+        <input type="number" id="rex2_relay_duration_ms" min="0" max="60000">
+      </label>
+    </div>
+
+    <div class="config-section">
+      <h3>Reader 1</h3>
+      <label>Relay GPIO:
+        <input type="number" id="reader1_relay_gpio" min="0" max="48">
+      </label>
+      <label>Duration (ms):
+        <input type="number" id="reader1_relay_duration_ms" min="0" max="60000">
+      </label>
+    </div>
+
+    <div class="config-section">
+      <h3>Reader 2</h3>
+      <label>Relay GPIO:
+        <input type="number" id="reader2_relay_gpio" min="0" max="48">
+      </label>
+      <label>Duration (ms):
+        <input type="number" id="reader2_relay_duration_ms" min="0" max="60000">
+      </label>
+    </div>
+
+    <div class="config-section">
+      <h3>Input Debounce</h3>
+      <label>Duration (ms):
+        <input type="number" id="input_debounce_ms" min="0" max="60000">
+      </label>
+    </div>
+
+
+    <div class="config-buttons">
+      <button onclick="loadConfig()">Reload</button>
+      <button onclick="saveConfig()">Save</button>
+    </div>
+    <div id="config-status"></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

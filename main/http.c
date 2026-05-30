@@ -11,15 +11,38 @@ extern void card_del(uint64_t);
 extern char *log_read_all_json(void);
 static const char *TAG = "http";
 
-static esp_err_t index_handler(httpd_req_t *req)
+static const char* get_content_type(const char *uri)
 {
-    FILE *f = fopen("/fs/index.html", "r");
-    if (!f)
+    if (strstr(uri, ".js")) return "application/javascript";
+    if (strstr(uri, ".css")) return "text/css";
+    if (strstr(uri, ".html")) return "text/html";
+    return "text/plain";
+}
+
+static esp_err_t static_file_handler(httpd_req_t *req)
+{
+    char filepath[550];
+    
+    if (strcmp(req->uri, "/") == 0) {
+        snprintf(filepath, sizeof(filepath), "/fs/index.html");
+    } else {
+        snprintf(filepath, sizeof(filepath), "/fs%s", req->uri);
+    }
+    ESP_LOGW(TAG, "Input URI: %s, Filepath: %s", req->uri, filepath);
+
+    FILE *f = fopen(filepath, "r");
+    if (!f) {
+        ESP_LOGW(TAG, "File not found: %s", filepath);
         return httpd_resp_send_404(req);
-    char buf[256];
+    }
+
+    httpd_resp_set_type(req, get_content_type(filepath));
+    
+    char buf[512];
     size_t r;
-    while ((r = fread(buf, 1, 256, f)))
+    while ((r = fread(buf, 1, sizeof(buf), f))) {
         httpd_resp_send_chunk(req, buf, r);
+    }
     fclose(f);
     httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
@@ -103,6 +126,8 @@ static esp_err_t post_config(httpd_req_t *req)
     if (cJSON_IsNumber(item)) cfg.reader1_relay_gpio = (gpio_num_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "reader2_relay_gpio");
     if (cJSON_IsNumber(item)) cfg.reader2_relay_gpio = (gpio_num_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "input_debounce_ms");
+    if (cJSON_IsNumber(item)) cfg.input_debounce_ms = (uint32_t)item->valuedouble;
 
     item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_duration_ms");
     if (cJSON_IsNumber(item)) cfg.rex1_relay_duration_ms = (uint32_t)item->valuedouble;
@@ -145,6 +170,7 @@ static esp_err_t get_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "rex2_relay_duration_ms", cfg.rex2_relay_duration_ms);
     cJSON_AddNumberToObject(json, "reader1_relay_duration_ms", cfg.reader1_relay_duration_ms);
     cJSON_AddNumberToObject(json, "reader2_relay_duration_ms", cfg.reader2_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
@@ -196,8 +222,14 @@ void http_init()
             .method = HTTP_GET,
             .handler = get_config};
 
-        httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = index_handler};
+        httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = static_file_handler};
         httpd_register_uri_handler(s, &u1);
+
+        httpd_uri_t static_js = {.uri = "/app.js", .method = HTTP_GET, .handler = static_file_handler};
+        httpd_register_uri_handler(s, &static_js);
+
+        httpd_uri_t static_css = {.uri = "/style.css", .method = HTTP_GET, .handler = static_file_handler};
+        httpd_register_uri_handler(s, &static_css);
 
         httpd_register_uri_handler(s, &put_uri);
         httpd_register_uri_handler(s, &del_uri);

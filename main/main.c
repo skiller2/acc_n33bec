@@ -15,6 +15,44 @@
 
 static const char *TAG = "main";
 
+    tone_t melody_ok[] = {
+        {1200, 120, 30},
+        {1600, 120, 30},
+        {2000, 180, 60},
+        {0,    50,  0},   // pause
+        {1800, 250, 0}
+    };
+
+    tone_t mario[] = {
+        {660, 100, 50},
+        {660, 100, 150},
+        {660, 100, 150},
+        {510, 100, 50},
+        {660, 100, 150},
+        {770, 100, 300},
+        {380, 100, 300},
+
+        {510, 100, 200},
+        {380, 100, 200},
+        {320, 100, 200},
+
+        {440, 100, 150},
+        {480, 80, 100},
+        {450, 100, 150},
+        {430, 100, 150},
+        {380, 100, 200},
+
+        {660, 80, 100},
+        {760, 50, 100},
+        {860, 100, 150},
+        {700, 80, 100},
+        {760, 50, 100},
+        {660, 80, 100},
+
+        {520, 80, 100},
+        {580, 80, 100},
+        {480, 80, 200},
+    };
 
 tone_t darth_vader[] = {
     {440, 500, 100},
@@ -73,10 +111,10 @@ void worker(void *p)
         {
             if (e.reader == 1) {
                 pulse_output(g_config.reader1_relay_gpio, g_config.reader1_relay_duration_ms);
-                beep(READER1_BUZZER, 500);
+                play_melody_async(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
             } else {
                 pulse_output(g_config.reader2_relay_gpio, g_config.reader2_relay_duration_ms);
-                beep(READER2_BUZZER, 500);
+                play_melody_async(READER2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
             }
 
             ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
@@ -150,7 +188,7 @@ static void input_task(void *arg)
             last_rex2 = rex2;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(500)); // debounce + CPU friendly
+        vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms)); // debounce + CPU friendly
     }
 }
 
@@ -205,39 +243,9 @@ void app_main()
     log_add(0, 0, 0, 0);
     ESP_LOGI(TAG, "app_main complete");
 
-    tone_t mario[] = {
-        {660, 100, 50},
-        {660, 100, 150},
-        {660, 100, 150},
-        {510, 100, 50},
-        {660, 100, 150},
-        {770, 100, 300},
-        {380, 100, 300},
-
-        {510, 100, 200},
-        {380, 100, 200},
-        {320, 100, 200},
-
-        {440, 100, 150},
-        {480, 80, 100},
-        {450, 100, 150},
-        {430, 100, 150},
-        {380, 100, 200},
-
-        {660, 80, 100},
-        {760, 50, 100},
-        {860, 100, 150},
-        {700, 80, 100},
-        {760, 50, 100},
-        {660, 80, 100},
-
-        {520, 80, 100},
-        {580, 80, 100},
-        {480, 80, 200},
-    };
 
     //play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
-    play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
+    play_melody_async(READER1_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
 
 
     xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL);
