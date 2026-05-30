@@ -125,6 +125,9 @@ esp_err_t config_save(const config_t *config)
              stored.rex1_relay_duration_ms,
              stored.rex2_relay_gpio,
              stored.rex2_relay_duration_ms);
+    //TODO: reload config into RAM struct to ensure it's valid and clamp values if needed
+    config_load(&g_config);
+
     return ESP_OK;
 }
 

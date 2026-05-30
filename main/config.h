@@ -22,6 +22,7 @@ typedef struct {
 
 esp_err_t config_load(config_t *config);
 esp_err_t config_save(const config_t *config);
+static config_t g_config = {0};
 
 #ifdef __cplusplus
 }

@@ -99,7 +99,6 @@ extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
 
 static QueueHandle_t queue_cards;
-static config_t g_config = {0};
 
 void worker(void *p)
 {
