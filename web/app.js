@@ -85,13 +85,13 @@ function loadCards() {
     .then(cards => {
       const container = document.getElementById('cards-list');
       container.innerHTML = '';
-
+console.log('cards',cards)
       // Support both array or object format
       if (Array.isArray(cards)) {
-        cards.forEach(card => {
+        cards.forEach(row => {
           const div = document.createElement('div');
           div.className = 'card';
-          div.innerText = card;
+          div.innerText = row.card;
           container.appendChild(div);
         });
       } else {

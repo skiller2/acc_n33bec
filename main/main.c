@@ -8,6 +8,7 @@
 #include "connect.h"
 #include "log_store.h"
 #include "time_sync.h"
+#include "rtc.h"
 #include "wiegand_local.h"
 #include "esp_timer.h"
 #include "beep.h"
@@ -232,7 +233,7 @@ void app_main()
 
     // Init Reader 2  //BEEP 40  //LED 39
 
-    wiegand_init(1, 2, 2, queue_cards);
+    wiegand_init(42, 41, 2, queue_cards);
 
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
@@ -240,6 +241,10 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
     initialize_sntp();
+
+    ESP_LOGI(TAG, "Main Init RTC");
+
+    rtc_init();
     log_add(0, 0, 0, 0);
     ESP_LOGI(TAG, "app_main complete");
 

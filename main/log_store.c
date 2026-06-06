@@ -100,4 +100,3 @@ char* log_read_all_json()
 
     return json;
 }
-

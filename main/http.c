@@ -9,6 +9,7 @@
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
 extern char *log_read_all_json(void);
+extern char *card_read_all_json(void);
 static const char *TAG = "http";
 
 static const char* get_content_type(const char *uri)
@@ -71,6 +72,18 @@ static esp_err_t get_logs(httpd_req_t *req)
 
     return ESP_OK;
 }
+
+static esp_err_t get_cards(httpd_req_t *req)
+{
+
+    char *json = card_read_all_json();
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json);
+    free(json);
+
+    return ESP_OK;
+}
+
 
 static esp_err_t add_card(httpd_req_t *req)
 {
@@ -207,6 +220,11 @@ void http_init()
             .method = HTTP_DELETE,
             .handler = del_card};
 
+        httpd_uri_t cards_uri = {
+            .uri = "/cards",
+            .method = HTTP_GET,
+            .handler = get_cards};
+
         httpd_uri_t logs_uri = {
             .uri = "/logs",
             .method = HTTP_GET,
@@ -234,6 +252,7 @@ void http_init()
         httpd_register_uri_handler(s, &put_uri);
         httpd_register_uri_handler(s, &del_uri);
         httpd_register_uri_handler(s, &logs_uri);
+        httpd_register_uri_handler(s, &cards_uri);
         httpd_register_uri_handler(s, &cfg_uri);
         httpd_register_uri_handler(s, &get_cfg_uri);
         ESP_LOGI(TAG, "End Initializing HTTP server");
