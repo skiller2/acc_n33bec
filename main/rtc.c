@@ -1,5 +1,5 @@
 /*
- * DS3231 RTC driver with I2C interface
+ * DS3231 RTC driver with I2C interface (New I2C driver)
  * GPIO 1 (SDA), GPIO 2 (SCL)
  */
 
@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include "esp_err.h"
 #include "esp_log.h"
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_netif_sntp.h"
@@ -29,15 +29,13 @@ static const char *TAG = "rtc_ds3231";
 #define DS3231_REG_YEAR 0x06
 
 // I2C configuration
-#define I2C_MASTER_NUM I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ 100000
-#define I2C_MASTER_SDA_IO 1
-#define I2C_MASTER_SCL_IO 2
-#define I2C_MASTER_TX_BUF_DISABLE 0
-#define I2C_MASTER_RX_BUF_DISABLE 0
+#define I2C_MASTER_SDA_IO GPIO_NUM_2
+#define I2C_MASTER_SCL_IO GPIO_NUM_1
 #define I2C_TIMEOUT_MS 1000
 
-static bool rtc_initialized = false;
+static i2c_master_bus_handle_t bus_handle = NULL;
+static i2c_master_dev_handle_t dev_handle = NULL;
 
 /**
  * @brief Convert BCD (Binary Coded Decimal) to decimal
@@ -60,10 +58,13 @@ static uint8_t decimal_to_bcd(uint8_t decimal)
  */
 static esp_err_t ds3231_read(uint8_t reg, uint8_t *data, uint16_t len)
 {
-    return i2c_master_write_read_device(I2C_MASTER_NUM, DS3231_ADDR,
-                                        &reg, 1,
-                                        data, len,
-                                        pdMS_TO_TICKS(I2C_TIMEOUT_MS));
+    if (dev_handle == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    
+    // Send register address and read data
+    return i2c_master_transmit_receive(dev_handle, &reg, 1, data, len,
+                                      pdMS_TO_TICKS(I2C_TIMEOUT_MS));
 }
 
 /**
@@ -71,48 +72,57 @@ static esp_err_t ds3231_read(uint8_t reg, uint8_t *data, uint16_t len)
  */
 static esp_err_t ds3231_write(uint8_t reg, const uint8_t *data, uint16_t len)
 {
+    if (dev_handle == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    
     uint8_t write_buf[len + 1];
     write_buf[0] = reg;
     memcpy(&write_buf[1], data, len);
     
-    return i2c_master_write_to_device(I2C_MASTER_NUM, DS3231_ADDR,
-                                      write_buf, len + 1,
-                                      pdMS_TO_TICKS(I2C_TIMEOUT_MS));
+    return i2c_master_transmit(dev_handle, write_buf, len + 1,
+                              pdMS_TO_TICKS(I2C_TIMEOUT_MS));
 }
 
 /**
  * @brief Initialize I2C and DS3231
  */
-esp_err_t rtc_init(void)
+esp_err_t rtc_app_init(void)
 {
-    ESP_LOGI(TAG, "Init RTC %d",rtc_initialized);
-
-    if (rtc_initialized) {
+    if (dev_handle != NULL) {
         return ESP_OK;
     }
-    ESP_LOGI(TAG, "Init RTC");
 
-    // Configure I2C
-    i2c_config_t i2c_conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = I2C_MASTER_SDA_IO,
+    ESP_LOGI(TAG, "Init RTC");
+    
+    // Configure I2C master bus
+    i2c_master_bus_config_t i2c_mst_config = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = I2C_NUM_0,
         .scl_io_num = I2C_MASTER_SCL_IO,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+        .sda_io_num = I2C_MASTER_SDA_IO,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
     };
 
-    esp_err_t err = i2c_param_config(I2C_MASTER_NUM, &i2c_conf);
+    esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &bus_handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to configure I2C parameters: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Failed to create I2C master bus: %s", esp_err_to_name(err));
         return err;
     }
 
-    err = i2c_driver_install(I2C_MASTER_NUM, i2c_conf.mode,
-                             I2C_MASTER_RX_BUF_DISABLE,
-                             I2C_MASTER_TX_BUF_DISABLE, 0);
+    // Configure DS3231 device
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = DS3231_ADDR,
+        .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+    };
+
+    err = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to install I2C driver: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Failed to add DS3231 device to I2C bus: %s", esp_err_to_name(err));
+        i2c_del_master_bus(bus_handle);
+        bus_handle = NULL;
         return err;
     }
 
@@ -121,11 +131,13 @@ esp_err_t rtc_init(void)
     err = ds3231_read(DS3231_REG_SECONDS, &reg_val, 1);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to communicate with DS3231: %s", esp_err_to_name(err));
-        i2c_driver_delete(I2C_MASTER_NUM);
+        i2c_master_bus_rm_device(dev_handle);
+        i2c_del_master_bus(bus_handle);
+        dev_handle = NULL;
+        bus_handle = NULL;
         return err;
     }
 
-    rtc_initialized = true;
     ESP_LOGI(TAG, "RTC DS3231 initialized successfully");
     return ESP_OK;
 }
@@ -135,7 +147,7 @@ esp_err_t rtc_init(void)
  */
 esp_err_t rtc_read_time(time_t *time)
 {
-    if (!rtc_initialized) {
+    if (dev_handle == NULL) {
         ESP_LOGE(TAG, "RTC not initialized");
         return ESP_ERR_INVALID_STATE;
     }
@@ -189,7 +201,7 @@ esp_err_t rtc_read_time(time_t *time)
  */
 esp_err_t rtc_write_time(const time_t *time)
 {
-    if (!rtc_initialized) {
+    if (dev_handle == NULL) {
         ESP_LOGE(TAG, "RTC not initialized");
         return ESP_ERR_INVALID_STATE;
     }
@@ -214,8 +226,8 @@ esp_err_t rtc_write_time(const time_t *time)
     uint8_t month = decimal_to_bcd(tm_info->tm_mon + 1);  // Convert from 0-11 to 1-12
     uint8_t year = decimal_to_bcd((tm_info->tm_year + 1900) % 100);
     
-    // Set century bit if year >= 2100
-    if ((tm_info->tm_year + 1900) >= 2100) {
+    // Set century bit for years 2000-2099 (bit 7 of month register)
+    if ((tm_info->tm_year + 1900) >= 2000 && (tm_info->tm_year + 1900) < 2100) {
         month |= 0x80;
     }
 
@@ -244,25 +256,13 @@ esp_err_t rtc_write_time(const time_t *time)
 }
 
 /**
- * @brief Sync time from SNTP and write to RTC
+ * @brief write system time to RTC
  */
-esp_err_t rtc_sync_time_from_sntp(void)
+esp_err_t rtc_set_rtc_time(void)
 {
-    if (!rtc_initialized) {
+    if (dev_handle == NULL) {
         ESP_LOGE(TAG, "RTC not initialized");
         return ESP_ERR_INVALID_STATE;
-    }
-
-    // Wait for SNTP to sync
-    int retry = 0;
-    const int retry_count = 15;
-    while (esp_netif_sntp_sync_wait(pdMS_TO_TICKS(1000)) != ESP_OK && ++retry < retry_count) {
-        ESP_LOGI(TAG, "Waiting for SNTP sync... (%d/%d)", retry, retry_count);
-    }
-
-    if (retry == retry_count) {
-        ESP_LOGE(TAG, "Failed to sync with SNTP server");
-        return ESP_ERR_TIMEOUT;
     }
 
     // Get current system time
@@ -275,7 +275,7 @@ esp_err_t rtc_sync_time_from_sntp(void)
         return err;
     }
 
-    ESP_LOGI(TAG, "Successfully synced time from SNTP to RTC");
+    ESP_LOGI(TAG, "Successfully synced time from SYSTEM to RTC");
     return ESP_OK;
 }
 
@@ -284,7 +284,7 @@ esp_err_t rtc_sync_time_from_sntp(void)
  */
 esp_err_t rtc_set_system_time(void)
 {
-    if (!rtc_initialized) {
+    if (dev_handle == NULL) {
         ESP_LOGE(TAG, "RTC not initialized");
         return ESP_ERR_INVALID_STATE;
     }

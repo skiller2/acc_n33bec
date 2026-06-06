@@ -13,7 +13,7 @@ extern "C" {
  *
  * @return ESP_OK on success, otherwise error code
  */
-esp_err_t rtc_init(void);
+esp_err_t rtc_app_init(void);
 
 /**
  * @brief Read current time from DS3231 RTC
@@ -36,7 +36,7 @@ esp_err_t rtc_write_time(const time_t *time);
  *
  * @return ESP_OK on success, otherwise error code
  */
-esp_err_t rtc_sync_time_from_sntp(void);
+esp_err_t rtc_set_rtc_time(void);
 
 /**
  * @brief Get current time from RTC and set system time

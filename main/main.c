@@ -197,6 +197,16 @@ void app_main()
     ESP_LOGI(TAG, "app_main start");
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
+
+    ESP_ERROR_CHECK(rtc_app_init());
+    rtc_set_system_time();
+
+
+//    initialize_sntp();
+//    rtc_sync_time_from_sntp();
+//    rtc_set_system_time();
+
+
     ESP_LOGI(TAG, "Initializing filesystem");
     fs_init();
 
@@ -214,6 +224,13 @@ void app_main()
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(example_ethernet_connect());
     ESP_ERROR_CHECK(esp_register_shutdown_handler(&example_ethernet_shutdown));
+
+
+
+    fetch_and_store_time_in_nvs(NULL);
+    rtc_set_rtc_time();
+    rtc_set_system_time();
+
 
     http_init();
 
@@ -240,11 +257,9 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create worker task");
     }
-    initialize_sntp();
 
-    ESP_LOGI(TAG, "Main Init RTC");
 
-    rtc_init();
+
     log_add(0, 0, 0, 0);
     ESP_LOGI(TAG, "app_main complete");
 

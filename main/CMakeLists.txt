@@ -3,7 +3,6 @@ idf_component_register(SRCS "rtc.c" "config.c" "beep.c" "connect.c" "eth_connect
                             "http.c"
                             "log_store.c"
                             "main.c"
-                            "rtc.c"
                             "wiegand.c"
                             "ws.c"
                             "wifi.c"
