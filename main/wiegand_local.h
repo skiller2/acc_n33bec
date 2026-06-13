@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 typedef struct { uint64_t card; uint32_t reader; } evt_t;
-void wiegand_init(int d0, int d1, int reader, QueueHandle_t qh);
+void wiegand_init(int d0, int d1, int reader, int gpio_buzzer, QueueHandle_t qh);
 
 
 #ifdef __cplusplus

@@ -85,7 +85,6 @@ function loadCards() {
     .then(cards => {
       const container = document.getElementById('cards-list');
       container.innerHTML = '';
-console.log('cards',cards)
       // Support both array or object format
       if (Array.isArray(cards)) {
         cards.forEach(row => {
@@ -109,6 +108,17 @@ console.log('cards',cards)
     });
 }
 
+function formatTimestamp(ts) {
+  const date = new Date(ts * 1000); // Convert seconds to milliseconds
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 function loadLogs() {
   fetch('/logs')
     .then(r => r.json())
@@ -123,7 +133,8 @@ function loadLogs() {
         // Adjust to your JSON structure
         if (typeof log === 'object') {
 //          div.innerText = JSON.stringify(log);
-          div.innerText = `${log.time} - ${log.card} - ${log.ok ? 'OK' : 'DENIED'}`;
+          const readableTime = formatTimestamp(log.ts);
+          div.innerText = `${readableTime} - ${log.card} - Lector${log.reader} - ${log.ok ? 'OK' : 'DENIED'}`;
         } else {
           div.innerText = log;
         }

@@ -205,6 +205,7 @@ void http_init()
 
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
     c.max_open_sockets = 3;
+    c.max_uri_handlers=10;
     c.lru_purge_enable = true;             
 
     ESP_LOGI(TAG, "Starting server on port: '%d'", c.server_port);

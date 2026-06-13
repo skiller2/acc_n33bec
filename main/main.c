@@ -86,6 +86,12 @@ tone_t darth_vader[] = {
 
 #define DOOR1_GPIO GPIO_NUM_21
 #define DOOR2_GPIO GPIO_NUM_17
+
+#define BAT_GPIO GPIO_NUM_0
+#define CAR_GPIO GPIO_NUM_0
+#define ALI_GPIO GPIO_NUM_0
+
+
 #define REX1_GPIO GPIO_NUM_16
 #define REX2_GPIO GPIO_NUM_18
 #define READER1_BUZZER GPIO_NUM_46
@@ -135,7 +141,10 @@ static void input_task(void *arg)
             (1ULL << DOOR1_GPIO) |
             (1ULL << DOOR2_GPIO) |
             (1ULL << REX1_GPIO) |
-            (1ULL << REX2_GPIO),
+            (1ULL << REX2_GPIO)|
+            (1ULL << BAT_GPIO)|
+            (1ULL << CAR_GPIO)|
+            (1ULL << ALI_GPIO),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE, // typical for switches
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -147,6 +156,9 @@ static void input_task(void *arg)
     int last_door2 = -1;
     int last_rex1 = -1;
     int last_rex2 = -1;
+    int last_bat=-1;
+    int last_car=-1;
+    int last_ali=-1;
 
     while (1)
     {
@@ -154,6 +166,9 @@ static void input_task(void *arg)
         int door2 = gpio_get_level(DOOR2_GPIO);
         int rex1 = gpio_get_level(REX1_GPIO);
         int rex2 = gpio_get_level(REX2_GPIO);
+        int bat = gpio_get_level(BAT_GPIO);
+        int car = gpio_get_level(CAR_GPIO);
+        int ali = gpio_get_level(ALI_GPIO);
 
         if (door1 != last_door1)
         {
@@ -166,6 +181,24 @@ static void input_task(void *arg)
         {
             ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
             last_door2 = door2;
+        }
+
+        if (ali != last_ali)
+        {
+            ESP_LOGI(TAG, "Alimentacion: %s", ali ? "OK" : "FALLA");
+            last_ali = ali;
+        }
+
+        if (bat != last_bat)
+        {
+            ESP_LOGI(TAG, "Bateria: %s", bat ? "OK" : "FALLA");
+            last_bat = bat;
+        }
+
+        if (car != last_car)
+        {
+            ESP_LOGI(TAG, "Carga: %s", car ? "OK" : "FALLA");
+            last_car = car;
         }
 
         if (rex1 != last_rex1)
@@ -198,7 +231,8 @@ void app_main()
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
 
-    ESP_ERROR_CHECK(rtc_app_init());
+//    ESP_ERROR_CHECK();
+    rtc_app_init();
     rtc_set_system_time();
 
 
@@ -221,6 +255,24 @@ void app_main()
     ESP_LOGI(TAG, "Initializing log store");
     log_store_init();
 
+
+    ESP_LOGI(TAG, "Creating event queue");
+    queue_cards = xQueueCreate(64, sizeof(evt_t));
+    if (!queue_cards)
+    {
+        ESP_LOGE(TAG, "Failed to create queue");
+        return;
+    }
+
+    // Init Reader 1  //BEEP 46  //LED 45
+    wiegand_init(48,47, 1, READER1_BUZZER, queue_cards);
+
+    // Init Reader 2  //BEEP 40  //LED 39
+
+    wiegand_init(41,42 , 2, READER2_BUZZER, queue_cards);
+
+
+
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(example_ethernet_connect());
     ESP_ERROR_CHECK(esp_register_shutdown_handler(&example_ethernet_shutdown));
@@ -237,20 +289,7 @@ void app_main()
     ESP_LOGI(TAG, "Initializing WebSocket server");
     ws_init();
 
-    ESP_LOGI(TAG, "Creating event queue");
-    queue_cards = xQueueCreate(64, sizeof(evt_t));
-    if (!queue_cards)
-    {
-        ESP_LOGE(TAG, "Failed to create queue");
-        return;
-    }
 
-    // Init Reader 1  //BEEP 46  //LED 45
-    wiegand_init(47, 48, 1, queue_cards);
-
-    // Init Reader 2  //BEEP 40  //LED 39
-
-    wiegand_init(42, 41, 2, queue_cards);
 
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
