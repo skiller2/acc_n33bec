@@ -87,9 +87,9 @@ tone_t darth_vader[] = {
 #define DOOR1_GPIO GPIO_NUM_21
 #define DOOR2_GPIO GPIO_NUM_17
 
-#define BAT_GPIO GPIO_NUM_0
-#define CAR_GPIO GPIO_NUM_0
-#define ALI_GPIO GPIO_NUM_0
+#define BAT_GPIO GPIO_NUM_34 //VERDE (Salida 12v)
+#define CAR_GPIO GPIO_NUM_15 //AMARILLO (Pulso al morir)
+#define ALI_GPIO GPIO_NUM_38 //ROJO Encendido tiene 220
 
 
 #define REX1_GPIO GPIO_NUM_16
@@ -185,19 +185,19 @@ static void input_task(void *arg)
 
         if (ali != last_ali)
         {
-            ESP_LOGI(TAG, "Alimentacion: %s", ali ? "OK" : "FALLA");
+            ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
             last_ali = ali;
         }
 
         if (bat != last_bat)
         {
-            ESP_LOGI(TAG, "Bateria: %s", bat ? "OK" : "FALLA");
+            ESP_LOGI(TAG, "Bateria: %s (%d)", bat ? "FALLA" : "OK",bat);
             last_bat = bat;
         }
 
         if (car != last_car)
         {
-            ESP_LOGI(TAG, "Carga: %s", car ? "OK" : "FALLA");
+            ESP_LOGI(TAG, "Carga: %s (%d)", car ? "OK" : "FALLA",car);
             last_car = car;
         }
 
