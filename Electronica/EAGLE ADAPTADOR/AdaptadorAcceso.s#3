@@ -1256,6 +1256,11 @@ GPIO_21 -&gt;
 <wire x1="10.16" y1="-60.96" x2="2.54" y2="-60.96" width="0.1524" layer="91"/>
 <label x="2.54" y="-60.96" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
+<segment>
+<pinref part="SV1" gate="1" pin="9"/>
+<wire x1="76.2" y1="-48.26" x2="66.04" y2="-48.26" width="0.1524" layer="91"/>
+<label x="66.04" y="-48.26" size="1.27" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="IO18" class="0">
 <segment>
@@ -1263,12 +1268,22 @@ GPIO_21 -&gt;
 <wire x1="2.54" y1="-73.66" x2="2.54" y2="-86.36" width="0.1524" layer="91"/>
 <label x="2.54" y="-86.36" size="1.27" layer="95" rot="R270" xref="yes"/>
 </segment>
+<segment>
+<pinref part="SV1" gate="1" pin="10"/>
+<wire x1="76.2" y1="-50.8" x2="66.04" y2="-50.8" width="0.1524" layer="91"/>
+<label x="66.04" y="-50.8" size="1.27" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="IO40" class="0">
 <segment>
 <pinref part="J1" gate="G$1" pin="11"/>
 <wire x1="10.16" y1="-68.58" x2="17.78" y2="-68.58" width="0.1524" layer="91"/>
 <label x="17.78" y="-68.58" size="1.27" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="SV2" gate="1" pin="11"/>
+<wire x1="38.1" y1="-53.34" x2="33.02" y2="-53.34" width="0.1524" layer="91"/>
+<label x="33.02" y="-53.34" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="DATA_RTC" class="0">
@@ -1279,8 +1294,8 @@ GPIO_21 -&gt;
 </segment>
 <segment>
 <pinref part="SV1" gate="1" pin="15"/>
-<wire x1="76.2" y1="-63.5" x2="71.12" y2="-63.5" width="0.1524" layer="91"/>
-<label x="71.12" y="-63.5" size="1.27" layer="95" rot="R180" xref="yes"/>
+<wire x1="76.2" y1="-63.5" x2="73.66" y2="-63.5" width="0.1524" layer="91"/>
+<label x="73.66" y="-63.5" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="CLOCK_RTC" class="0">
@@ -1291,8 +1306,8 @@ GPIO_21 -&gt;
 </segment>
 <segment>
 <pinref part="SV1" gate="1" pin="16"/>
-<wire x1="76.2" y1="-66.04" x2="71.12" y2="-66.04" width="0.1524" layer="91"/>
-<label x="71.12" y="-66.04" size="1.27" layer="95" rot="R180" xref="yes"/>
+<wire x1="76.2" y1="-66.04" x2="73.66" y2="-66.04" width="0.1524" layer="91"/>
+<label x="73.66" y="-66.04" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="N$1" class="0">
@@ -1373,8 +1388,8 @@ GPIO_21 -&gt;
 </segment>
 <segment>
 <pinref part="SV1" gate="1" pin="12"/>
-<wire x1="76.2" y1="-55.88" x2="66.04" y2="-55.88" width="0.1524" layer="91"/>
-<label x="66.04" y="-55.88" size="1.27" layer="95" rot="R180" xref="yes"/>
+<wire x1="76.2" y1="-55.88" x2="73.66" y2="-55.88" width="0.1524" layer="91"/>
+<label x="73.66" y="-55.88" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="GND_OPTO" class="0">
@@ -1399,23 +1414,16 @@ GPIO_21 -&gt;
 <label x="25.4" y="-33.02" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
-<net name="N$5" class="0">
-<segment>
-<pinref part="SV1" gate="1" pin="10"/>
-<wire x1="76.2" y1="-50.8" x2="66.04" y2="-50.8" width="0.1524" layer="91"/>
-</segment>
-</net>
-<net name="N$6" class="0">
-<segment>
-<pinref part="SV1" gate="1" pin="9"/>
-<wire x1="76.2" y1="-48.26" x2="66.04" y2="-48.26" width="0.1524" layer="91"/>
-</segment>
-</net>
 <net name="IO17" class="0">
 <segment>
 <pinref part="J4" gate="A" pin="2"/>
 <wire x1="0" y1="-73.66" x2="0" y2="-86.36" width="0.1524" layer="91"/>
 <label x="0" y="-86.36" size="1.27" layer="95" rot="R270" xref="yes"/>
+</segment>
+<segment>
+<pinref part="SV1" gate="1" pin="7"/>
+<wire x1="76.2" y1="-43.18" x2="66.04" y2="-43.18" width="0.1524" layer="91"/>
+<label x="66.04" y="-43.18" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="IO39" class="0">
@@ -1424,12 +1432,24 @@ GPIO_21 -&gt;
 <wire x1="10.16" y1="-71.12" x2="17.78" y2="-71.12" width="0.1524" layer="91"/>
 <label x="17.78" y="-71.12" size="1.27" layer="95" xref="yes"/>
 </segment>
+<segment>
+<pinref part="SV2" gate="1" pin="12"/>
+<wire x1="38.1" y1="-55.88" x2="33.02" y2="-55.88" width="0.1524" layer="91"/>
+<label x="33.02" y="-55.88" size="1.27" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="IO33" class="0">
 <segment>
 <pinref part="J1" gate="G$1" pin="6"/>
 <wire x1="10.16" y1="-55.88" x2="2.54" y2="-55.88" width="0.1524" layer="91"/>
 <label x="2.54" y="-55.88" size="1.27" layer="95" rot="R180" xref="yes"/>
+</segment>
+<segment>
+<pinref part="SV2" gate="1" pin="20"/>
+<wire x1="38.1" y1="-76.2" x2="35.56" y2="-76.2" width="0.1524" layer="91"/>
+<wire x1="35.56" y1="-76.2" x2="35.56" y2="-104.14" width="0.1524" layer="91"/>
+<wire x1="35.56" y1="-104.14" x2="27.94" y2="-104.14" width="0.1524" layer="91"/>
+<label x="27.94" y="-104.14" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="IO48" class="0">
@@ -1438,12 +1458,22 @@ GPIO_21 -&gt;
 <wire x1="-22.86" y1="-55.88" x2="-15.24" y2="-55.88" width="0.1524" layer="91"/>
 <label x="-15.24" y="-55.88" size="1.27" layer="95" xref="yes"/>
 </segment>
+<segment>
+<pinref part="SV2" gate="1" pin="4"/>
+<wire x1="38.1" y1="-35.56" x2="33.02" y2="-35.56" width="0.1524" layer="91"/>
+<label x="33.02" y="-35.56" size="1.27" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="IO47" class="0">
 <segment>
 <pinref part="MOD.EFAISA" gate="G$1" pin="6"/>
 <wire x1="-22.86" y1="-58.42" x2="-15.24" y2="-58.42" width="0.1524" layer="91"/>
 <label x="-15.24" y="-58.42" size="1.27" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="SV2" gate="1" pin="5"/>
+<wire x1="38.1" y1="-38.1" x2="33.02" y2="-38.1" width="0.1524" layer="91"/>
+<label x="33.02" y="-38.1" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="IO46" class="0">
@@ -1452,12 +1482,22 @@ GPIO_21 -&gt;
 <wire x1="-22.86" y1="-60.96" x2="-15.24" y2="-60.96" width="0.1524" layer="91"/>
 <label x="-15.24" y="-60.96" size="1.27" layer="95" xref="yes"/>
 </segment>
+<segment>
+<pinref part="SV2" gate="1" pin="6"/>
+<wire x1="38.1" y1="-40.64" x2="33.02" y2="-40.64" width="0.1524" layer="91"/>
+<label x="33.02" y="-40.64" size="1.27" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="IO45" class="0">
 <segment>
 <pinref part="MOD.EFAISA" gate="G$1" pin="4"/>
 <wire x1="-22.86" y1="-63.5" x2="-15.24" y2="-63.5" width="0.1524" layer="91"/>
 <label x="-15.24" y="-63.5" size="1.27" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="SV2" gate="1" pin="7"/>
+<wire x1="38.1" y1="-43.18" x2="33.02" y2="-43.18" width="0.1524" layer="91"/>
+<label x="33.02" y="-43.18" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="IO21" class="0">
@@ -1466,6 +1506,11 @@ GPIO_21 -&gt;
 <wire x1="-22.86" y1="-66.04" x2="-15.24" y2="-66.04" width="0.1524" layer="91"/>
 <label x="-15.24" y="-66.04" size="1.27" layer="95" xref="yes"/>
 </segment>
+<segment>
+<pinref part="SV1" gate="1" pin="6"/>
+<wire x1="76.2" y1="-40.64" x2="66.04" y2="-40.64" width="0.1524" layer="91"/>
+<label x="66.04" y="-40.64" size="1.27" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="IO42" class="0">
 <segment>
@@ -1473,12 +1518,22 @@ GPIO_21 -&gt;
 <wire x1="-22.86" y1="-68.58" x2="-15.24" y2="-68.58" width="0.1524" layer="91"/>
 <label x="-15.24" y="-68.58" size="1.27" layer="95" xref="yes"/>
 </segment>
+<segment>
+<pinref part="SV2" gate="1" pin="9"/>
+<wire x1="38.1" y1="-48.26" x2="33.02" y2="-48.26" width="0.1524" layer="91"/>
+<label x="33.02" y="-48.26" size="1.27" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="IO41" class="0">
 <segment>
 <pinref part="MOD.EFAISA" gate="G$1" pin="1"/>
 <wire x1="-22.86" y1="-71.12" x2="-15.24" y2="-71.12" width="0.1524" layer="91"/>
 <label x="-15.24" y="-71.12" size="1.27" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="SV2" gate="1" pin="10"/>
+<wire x1="38.1" y1="-50.8" x2="33.02" y2="-50.8" width="0.1524" layer="91"/>
+<label x="33.02" y="-50.8" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 </nets>

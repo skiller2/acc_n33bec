@@ -1133,14 +1133,6 @@ Siemens, Hewlett-Packard, Texas Instuments, Sharp, Motorola&lt;p&gt;
 <sheet>
 <plain>
 <text x="-213.36" y="7.62" size="1.778" layer="91"></text>
-<text x="114.3" y="-48.26" size="1.27" layer="91">GPIO_15 -&gt; C_OPTO3
-GPIO_38 -&gt; C_OPTO2
-GPIO_34 -&gt; C_OPTO1
-GPIO_18 -&gt;  
-GPIO_16 -&gt;
-GPIO_17 -&gt; 
-GPIO_21 -&gt;
-</text>
 </plain>
 <instances>
 <instance part="J1" gate="G$1" x="-5.08" y="-50.8" smashed="yes">
@@ -1542,10 +1534,6 @@ GPIO_21 -&gt;
 </schematic>
 </drawing>
 <compatibility>
-<note version="6.3" minversion="6.2.2" severity="warning">
-Since Version 6.2.2 text objects can contain more than one line,
-which will not be processed correctly with this version.
-</note>
 <note version="8.2" severity="warning">
 Since Version 8.2, EAGLE supports online libraries. The ids
 of those online libraries will not be understood (or retained)
