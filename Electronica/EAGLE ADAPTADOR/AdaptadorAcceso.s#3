@@ -1329,7 +1329,7 @@ Siemens, Hewlett-Packard, Texas Instuments, Sharp, Motorola&lt;p&gt;
 <wire x1="-20.32" y1="27.94" x2="-5.08" y2="27.94" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="N$4" class="0">
+<net name="GND_FUENTE" class="0">
 <segment>
 <pinref part="CON_FUENTE" gate="1" pin="1"/>
 <wire x1="-45.72" y1="68.58" x2="-27.94" y2="68.58" width="0.1524" layer="91"/>
@@ -1344,6 +1344,7 @@ Siemens, Hewlett-Packard, Texas Instuments, Sharp, Motorola&lt;p&gt;
 <pinref part="OK2" gate="A" pin="C"/>
 <wire x1="-5.08" y1="38.1" x2="-27.94" y2="38.1" width="0.1524" layer="91"/>
 <junction x="-27.94" y="38.1"/>
+<label x="-45.72" y="68.58" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="C_OPTO2" class="0">
