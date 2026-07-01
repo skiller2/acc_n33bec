@@ -1125,7 +1125,7 @@ Siemens, Hewlett-Packard, Texas Instuments, Sharp, Motorola&lt;p&gt;
 <part name="OK1" library="optocoupler" library_urn="urn:adsk.eagle:library:320" deviceset="ILD610" device="" package3d_urn="urn:adsk.eagle:package:21941/1"/>
 <part name="OK2" library="optocoupler" library_urn="urn:adsk.eagle:library:320" deviceset="ILD610" device="" package3d_urn="urn:adsk.eagle:package:21941/1"/>
 <part name="RTC" library="con-lstb" library_urn="urn:adsk.eagle:library:162" deviceset="MA05-1" device="" package3d_urn="urn:adsk.eagle:package:8332/1"/>
-<part name="SV4" library="con-lstb" library_urn="urn:adsk.eagle:library:162" deviceset="MA04-1" device="" package3d_urn="urn:adsk.eagle:package:8337/1"/>
+<part name="CON_FUENTE" library="con-lstb" library_urn="urn:adsk.eagle:library:162" deviceset="MA04-1" device="" package3d_urn="urn:adsk.eagle:package:8337/1"/>
 <part name="+3V3" library="supply1" deviceset="+3V3" device=""/>
 <part name="GND2" library="supply1" deviceset="GNDA" device=""/>
 </parts>
@@ -1133,14 +1133,6 @@ Siemens, Hewlett-Packard, Texas Instuments, Sharp, Motorola&lt;p&gt;
 <sheet>
 <plain>
 <text x="-213.36" y="7.62" size="1.778" layer="91"></text>
-<text x="114.3" y="-48.26" size="1.27" layer="91">GPIO_15 -&gt; C_OPTO3
-GPIO_38 -&gt; C_OPTO2
-GPIO_34 -&gt; C_OPTO1
-GPIO_18 -&gt;  
-GPIO_16 -&gt;
-GPIO_17 -&gt; 
-GPIO_21 -&gt;
-</text>
 </plain>
 <instances>
 <instance part="J1" gate="G$1" x="-5.08" y="-50.8" smashed="yes">
@@ -1198,7 +1190,7 @@ GPIO_21 -&gt;
 <attribute name="VALUE" x="97.79" y="-10.16" size="1.778" layer="96"/>
 <attribute name="NAME" x="97.79" y="8.382" size="1.778" layer="95"/>
 </instance>
-<instance part="SV4" gate="1" x="-53.34" y="73.66" smashed="yes">
+<instance part="CON_FUENTE" gate="1" x="-53.34" y="73.66" smashed="yes">
 <attribute name="VALUE" x="-54.61" y="63.5" size="1.778" layer="96"/>
 <attribute name="NAME" x="-54.61" y="79.502" size="1.778" layer="95"/>
 </instance>
@@ -1312,7 +1304,7 @@ GPIO_21 -&gt;
 </net>
 <net name="N$1" class="0">
 <segment>
-<pinref part="SV4" gate="1" pin="4"/>
+<pinref part="CON_FUENTE" gate="1" pin="4"/>
 <wire x1="-45.72" y1="76.2" x2="-12.7" y2="76.2" width="0.1524" layer="91"/>
 <wire x1="-12.7" y1="76.2" x2="-12.7" y2="60.96" width="0.1524" layer="91"/>
 <pinref part="OK1" gate="B" pin="A"/>
@@ -1321,7 +1313,7 @@ GPIO_21 -&gt;
 </net>
 <net name="N$2" class="0">
 <segment>
-<pinref part="SV4" gate="1" pin="3"/>
+<pinref part="CON_FUENTE" gate="1" pin="3"/>
 <wire x1="-45.72" y1="73.66" x2="-15.24" y2="73.66" width="0.1524" layer="91"/>
 <pinref part="OK2" gate="A" pin="A"/>
 <wire x1="-15.24" y1="73.66" x2="-15.24" y2="43.18" width="0.1524" layer="91"/>
@@ -1330,7 +1322,7 @@ GPIO_21 -&gt;
 </net>
 <net name="N$3" class="0">
 <segment>
-<pinref part="SV4" gate="1" pin="2"/>
+<pinref part="CON_FUENTE" gate="1" pin="2"/>
 <wire x1="-45.72" y1="71.12" x2="-20.32" y2="71.12" width="0.1524" layer="91"/>
 <wire x1="-20.32" y1="71.12" x2="-20.32" y2="27.94" width="0.1524" layer="91"/>
 <pinref part="OK2" gate="B" pin="A"/>
@@ -1339,7 +1331,7 @@ GPIO_21 -&gt;
 </net>
 <net name="N$4" class="0">
 <segment>
-<pinref part="SV4" gate="1" pin="1"/>
+<pinref part="CON_FUENTE" gate="1" pin="1"/>
 <wire x1="-45.72" y1="68.58" x2="-27.94" y2="68.58" width="0.1524" layer="91"/>
 <wire x1="-27.94" y1="68.58" x2="-27.94" y2="55.88" width="0.1524" layer="91"/>
 <pinref part="OK2" gate="B" pin="C"/>
@@ -1542,10 +1534,6 @@ GPIO_21 -&gt;
 </schematic>
 </drawing>
 <compatibility>
-<note version="6.3" minversion="6.2.2" severity="warning">
-Since Version 6.2.2 text objects can contain more than one line,
-which will not be processed correctly with this version.
-</note>
 <note version="8.2" severity="warning">
 Since Version 8.2, EAGLE supports online libraries. The ids
 of those online libraries will not be understood (or retained)
