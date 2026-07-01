@@ -23,15 +23,24 @@
   </div>
 
   <div class="card">
-    <h2>Enabled Cards</h2>
-    <div id="cards-list"></div>
-  </div>
+      <h2>Simulate Card Read</h2>
+      <div>
+        <label>Card ID:
+          <input type="number" id="simulateCardId" placeholder="Enter card ID">
+        </label>
+      </div>
+      <div>
+        <label>Reader:
+          <select id="simulateReader">
+            <option value="1">Reader 1</option>
+            <option value="2">Reader 2</option>
+          </select>
+        </label>
+      </div>
+      <button onclick="simulateCardRead()">Simulate Read</button>
+    </div>
 
-  <div class="card">
-    <h2>Live Activity</h2>
-    <ul id="live"></ul>
-  </div>
-</div>
+    <div class="card">
 
 <!-- Logs Tab -->
 <div id="logs-tab" class="tab-content">
