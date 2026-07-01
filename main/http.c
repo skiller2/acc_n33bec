@@ -84,7 +84,6 @@ static esp_err_t get_cards(httpd_req_t *req)
     return ESP_OK;
 }
 
-
 static esp_err_t add_card(httpd_req_t *req)
 {
     char buf[64];
@@ -95,6 +94,42 @@ static esp_err_t add_card(httpd_req_t *req)
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
+
+static esp_err_t simulate_card(httpd_req_t *req)
+{
+    char buf[128];
+    int len = httpd_req_recv(req, buf, sizeof(buf)-1);
+    if (len <= 0) {
+        httpd_resp_sendstr(req, "ERR: recv");
+        return ESP_FAIL;
+    }
+    buf[len] = 0;
+
+    cJSON *json = cJSON_Parse(buf);
+    if (!json) {
+        httpd_resp_sendstr(req, "ERR: invalid json");
+        return ESP_FAIL;
+    }
+
+    cJSON *card_item = cJSON_GetObjectItemCaseSensitive(json, "card");
+    cJSON *reader_item = cJSON_GetObjectItemCaseSensitive(json, "reader");
+    if (!cJSON_IsNumber(card_item) || !cJSON_IsNumber(reader_item)) {
+        cJSON_Delete(json);
+        httpd_resp_sendstr(req, "ERR: invalid fields");
+        return ESP_FAIL;
+    }
+
+    uint64_t card = card_item->valuedouble;
+    int reader = reader_item->valuedouble;
+
+    cJSON_Delete(json);
+
+//    simulate_card_read(card, reader);
+
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
 
 static esp_err_t post_config(httpd_req_t *req)
 {
@@ -236,6 +271,11 @@ void http_init()
             .method = HTTP_POST,
             .handler = post_config};
 
+        httpd_uri_t simulate_card_uri = {
+            .uri = "/simulate",
+            .method = HTTP_POST,
+            .handler = simulate_card};
+
         httpd_uri_t get_cfg_uri = {
             .uri = "/config",
             .method = HTTP_GET,
@@ -256,6 +296,8 @@ void http_init()
         httpd_register_uri_handler(s, &cards_uri);
         httpd_register_uri_handler(s, &cfg_uri);
         httpd_register_uri_handler(s, &get_cfg_uri);
+        httpd_register_uri_handler(s, &simulate_card_uri);
+        
         ESP_LOGI(TAG, "End Initializing HTTP server");
     } else {
         ESP_LOGE(TAG, "Failed to start HTTP server!");

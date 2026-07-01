@@ -18,6 +18,27 @@ function addCard() {
   fetch('/card', {method:'PUT', body: id});
 }
 
+function simulateCardRead() {
+  const cardId = document.getElementById('simulateCardId').value;
+  const reader = document.getElementById('simulateReader').value;
+  
+  fetch('/simulate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({card: cardId, reader: reader})
+  })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt === 'OK') {
+        setStatus('Card simulated!', 'success');
+        document.getElementById('simulateCardId').value = '';
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Simulate error: ' + e, 'error'));
+}
+
 function loadConfig() {
   fetch('/config')
     .then(r => r.json())
