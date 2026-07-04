@@ -19,8 +19,8 @@ function addCard() {
 }
 
 function simulateCardRead() {
-  const cardId = document.getElementById('simulateCardId').value;
-  const reader = document.getElementById('simulateReader').value;
+  const cardId = Number(document.getElementById('simulateCardId').value);
+  const reader = Number(document.getElementById('simulateReader').value);
   
   fetch('/simulate', {
     method: 'POST',

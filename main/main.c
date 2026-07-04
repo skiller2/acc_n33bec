@@ -305,7 +305,7 @@ void app_main()
 
 
     //play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
-    play_melody_async(READER1_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
+    play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
 
 
     xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL);

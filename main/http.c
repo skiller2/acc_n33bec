@@ -116,6 +116,7 @@ static esp_err_t simulate_card(httpd_req_t *req)
 
     cJSON *card_item = cJSON_GetObjectItemCaseSensitive(json, "card");
     cJSON *reader_item = cJSON_GetObjectItemCaseSensitive(json, "reader");
+
     if (!cJSON_IsNumber(card_item) || !cJSON_IsNumber(reader_item)) {
         cJSON_Delete(json);
         httpd_resp_sendstr(req, "ERR: invalid fields");
