@@ -17,9 +17,6 @@ typedef struct
 
 void beep_tone(gpio_num_t gpio, int freq_hz, int duration_ms)
 {
-
-    ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
-
     // Configure timer EVERY TIME (this is key for your hardware)
     ledc_timer_config_t timer = {
         .duty_resolution = LEDC_TIMER_10_BIT,
@@ -50,7 +47,7 @@ void beep_tone(gpio_num_t gpio, int freq_hz, int duration_ms)
 
 static void output_off_cb(TimerHandle_t xTimer)
 {
-    gpio_num_t gpio = (gpio_num_t)pvTimerGetTimerID(xTimer);
+    gpio_num_t gpio = (gpio_num_t)pvTimerGetTimerID(xTimer); //get the gpio from timer
 
     gpio_set_level(gpio, 0);
 }
@@ -70,7 +67,7 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
         pdMS_TO_TICKS(duration_ms),
         pdFALSE,      // one-shot
         (void *)gpio, // store gpio in timer
-        output_off_cb);
+        output_off_cb); //  callback when timer expires
 
     if (timer != NULL)
     {

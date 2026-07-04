@@ -3,9 +3,9 @@
 #include <string.h>
 #include "esp_log.h"
 
-#define RELE1_GPIO GPIO_NUM_45  //Maneja el LED del reader 1
-#define RELE2_GPIO GPIO_NUM_39  //Maneja el LED del reader 2
-#define RELE3_GPIO GPIO_NUM_33
+#define RELE1_GPIO GPIO_NUM_45  //Reader 1 LED
+#define RELE2_GPIO GPIO_NUM_39  //Reader 2 LED
+#define RELE3_GPIO GPIO_NUM_33  //Reader 3 LED
 
 
 static const char *TAG = "config";
