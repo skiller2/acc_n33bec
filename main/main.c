@@ -13,6 +13,7 @@
 #include "esp_timer.h"
 #include "beep.h"
 #include "config.h"
+#include "nvs_flash.h"
 
 static const char *TAG = "main";
 
@@ -110,12 +111,12 @@ static QueueHandle_t queue_cards;
 void worker(void *p)
 {
     ESP_LOGI(TAG, "worker started");
-    evt_t e;
+    evt_t e; // Card and reader event structure 
     while (1)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
         {
-            if (e.reader == 1) {
+            if (e.reader == 1) { // Check which reader triggered the event and activate the corresponding relay and buzzer
                 pulse_output(g_config.reader1_relay_gpio, g_config.reader1_relay_duration_ms);
                 play_melody_async(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
             } else {
@@ -125,8 +126,8 @@ void worker(void *p)
 
             ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
             int ok = card_exists(e.card);
-            int64_t ts = esp_timer_get_time();
-            log_add(e.card, ts, e.reader, ok);
+            int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
+            log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
             ws_broadcast(e.card, ts, ok);
         }
     }
@@ -230,8 +231,9 @@ void app_main()
     ESP_LOGI(TAG, "app_main start");
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-
-//    ESP_ERROR_CHECK();
+    ESP_ERROR_CHECK(nvs_flash_init());  
+    //ESP_ERROR_CHECK();
+    //RTC DS3231configuration and initialization
     rtc_app_init();
     rtc_set_system_time();
 
@@ -263,7 +265,7 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create queue");
         return;
     }
-
+    
     // Init Reader 1  //BEEP 46  //LED 45
     wiegand_init(48,47, 1, READER1_BUZZER, queue_cards);
 
@@ -272,13 +274,12 @@ void app_main()
     wiegand_init(41,42 , 2, READER2_BUZZER, queue_cards);
 
 
-
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(example_ethernet_connect());
     ESP_ERROR_CHECK(esp_register_shutdown_handler(&example_ethernet_shutdown));
 
 
-
+    
     fetch_and_store_time_in_nvs(NULL);
     rtc_set_rtc_time();
     rtc_set_system_time();
@@ -308,4 +309,5 @@ void app_main()
 
 
     xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL);
+    
 }
