@@ -99,7 +99,7 @@ tone_t darth_vader[] = {
 #define READER2_BUZZER GPIO_NUM_40
 
 extern void fs_init();
-extern void http_init();
+extern void http_init(QueueHandle_t qh);
 extern void ws_init();
 extern void card_store_init();
 extern void log_store_init();
@@ -285,7 +285,7 @@ void app_main()
     rtc_set_system_time();
 
 
-    http_init();
+    http_init(queue_cards);
 
     ESP_LOGI(TAG, "Initializing WebSocket server");
     ws_init();

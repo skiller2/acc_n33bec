@@ -18,7 +18,6 @@ typedef struct
 void beep_tone(gpio_num_t gpio, int freq_hz, int duration_ms)
 {
 //TODO: check if running before stop
-    ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
 
     // Configure timer EVERY TIME (this is key for your hardware)
     ledc_timer_config_t timer = {
@@ -28,6 +27,7 @@ void beep_tone(gpio_num_t gpio, int freq_hz, int duration_ms)
         .timer_num = LEDC_TIMER_0,
         .clk_cfg = LEDC_AUTO_CLK};
     ledc_timer_config(&timer);
+    ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
 
     // Configure channel
     ledc_channel_config_t channel = {

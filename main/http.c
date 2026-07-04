@@ -5,12 +5,15 @@
 #include "esp_log.h"
 #include "config.h"
 #include "cJSON.h"
+#include "wiegand_local.h"
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
 extern char *log_read_all_json(void);
 extern char *card_read_all_json(void);
 static const char *TAG = "http";
+
+static QueueHandle_t event_queue = NULL;
 
 static const char* get_content_type(const char *uri)
 {
@@ -119,10 +122,20 @@ static esp_err_t simulate_card(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    uint64_t card = card_item->valuedouble;
-    int reader = reader_item->valuedouble;
+    uint64_t card_value = card_item->valuedouble;
+    int reader_id = reader_item->valuedouble;
 
     cJSON_Delete(json);
+
+
+    evt_t e = {.card = card_value, .reader = reader_id};
+
+    if (xQueueSendToBack(event_queue, &e, 0) != pdTRUE)
+        ESP_LOGW(TAG, "wiegand_tsk: event queue full, card=%llu", card_value);
+    else
+        ESP_LOGI(TAG, "wiegand_tsk: queued card=%llu from reader %d", card_value, reader_id);
+
+
 
 //    simulate_card_read(card, reader);
 
@@ -233,10 +246,12 @@ static esp_err_t get_config(httpd_req_t *req)
     return ESP_OK;
 }
 
-void http_init()
+void http_init(QueueHandle_t qh)
 {
     ESP_LOGI(TAG, "Initializing HTTP server");
     httpd_handle_t s;
+
+    event_queue = qh;
 
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
     c.max_open_sockets = 3;
