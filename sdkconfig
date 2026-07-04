@@ -1,6 +1,6 @@
 #
 # Automatically generated file. DO NOT EDIT.
-# Espressif IoT Development Framework (ESP-IDF) 6.0.1 Project Configuration
+# Espressif IoT Development Framework (ESP-IDF) 6.0.2 Project Configuration
 #
 # default:
 CONFIG_SOC_ADC_SUPPORTED=y
@@ -428,6 +428,8 @@ CONFIG_SOC_UART_WAKEUP_SUPPORT_ACTIVE_THRESH_MODE=y
 CONFIG_SOC_UHCI_NUM=1
 # default:
 CONFIG_SOC_USB_OTG_PERIPH_NUM=1
+# default:
+CONFIG_SOC_USB_FSLS_PHY_NUM=1
 # default:
 CONFIG_SOC_SHA_DMA_MAX_BUFFER_SIZE=3968
 # default:
@@ -1114,12 +1116,27 @@ CONFIG_ETHERNET_SPI_DEV1_NONE=y
 CONFIG_ETHERNET_SPI_DEV0_ID=2
 # default:
 CONFIG_ETHERNET_SPI_HOST=1
+<<<<<<< HEAD
 CONFIG_ETHERNET_SPI_SCLK_GPIO=13
 CONFIG_ETHERNET_SPI_MOSI_GPIO=11
 CONFIG_ETHERNET_SPI_MISO_GPIO=12
 CONFIG_ETHERNET_SPI_CLOCK_MHZ=16
 CONFIG_ETHERNET_SPI_CS0_GPIO=14
 CONFIG_ETHERNET_SPI_INT0_GPIO=10
+=======
+# default:
+CONFIG_ETHERNET_SPI_SCLK_GPIO=12
+# default:
+CONFIG_ETHERNET_SPI_MOSI_GPIO=11
+# default:
+CONFIG_ETHERNET_SPI_MISO_GPIO=13
+# default:
+CONFIG_ETHERNET_SPI_CLOCK_MHZ=16
+# default:
+CONFIG_ETHERNET_SPI_CS0_GPIO=10
+# default:
+CONFIG_ETHERNET_SPI_INT0_GPIO=4
+>>>>>>> 40b1b656062a09ef41c91460eb9189e90bdcae89
 # default:
 CONFIG_ETHERNET_SPI_PHY_RST0_GPIO=-1
 # default:
@@ -1228,16 +1245,27 @@ CONFIG_COMPILER_CXX_GLIBCXX_CONSTEXPR_NO_CHANGE=y
 #
 
 #
-# BLE Log
+# BT Logs
 #
-# default:
-# CONFIG_BLE_LOG_ENABLED is not set
-# end of BLE Log
+
+#
+# Log Sources
+#
+# end of Log Sources
 
 # default:
-# CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED is not set
+# CONFIG_BT_LOG_CRITICAL_ONLY is not set
 # default:
-# CONFIG_BT_BLE_LOG_UHCI_OUT_ENABLED is not set
+# CONFIG_BLE_LOG_ENABLED is not set
+
+#
+# Legacy SPI Log Output (Deprecated - use BT Log Async Output instead)
+#
+# default:
+# CONFIG_BT_BLE_LOG_SPI_OUT_ENABLED is not set
+# end of Legacy SPI Log Output (Deprecated - use BT Log Async Output instead)
+# end of BT Logs
+
 # default:
 # CONFIG_BT_LE_USED_MEM_STATISTICS_ENABLED is not set
 # end of Common Options
@@ -1961,6 +1989,8 @@ CONFIG_ESP_PHY_PLL_TRACK_PERIOD_MS=1000
 CONFIG_ESP_PHY_IRAM_OPT=y
 # default:
 # CONFIG_ESP_PHY_DEBUG is not set
+# default:
+CONFIG_ESP_PHY_ENABLE_VERSION_PRINT=y
 # end of PHY
 
 #
@@ -3183,8 +3213,6 @@ CONFIG_MBEDTLS_TLS_SERVER_AND_CLIENT=y
 # default:
 # CONFIG_MBEDTLS_TLS_CLIENT_ONLY is not set
 # default:
-# CONFIG_MBEDTLS_TLS_DISABLED is not set
-# default:
 # CONFIG_MBEDTLS_SSL_KEEP_PEER_CERTIFICATE is not set
 # default:
 # CONFIG_MBEDTLS_SSL_CONTEXT_SERIALIZATION is not set
@@ -3269,8 +3297,6 @@ CONFIG_MBEDTLS_CMAC_C=y
 #
 # Asymmetric Ciphers
 #
-# default:
-CONFIG_MBEDTLS_BIGNUM_C=y
 # default:
 CONFIG_MBEDTLS_RSA_C=y
 # default:
