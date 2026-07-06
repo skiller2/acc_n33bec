@@ -24,12 +24,34 @@ static SemaphoreHandle_t s_semph_get_ip_addrs = NULL;
 static SemaphoreHandle_t s_semph_get_ip6_addrs = NULL;
 #endif
 
+
 static esp_netif_t *eth_start(void);
 static void eth_stop(void);
+
+static bool s_eth_connected = false;
 
 
 /** Event handler for Ethernet events */
 
+static void eth_on_got_ip(void *arg,
+                          esp_event_base_t event_base,
+                          int32_t event_id,
+                          void *event_data)
+{
+    ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+
+    if (!example_is_our_netif(EXAMPLE_NETIF_DESC_ETH, event->esp_netif)) {
+        return;
+    }
+
+    s_eth_connected = true;
+
+    ESP_LOGI(TAG,
+             "Got IPv4 event: Interface \"%s\" address: " IPSTR,
+             esp_netif_get_desc(event->esp_netif),
+             IP2STR(&event->ip_info.ip));
+}
+/*
 static void eth_on_got_ip(void *arg, esp_event_base_t event_base,
                       int32_t event_id, void *event_data)
 {
@@ -40,6 +62,38 @@ static void eth_on_got_ip(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "Got IPv4 event: Interface \"%s\" address: " IPSTR, esp_netif_get_desc(event->esp_netif), IP2STR(&event->ip_info.ip));
     xSemaphoreGive(s_semph_get_ip_addrs);
 }
+*/
+
+static void eth_event_handler(void *arg,
+                              esp_event_base_t event_base,
+                              int32_t event_id,
+                              void *event_data)
+{
+    switch (event_id) {
+
+    case ETHERNET_EVENT_CONNECTED:
+        ESP_LOGI(TAG, "Ethernet Link Up");
+        break;
+
+    case ETHERNET_EVENT_DISCONNECTED:
+        ESP_LOGW(TAG, "Ethernet Link Down");
+        s_eth_connected = false;
+        break;
+
+    case ETHERNET_EVENT_START:
+        ESP_LOGI(TAG, "Ethernet Started");
+        break;
+
+    case ETHERNET_EVENT_STOP:
+        ESP_LOGI(TAG, "Ethernet Stopped");
+        s_eth_connected = false;
+        break;
+
+    default:
+        break;
+    }
+}
+
 
 #if CONFIG_EXAMPLE_CONNECT_IPV6
 
@@ -53,10 +107,12 @@ static void eth_on_got_ipv6(void *arg, esp_event_base_t event_base,
     esp_ip6_addr_type_t ipv6_type = esp_netif_ip6_get_addr_type(&event->ip6_info.ip);
     ESP_LOGI(TAG, "Got IPv6 event: Interface \"%s\" address: " IPV6STR ", type: %s", esp_netif_get_desc(event->esp_netif),
              IPV62STR(event->ip6_info.ip), example_ipv6_addr_types_to_str[ipv6_type]);
+    /*         
     if (ipv6_type == EXAMPLE_CONNECT_PREFERRED_IPV6_TYPE) {
         xSemaphoreGive(s_semph_get_ip6_addrs);
-    }
+    }*/
 }
+
 
 static void on_eth_event(void *esp_netif, esp_event_base_t event_base,
                          int32_t event_id, void *event_data)
@@ -104,6 +160,13 @@ static esp_netif_t *eth_start(void)
 
     ESP_ERROR_CHECK(esp_eth_start(s_eth_handles[0]));
 
+    ESP_ERROR_CHECK(
+    esp_event_handler_register(
+        ETH_EVENT,
+        ESP_EVENT_ANY_ID,
+        &eth_event_handler,
+        NULL));
+
     return s_eth_netif;
 }
 
@@ -137,6 +200,13 @@ void example_ethernet_shutdown(void)
     vSemaphoreDelete(s_semph_get_ip6_addrs);
     s_semph_get_ip6_addrs = NULL;
 #endif
+
+    ESP_ERROR_CHECK(
+    esp_event_handler_unregister(
+        ETH_EVENT,
+        ESP_EVENT_ANY_ID,
+        &eth_event_handler));
+
     eth_stop();
 }
 
@@ -166,4 +236,20 @@ esp_err_t example_ethernet_connect(void)
     ESP_LOGI(TAG, "Finish ethernet connection.");
 
     return ESP_OK;
+}
+
+esp_err_t ethernet_init(void)
+{
+    s_eth_connected = false;
+
+    eth_start();
+
+    ESP_LOGI(TAG, "Ethernet initialized");
+
+    return ESP_OK;
+}
+
+bool ethernet_is_connected(void)
+{
+    return s_eth_connected;
 }

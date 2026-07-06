@@ -45,6 +45,13 @@ esp_err_t rtc_set_rtc_time(void);
  */
 esp_err_t rtc_set_system_time(void);
 
+
+/*@brief Check if RTC is connected
+ *
+ * @return true if RTC is connected, false otherwise
+ */
+bool rtc_is_connected(void);
+
 #ifdef __cplusplus
 }
 #endif

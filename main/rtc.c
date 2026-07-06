@@ -311,3 +311,15 @@ esp_err_t rtc_set_system_time(void)
     ESP_LOGI(TAG, "System time set from RTC");
     return ESP_OK;
 }
+
+bool rtc_is_connected(void)
+{
+    if (dev_handle == NULL) {
+        return false;
+    }
+
+    uint8_t value;
+    esp_err_t err = ds3231_read(DS3231_REG_SECONDS, &value, 1);
+
+    return (err == ESP_OK);
+}

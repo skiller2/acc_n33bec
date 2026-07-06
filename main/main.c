@@ -14,6 +14,8 @@
 #include "beep.h"
 #include "config.h"
 #include "nvs_flash.h"
+#include "example_common_private.h"
+
 
 static const char *TAG = "main";
 
@@ -221,8 +223,31 @@ static void input_task(void *arg)
             }
             last_rex2 = rex2;
         }
-
         vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms)); // debounce + CPU friendly
+    }
+}
+
+static void connection_check_task(void *arg)
+{
+    static const char *TAG = "connection_check";
+
+    while (1)
+    {
+        if (!ethernet_is_connected())
+        {
+            ESP_LOGW(TAG, "Ethernet not connected, attempting to reconnect...");
+        }
+
+        if (!rtc_is_connected())
+        {
+            ESP_LOGW(TAG, "RTC not connected, attempting to reinitialize...");
+            esp_err_t err = rtc_app_init();
+            if (err != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Failed to reinitialize RTC: %s", esp_err_to_name(err));
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(5000)); // Check every 5 seconds
     }
 }
 
@@ -237,15 +262,21 @@ void app_main()
     rtc_app_init();
     rtc_set_system_time();
 
+    ESP_LOGI(TAG, "Initializing Ethernet");
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(ethernet_init());
 
-//    initialize_sntp();
-//    rtc_sync_time_from_sntp();
+    xTaskCreate(connection_check_task, "connection_check_task", 2048, NULL, 3, NULL);
+
+
+    //initialize_sntp();
+    //rtc_sync_time_from_sntp();
 //    rtc_set_system_time();
 
-
+    /*
     ESP_LOGI(TAG, "Initializing filesystem");
     fs_init();
-
+    */
     ESP_LOGI(TAG, "Loading REX configuration");
     if (config_load(&g_config) != ESP_OK) {
         ESP_LOGW(TAG, "Failed to load REX config, using defaults");
@@ -265,7 +296,7 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create queue");
         return;
     }
-    
+    /*
     // Init Reader 1  //BEEP 46  //LED 45
     wiegand_init(48,47, 1, READER1_BUZZER, queue_cards);
 
@@ -275,8 +306,12 @@ void app_main()
 
 
     ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(example_ethernet_connect());
-    ESP_ERROR_CHECK(esp_register_shutdown_handler(&example_ethernet_shutdown));
+    
+    ESP_ERROR_CHECK(ethernet_init());
+
+
+    //ESP_ERROR_CHECK(example_ethernet_connect());
+    //ESP_ERROR_CHECK(esp_register_shutdown_handler(&example_ethernet_shutdown));
 
 
     
@@ -307,7 +342,7 @@ void app_main()
     //play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
     play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
 
-
+    */
     xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL);
     
 }
