@@ -25,6 +25,7 @@ typedef struct {
     uint32_t reader1_relay_duration_ms;
     uint32_t reader2_relay_duration_ms;
     uint32_t input_debounce_ms;
+    char url_n33bec[256]; // URL for N33-BEC server
 } stored_config_t;
 
 static void set_defaults(config_t *config)
@@ -38,6 +39,7 @@ static void set_defaults(config_t *config)
     config->reader1_relay_duration_ms = 2000;
     config->reader2_relay_duration_ms = 2000;
     config->input_debounce_ms = 100;
+    config->url_n33bec[0] = '\0'; // Default to empty string
 }
 
 static bool valid_relay_number(gpio_num_t relay)
@@ -77,6 +79,10 @@ static void clamp_config(config_t *config)
     if (config->input_debounce_ms == 0) {
         config->input_debounce_ms = 100;
     }
+    if (strlen(config->url_n33bec) == 0) {
+        strncpy(config->url_n33bec, "http://192.168.80.235/api/v1/movimientos/test", sizeof(config->url_n33bec) - 1);
+        config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
+    }
 }
 
 esp_err_t config_save(const config_t *config)
@@ -96,8 +102,9 @@ esp_err_t config_save(const config_t *config)
         .reader2_relay_gpio = config->reader2_relay_gpio,
         .reader1_relay_duration_ms = config->reader1_relay_duration_ms,
         .reader2_relay_duration_ms = config->reader2_relay_duration_ms,
-        .input_debounce_ms = config->input_debounce_ms,
+        .input_debounce_ms = config->input_debounce_ms
     };
+    strcpy(stored.url_n33bec, config->url_n33bec);
 
     FILE *f = fopen(CONFIG_PATH, "wb");
     if (!f) {
@@ -163,6 +170,8 @@ esp_err_t config_load(config_t *config)
     config->reader1_relay_duration_ms = stored.reader1_relay_duration_ms;
     config->reader2_relay_duration_ms = stored.reader2_relay_duration_ms;
     config->input_debounce_ms = stored.input_debounce_ms;
+    strncpy(config->url_n33bec, stored.url_n33bec, sizeof(config->url_n33bec) - 1);
+    config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
     clamp_config(config);
 
     ESP_LOGI(TAG, "Loaded REX config: rex1_relay=%u rex1_ms=%u rex2_relay=%u rex2_ms=%u",

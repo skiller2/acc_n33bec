@@ -43,6 +43,7 @@ function loadConfig() {
   fetch('/config')
     .then(r => r.json())
     .then(cfg => {
+      document.getElementById('url_n33bec').value = cfg.url_n33bec;
       document.getElementById('rex1_relay_gpio').value = cfg.rex1_relay_gpio;
       document.getElementById('rex2_relay_gpio').value = cfg.rex2_relay_gpio;
       document.getElementById('reader1_relay_gpio').value = cfg.reader1_relay_gpio;
@@ -59,6 +60,7 @@ function loadConfig() {
 
 function saveConfig() {
   const cfg = {
+    url_n33bec: document.getElementById('url_n33bec').value,
     rex1_relay_gpio: parseInt(document.getElementById('rex1_relay_gpio').value),
     rex2_relay_gpio: parseInt(document.getElementById('rex2_relay_gpio').value),
     reader1_relay_gpio: parseInt(document.getElementById('reader1_relay_gpio').value),

@@ -6,6 +6,7 @@
 #include "config.h"
 #include "cJSON.h"
 #include "wiegand_local.h"
+#include "esp_http_client.h"
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
@@ -15,36 +16,131 @@ static const char *TAG = "http";
 
 static QueueHandle_t event_queue = NULL;
 
-static const char* get_content_type(const char *uri)
+static const char *get_content_type(const char *uri)
 {
-    if (strstr(uri, ".js")) return "application/javascript";
-    if (strstr(uri, ".css")) return "text/css";
-    if (strstr(uri, ".html")) return "text/html";
+    if (strstr(uri, ".js"))
+        return "application/javascript";
+    if (strstr(uri, ".css"))
+        return "text/css";
+    if (strstr(uri, ".html"))
+        return "text/html";
     return "text/plain";
 }
+
+esp_err_t  send_json(uint8_t device_id, uint64_t card_id)
+{
+    config_load(&g_config);
+
+
+    esp_http_client_config_t config = {
+        .url =             g_config.url_n33bec, 
+        .timeout_ms = 200 // Your server endpoint
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    char post_data[256];
+
+    char cod_credencial[32];
+    char cod_tema_origen[32]="demo/acceso/65/10";
+
+    snprintf(cod_tema_origen,  sizeof(cod_tema_origen), "demo/acceso/65/10%d", device_id);
+
+    snprintf(cod_credencial,  sizeof(cod_credencial), "000-%llu", card_id);
+
+    bool ind_separa_facility_code=true;
+
+    snprintf(post_data, sizeof(post_data),
+             "{\"cod_credencial\":\"%s\",\"cod_tema_origen\":\"%s\",\"ind_separa_facility_code\":%s}",
+             cod_credencial,
+             cod_tema_origen,
+             ind_separa_facility_code ? "true" : "false");
+
+    ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
+
+    esp_http_client_set_method(client, HTTP_METHOD_POST);
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, post_data, strlen(post_data));
+
+    esp_err_t err = esp_http_client_perform(client);
+
+    if (err == ESP_OK)
+    {
+        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %lld",
+                 esp_http_client_get_status_code(client),
+                 esp_http_client_get_content_length(client));
+
+        char response[512];
+        int len = esp_http_client_read_response(
+            client,
+            response,
+            sizeof(response) - 1);
+
+        if (len > 0)
+        {
+            response[len] = '\0';
+
+            ESP_LOGI(TAG, "Response: %s", response);
+
+
+
+            cJSON *root = cJSON_Parse(response);
+
+            if (root)
+            {
+                cJSON *rele1 = cJSON_GetObjectItem(root, "rele1");
+                cJSON *rele2 = cJSON_GetObjectItem(root, "rele2");
+                cJSON *rele3 = cJSON_GetObjectItem(root, "rele3");
+
+
+                //if (cJSON_IsNumber(rele1))
+                //{
+                //   ESP_LOGI(TAG, "success = %d",
+                //             cJSON_Number(rele1) );
+                //}
+
+
+                cJSON_Delete(root);
+            }
+        }
+    }
+    else
+    {
+        ESP_LOGE(TAG, "HTTP POST failed: %s",
+                 esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    return err;
+}
+
 
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
     char filepath[1024];
-    
-    if (strcmp(req->uri, "/") == 0) {
+
+    if (strcmp(req->uri, "/") == 0)
+    {
         snprintf(filepath, sizeof(filepath), "/fs/index.html");
-    } else {
+    }
+    else
+    {
         snprintf(filepath, sizeof(filepath), "/fs%s", req->uri);
     }
     ESP_LOGW(TAG, "Input URI: %s, Filepath: %s", req->uri, filepath);
 
     FILE *f = fopen(filepath, "r");
-    if (!f) {
+    if (!f)
+    {
         ESP_LOGW(TAG, "File not found: %s", filepath);
         return httpd_resp_send_404(req);
     }
 
     httpd_resp_set_type(req, get_content_type(filepath));
-    
+
     char buf[512];
     size_t r;
-    while ((r = fread(buf, 1, sizeof(buf), f))) {
+    while ((r = fread(buf, 1, sizeof(buf), f)))
+    {
         httpd_resp_send_chunk(req, buf, r);
     }
     fclose(f);
@@ -101,15 +197,17 @@ static esp_err_t add_card(httpd_req_t *req)
 static esp_err_t simulate_card(httpd_req_t *req)
 {
     char buf[128];
-    int len = httpd_req_recv(req, buf, sizeof(buf)-1);
-    if (len <= 0) {
+    int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (len <= 0)
+    {
         httpd_resp_sendstr(req, "ERR: recv");
         return ESP_FAIL;
     }
     buf[len] = 0;
 
     cJSON *json = cJSON_Parse(buf);
-    if (!json) {
+    if (!json)
+    {
         httpd_resp_sendstr(req, "ERR: invalid json");
         return ESP_FAIL;
     }
@@ -117,7 +215,8 @@ static esp_err_t simulate_card(httpd_req_t *req)
     cJSON *card_item = cJSON_GetObjectItemCaseSensitive(json, "card");
     cJSON *reader_item = cJSON_GetObjectItemCaseSensitive(json, "reader");
 
-    if (!cJSON_IsNumber(card_item) || !cJSON_IsNumber(reader_item)) {
+    if (!cJSON_IsNumber(card_item) || !cJSON_IsNumber(reader_item))
+    {
         cJSON_Delete(json);
         httpd_resp_sendstr(req, "ERR: invalid fields");
         return ESP_FAIL;
@@ -128,7 +227,6 @@ static esp_err_t simulate_card(httpd_req_t *req)
 
     cJSON_Delete(json);
 
-
     evt_t e = {.card = card_value, .reader = reader_id};
 
     if (xQueueSendToBack(event_queue, &e, 0) != pdTRUE)
@@ -136,31 +234,29 @@ static esp_err_t simulate_card(httpd_req_t *req)
     else
         ESP_LOGI(TAG, "wiegand_tsk: queued card=%llu from reader %d", card_value, reader_id);
 
-
-
-//    simulate_card_read(card, reader);
-
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
 
-
 static esp_err_t post_config(httpd_req_t *req)
 {
     size_t len = req->content_len;
-    if (len == 0 || len > 4096) {
+    if (len == 0 || len > 4096)
+    {
         httpd_resp_sendstr(req, "ERR: invalid content length");
         return ESP_FAIL;
     }
 
     char *buf = malloc(len + 1);
-    if (!buf) {
+    if (!buf)
+    {
         httpd_resp_sendstr(req, "ERR: alloc");
         return ESP_FAIL;
     }
 
     int r = httpd_req_recv(req, buf, len);
-    if (r <= 0) {
+    if (r <= 0)
+    {
         free(buf);
         httpd_resp_sendstr(req, "ERR: recv");
         return ESP_FAIL;
@@ -168,41 +264,58 @@ static esp_err_t post_config(httpd_req_t *req)
     buf[r] = 0;
 
     config_t cfg;
-    if (config_load(&cfg) != ESP_OK) {
+    if (config_load(&cfg) != ESP_OK)
+    {
         // start from defaults if load fails
     }
 
     cJSON *json = cJSON_Parse(buf);
     free(buf);
-    if (!json) {
+    if (!json)
+    {
         httpd_resp_sendstr(req, "ERR: invalid json");
         return ESP_FAIL;
     }
 
     cJSON *item = NULL;
     item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_gpio");
-    if (cJSON_IsNumber(item)) cfg.rex1_relay_gpio = (gpio_num_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.rex1_relay_gpio = (gpio_num_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_gpio");
-    if (cJSON_IsNumber(item)) cfg.rex2_relay_gpio = (gpio_num_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.rex2_relay_gpio = (gpio_num_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "reader1_relay_gpio");
-    if (cJSON_IsNumber(item)) cfg.reader1_relay_gpio = (gpio_num_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.reader1_relay_gpio = (gpio_num_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "reader2_relay_gpio");
-    if (cJSON_IsNumber(item)) cfg.reader2_relay_gpio = (gpio_num_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.reader2_relay_gpio = (gpio_num_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "input_debounce_ms");
-    if (cJSON_IsNumber(item)) cfg.input_debounce_ms = (uint32_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.input_debounce_ms = (uint32_t)item->valuedouble;
 
     item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_duration_ms");
-    if (cJSON_IsNumber(item)) cfg.rex1_relay_duration_ms = (uint32_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.rex1_relay_duration_ms = (uint32_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_duration_ms");
-    if (cJSON_IsNumber(item)) cfg.rex2_relay_duration_ms = (uint32_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.rex2_relay_duration_ms = (uint32_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "reader1_relay_duration_ms");
-    if (cJSON_IsNumber(item)) cfg.reader1_relay_duration_ms = (uint32_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.reader1_relay_duration_ms = (uint32_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "reader2_relay_duration_ms");
-    if (cJSON_IsNumber(item)) cfg.reader2_relay_duration_ms = (uint32_t)item->valuedouble;
+    if (cJSON_IsNumber(item))
+        cfg.reader2_relay_duration_ms = (uint32_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "url_n33bec");
+    if (cJSON_IsString(item) && (item->valuestring != NULL))
+        strncpy(cfg.url_n33bec, item->valuestring, sizeof(cfg.url_n33bec) - 1);
+    cfg.url_n33bec[sizeof(cfg.url_n33bec) - 1] = '\0'; // Ensure null termination
+
 
     cJSON_Delete(json);
 
-    if (config_save(&cfg) != ESP_OK) {
+    if (config_save(&cfg) != ESP_OK)
+    {
         httpd_resp_sendstr(req, "ERR: save failed");
         return ESP_FAIL;
     }
@@ -214,12 +327,14 @@ static esp_err_t post_config(httpd_req_t *req)
 static esp_err_t get_config(httpd_req_t *req)
 {
     config_t cfg;
-    if (config_load(&cfg) != ESP_OK) {
+    if (config_load(&cfg) != ESP_OK)
+    {
         ESP_LOGW(TAG, "get_config: using defaults");
     }
 
     cJSON *json = cJSON_CreateObject();
-    if (!json) {
+    if (!json)
+    {
         httpd_resp_sendstr(req, "ERR: alloc json");
         return ESP_FAIL;
     }
@@ -233,10 +348,12 @@ static esp_err_t get_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "reader1_relay_duration_ms", cfg.reader1_relay_duration_ms);
     cJSON_AddNumberToObject(json, "reader2_relay_duration_ms", cfg.reader2_relay_duration_ms);
     cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);
+    cJSON_AddStringToObject(json, "url_n33bec", cfg.url_n33bec);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
-    if (!s) {
+    if (!s)
+    {
         httpd_resp_sendstr(req, "ERR: print json");
         return ESP_FAIL;
     }
@@ -256,8 +373,8 @@ void http_init(QueueHandle_t qh)
 
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
     c.max_open_sockets = 3;
-    c.max_uri_handlers=10;
-    c.lru_purge_enable = true;             
+    c.max_uri_handlers = 10;
+    c.lru_purge_enable = true;
 
     ESP_LOGI(TAG, "Starting server on port: '%d'", c.server_port);
     if (httpd_start(&s, &c) == ESP_OK)
@@ -313,9 +430,11 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &cfg_uri);
         httpd_register_uri_handler(s, &get_cfg_uri);
         httpd_register_uri_handler(s, &simulate_card_uri);
-        
+
         ESP_LOGI(TAG, "End Initializing HTTP server");
-    } else {
+    }
+    else
+    {
         ESP_LOGE(TAG, "Failed to start HTTP server!");
     }
 }

@@ -107,6 +107,7 @@ extern void card_store_init();
 extern void log_store_init();
 extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
+extern esp_err_t  send_json(uint8_t device_id, uint64_t card_id);
 
 static QueueHandle_t queue_cards;
 
@@ -125,6 +126,8 @@ void worker(void *p)
                 pulse_output(g_config.reader2_relay_gpio, g_config.reader2_relay_duration_ms);
                 play_melody_async(READER2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
             }
+
+            send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
 
             ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
             int ok = card_exists(e.card);
@@ -255,8 +258,9 @@ void app_main()
 {
     ESP_LOGI(TAG, "app_main start");
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-
     ESP_ERROR_CHECK(nvs_flash_init());  
+    fs_init();
+
     //ESP_ERROR_CHECK();
     //RTC DS3231configuration and initialization
     rtc_app_init();
@@ -266,17 +270,15 @@ void app_main()
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(ethernet_init());
 
+
+
     xTaskCreate(connection_check_task, "connection_check_task", 2048, NULL, 3, NULL);
 
 
     //initialize_sntp();
     //rtc_sync_time_from_sntp();
-//    rtc_set_system_time();
+    //rtc_set_system_time();
 
-    /*
-    ESP_LOGI(TAG, "Initializing filesystem");
-    fs_init();
-    */
     ESP_LOGI(TAG, "Loading REX configuration");
     if (config_load(&g_config) != ESP_OK) {
         ESP_LOGW(TAG, "Failed to load REX config, using defaults");
@@ -296,7 +298,9 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create queue");
         return;
     }
-    /*
+    
+
+
     // Init Reader 1  //BEEP 46  //LED 45
     wiegand_init(48,47, 1, READER1_BUZZER, queue_cards);
 
@@ -305,9 +309,9 @@ void app_main()
     wiegand_init(41,42 , 2, READER2_BUZZER, queue_cards);
 
 
-    ESP_ERROR_CHECK(esp_netif_init());
+    //ESP_ERROR_CHECK(esp_netif_init());
     
-    ESP_ERROR_CHECK(ethernet_init());
+    //ESP_ERROR_CHECK(ethernet_init());
 
 
     //ESP_ERROR_CHECK(example_ethernet_connect());
@@ -316,8 +320,8 @@ void app_main()
 
     
     fetch_and_store_time_in_nvs(NULL);
-    rtc_set_rtc_time();
-    rtc_set_system_time();
+    //rtc_set_rtc_time();
+    //rtc_set_system_time();
 
 
     http_init(queue_cards);
@@ -342,7 +346,6 @@ void app_main()
     //play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
     play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
 
-    */
     xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL);
     
 }
