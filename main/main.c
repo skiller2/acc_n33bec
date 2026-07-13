@@ -87,6 +87,7 @@ tone_t darth_vader[] = {
 };
 
 
+
 #define DOOR1_GPIO GPIO_NUM_21
 #define DOOR2_GPIO GPIO_NUM_17
 
@@ -110,6 +111,41 @@ extern void ws_broadcast(uint64_t, int64_t, int);
 extern esp_err_t  send_json(uint8_t device_id, uint64_t card_id);
 
 static QueueHandle_t queue_cards;
+static QueueHandle_t system_event_queue;
+
+/*
+void system_event_task(void *arg)
+{
+    static const char *TAG = "system_event_task";
+    system_event_t event;
+    while (1)
+    {
+        if (xQueueReceive(system_event_queue, &event, portMAX_DELAY))
+        {
+            ESP_LOGI(TAG, "Received system event: %d", event);
+            // Handle the event based on its type
+            switch (event)
+            {
+            case SYSTEM_EVENT_ETHERNET_CONNECTED:
+                ESP_LOGI(TAG, "Ethernet connected");
+                break;
+            case SYSTEM_EVENT_ETHERNET_DISCONNECTED:
+                ESP_LOGI(TAG, "Ethernet disconnected");
+                break;
+            case SYSTEM_EVENT_RTC_CONNECTED:
+                ESP_LOGI(TAG, "RTC connected");
+                break;
+            case SYSTEM_EVENT_RTC_DISCONNECTED:
+                ESP_LOGI(TAG, "RTC disconnected");
+                break;
+            default:
+                ESP_LOGW(TAG, "Unknown system event: %d", event);
+                break;
+            }
+        }
+    }
+}
+*/
 
 void worker(void *p)
 {
@@ -230,6 +266,7 @@ static void input_task(void *arg)
     }
 }
 
+
 static void connection_check_task(void *arg)
 {
     static const char *TAG = "connection_check";
@@ -238,21 +275,26 @@ static void connection_check_task(void *arg)
     {
         if (!ethernet_is_connected())
         {
-            ESP_LOGW(TAG, "Ethernet not connected, attempting to reconnect...");
+            //xQueueSendToBack(system_event_queue, &(system_event_t){SYSTEM_EVENT_ETHERNET_DISCONNECTED}, 0);   
         }
 
         if (!rtc_is_connected())
-        {
-            ESP_LOGW(TAG, "RTC not connected, attempting to reinitialize...");
-            esp_err_t err = rtc_app_init();
-            if (err != ESP_OK)
             {
-                ESP_LOGE(TAG, "Failed to reinitialize RTC: %s", esp_err_to_name(err));
+                //xQueueSendToBack(system_event_queue, &(system_event_t){SYSTEM_EVENT_RTC_DISCONNECTED}, 0);
+                while (!rtc_is_connected());
+                {
+                    ESP_LOGE(TAG, "RTC disconnected. Waiting...");
+                    vTaskDelay(pdMS_TO_TICKS(3000));
+
+                } 
+
+                ESP_LOGI(TAG, "RTC connected and responding again.");
             }
-        }
-        vTaskDelay(pdMS_TO_TICKS(5000)); // Check every 5 seconds
+        
     }
+    
 }
+
 
 void app_main()
 {
