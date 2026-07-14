@@ -17,6 +17,8 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 
+#include "system_event.h"
+
 
 static const char *TAG = "ethernet_connect";
 static SemaphoreHandle_t s_semph_get_ip_addrs = NULL;
@@ -25,7 +27,7 @@ static SemaphoreHandle_t s_semph_get_ip6_addrs = NULL;
 #endif
 
 
-static esp_netif_t *eth_start(void);
+static esp_netif_t *eth_start(QueueHandle_t system_event_queue);
 static void eth_stop(void);
 
 static bool s_eth_connected = false;
@@ -69,14 +71,22 @@ static void eth_event_handler(void *arg,
                               int32_t event_id,
                               void *event_data)
 {
+
+    QueueHandle_t system_event_queue = (QueueHandle_t)arg;
+    system_event_t system_event;
+
     switch (event_id) {
 
     case ETHERNET_EVENT_CONNECTED:
         ESP_LOGI(TAG, "Ethernet Link Up");
+        system_event.type = SYSTEM_EVENT_ETHERNET_CONNECTED;
+        xQueueSend(system_event_queue, &system_event, portMAX_DELAY);
         break;
 
     case ETHERNET_EVENT_DISCONNECTED:
         ESP_LOGW(TAG, "Ethernet Link Down");
+        system_event.type = SYSTEM_EVENT_ETHERNET_DISCONNECTED;
+        xQueueSend(system_event_queue, &system_event, portMAX_DELAY);
         s_eth_connected = false;
         break;
 
@@ -134,7 +144,7 @@ static uint8_t s_eth_count = 0;
 static esp_eth_netif_glue_handle_t s_eth_glue = NULL;
 static esp_netif_t *s_eth_netif = NULL;
 
-static esp_netif_t *eth_start(void)
+static esp_netif_t *eth_start(QueueHandle_t system_event_queue)
 {
     ESP_ERROR_CHECK(ethernet_init_all(&s_eth_handles, &s_eth_count));
 
@@ -165,7 +175,7 @@ static esp_netif_t *eth_start(void)
         ETH_EVENT,
         ESP_EVENT_ANY_ID,
         &eth_event_handler,
-        NULL));
+        system_event_queue)); //Sending the system_event_queue to the ethernet event handler to send events to the main task
 
     return s_eth_netif;
 }
@@ -189,6 +199,7 @@ static void eth_stop(void)
 }
 
 /* tear down connection, release resources */
+/*
 void example_ethernet_shutdown(void)
 {
     if (s_semph_get_ip_addrs == NULL) {
@@ -237,14 +248,15 @@ esp_err_t example_ethernet_connect(void)
 
     return ESP_OK;
 }
+*/
 
-esp_err_t ethernet_init(void)
+esp_err_t ethernet_init(QueueHandle_t system_event_queue)
 {
     s_eth_connected = false;
 
-    eth_start();
+    eth_start(system_event_queue);
 
-    ESP_LOGI(TAG, "Ethernet initialized");
+    //ESP_LOGI(TAG, "Ethernet initialized");
 
     return ESP_OK;
 }

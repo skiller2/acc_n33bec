@@ -16,6 +16,7 @@
 #include "nvs_flash.h"
 #include "example_common_private.h"
 
+#include "system_event.h"
 
 static const char *TAG = "main";
 
@@ -86,6 +87,12 @@ tone_t darth_vader[] = {
     {440, 1000, 200},
 };
 
+tone_t access_denied[] = {
+    {700, 120, 20},
+    {500, 120, 20},
+    {300, 250, 0},
+};
+
 
 
 #define DOOR1_GPIO GPIO_NUM_21
@@ -113,30 +120,34 @@ extern esp_err_t  send_json(uint8_t device_id, uint64_t card_id);
 static QueueHandle_t queue_cards;
 static QueueHandle_t system_event_queue;
 
-/*
+bool access_control_enabled;
+
+
 void system_event_task(void *arg)
 {
-    static const char *TAG = "system_event_task";
+    static const char *TAG = "system_event_task";   
     system_event_t event;
     while (1)
     {
         if (xQueueReceive(system_event_queue, &event, portMAX_DELAY))
         {
             ESP_LOGI(TAG, "Received system event: %d", event);
-            // Handle the event based on its type
-            switch (event)
+            switch (event.type)
             {
             case SYSTEM_EVENT_ETHERNET_CONNECTED:
                 ESP_LOGI(TAG, "Ethernet connected");
                 break;
             case SYSTEM_EVENT_ETHERNET_DISCONNECTED:
-                ESP_LOGI(TAG, "Ethernet disconnected");
+                ESP_LOGW(TAG, "Ethernet disconnected");
                 break;
             case SYSTEM_EVENT_RTC_CONNECTED:
                 ESP_LOGI(TAG, "RTC connected");
+                rtc_set_system_time();
+                access_control_enabled = true;
                 break;
             case SYSTEM_EVENT_RTC_DISCONNECTED:
-                ESP_LOGI(TAG, "RTC disconnected");
+                ESP_LOGW(TAG, "RTC disconnected");
+                access_control_enabled = false;
                 break;
             default:
                 ESP_LOGW(TAG, "Unknown system event: %d", event);
@@ -145,31 +156,61 @@ void system_event_task(void *arg)
         }
     }
 }
-*/
+
 
 void worker(void *p)
 {
     ESP_LOGI(TAG, "worker started");
     evt_t e; // Card and reader event structure 
+    gpio_num_t reader_relay_gpio;
+    gpio_num_t reader_buzzer_gpio;
+    uint32_t reader_relay_duration_ms;
+    
     while (1)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
         {
             if (e.reader == 1) { // Check which reader triggered the event and activate the corresponding relay and buzzer
-                pulse_output(g_config.reader1_relay_gpio, g_config.reader1_relay_duration_ms);
-                play_melody_async(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+                //pulse_output(g_config.reader1_relay_gpio, g_config.reader1_relay_duration_ms);
+                //play_melody_async(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+                reader_relay_gpio = g_config.reader1_relay_gpio;
+                reader_buzzer_gpio = READER1_BUZZER;
+                reader_relay_duration_ms = g_config.reader1_relay_duration_ms;
             } else {
-                pulse_output(g_config.reader2_relay_gpio, g_config.reader2_relay_duration_ms);
-                play_melody_async(READER2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+                //pulse_output(g_config.reader2_relay_gpio, g_config.reader2_relay_duration_ms);
+                //play_melody_async(READER2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+                reader_relay_gpio = g_config.reader2_relay_gpio;
+                reader_buzzer_gpio = READER2_BUZZER;
+                reader_relay_duration_ms = g_config.reader2_relay_duration_ms;
             }
 
-            send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
+            //send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
 
             ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
-            int ok = card_exists(e.card);
-            int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
-            log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
-            ws_broadcast(e.card, ts, ok);
+            ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
+            if (access_control_enabled)
+            {
+                if (card_exists(e.card) && access_control_enabled)
+                {
+                    ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
+                    pulse_output(reader_relay_gpio, reader_relay_duration_ms);
+                    play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
+                }
+                else
+                {
+                    ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
+                    play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
+                }
+            }
+            else
+            {
+                ESP_LOGW(TAG, "Access control is disabled. Ignoring card=%llu", e.card);
+                play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
+            }
+            
+            //int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
+            //log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
+            //ws_broadcast(e.card, ts, ok);
         }
     }
 }
@@ -270,61 +311,110 @@ static void input_task(void *arg)
 static void connection_check_task(void *arg)
 {
     static const char *TAG = "connection_check";
+    QueueHandle_t event_queue = (QueueHandle_t)arg;
+    system_event_t event;
+
+    // To send the event only when the state changes
+    bool last_connected = false;
+    bool first_run = true;
 
     while (1)
     {
-        if (!ethernet_is_connected())
+        bool connected = rtc_is_connected();
+
+        if (!connected)
         {
-            //xQueueSendToBack(system_event_queue, &(system_event_t){SYSTEM_EVENT_ETHERNET_DISCONNECTED}, 0);   
+            connected = (rtc_app_init() == ESP_OK); // Try to reinitialize the RTC if not connected
         }
 
-        if (!rtc_is_connected())
-            {
-                //xQueueSendToBack(system_event_queue, &(system_event_t){SYSTEM_EVENT_RTC_DISCONNECTED}, 0);
-                while (!rtc_is_connected());
-                {
-                    ESP_LOGE(TAG, "RTC disconnected. Waiting...");
-                    vTaskDelay(pdMS_TO_TICKS(3000));
+        if (connected != last_connected || first_run)
+        {
+            last_connected = connected;
+            first_run = false;
 
-                } 
+            event.type = connected ?
+                SYSTEM_EVENT_RTC_CONNECTED :
+                SYSTEM_EVENT_RTC_DISCONNECTED;
 
-                ESP_LOGI(TAG, "RTC connected and responding again.");
-            }
-        
+            xQueueSendToBack(event_queue, &event, 0);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
-    
 }
 
 
 void app_main()
 {
+
+    access_control_enabled = false;
+    // =====================================
+    // Queues
+
+
+    system_event_queue = xQueueCreate(10, sizeof(system_event_t));
+    if (system_event_queue == NULL )
+    {
+        ESP_LOGE(TAG, "Failed to create system event queue");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Creating card event queue");
+    queue_cards = xQueueCreate(64, sizeof(evt_t));
+    if (!queue_cards)
+    {
+        ESP_LOGE(TAG, "Failed to create card event queue");
+        return;
+    }
+
+
+    // =====================================
+
     ESP_LOGI(TAG, "app_main start");
+
+    // ====================================
+    // Initialize NVS
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(nvs_flash_init());  
     fs_init();
+    // ====================================
 
-    //ESP_ERROR_CHECK();
-    //RTC DS3231configuration and initialization
-    rtc_app_init();
-    rtc_set_system_time();
+    
+    // ====================================
+    //RTC DS3231 configuration and initialization
+    
+    if (rtc_app_init() == ESP_OK) {
+        rtc_set_system_time();
+        access_control_enabled = true;
+    }
+    // ====================================
 
-    ESP_LOGI(TAG, "Initializing Ethernet");
+
+
+    
+
+    //=========================================
+    // Ethernet initialization
+
+    //ESP_LOGI(TAG, "Initializing Ethernet");
     ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(ethernet_init());
+    ESP_ERROR_CHECK(ethernet_init(system_event_queue));
 
+    //=========================================
 
-
-    xTaskCreate(connection_check_task, "connection_check_task", 2048, NULL, 3, NULL);
-
-
+    
     //initialize_sntp();
     //rtc_sync_time_from_sntp();
     //rtc_set_system_time();
 
+    //=========================================
+    // REX and log configuration and initialization
+    
     ESP_LOGI(TAG, "Loading REX configuration");
     if (config_load(&g_config) != ESP_OK) {
         ESP_LOGW(TAG, "Failed to load REX config, using defaults");
     }
+
 
     ESP_LOGI(TAG, "Initializing card store");
     card_store_init();
@@ -332,17 +422,11 @@ void app_main()
     ESP_LOGI(TAG, "Initializing log store");
     log_store_init();
 
-
-    ESP_LOGI(TAG, "Creating event queue");
-    queue_cards = xQueueCreate(64, sizeof(evt_t));
-    if (!queue_cards)
-    {
-        ESP_LOGE(TAG, "Failed to create queue");
-        return;
-    }
-    
+    //=========================================
 
 
+    //=========================================
+    // Readers initialization
     // Init Reader 1  //BEEP 46  //LED 45
     wiegand_init(48,47, 1, READER1_BUZZER, queue_cards);
 
@@ -351,9 +435,7 @@ void app_main()
     wiegand_init(41,42 , 2, READER2_BUZZER, queue_cards);
 
 
-    //ESP_ERROR_CHECK(esp_netif_init());
-    
-    //ESP_ERROR_CHECK(ethernet_init());
+    //=========================================
 
 
     //ESP_ERROR_CHECK(example_ethernet_connect());
@@ -366,19 +448,14 @@ void app_main()
     //rtc_set_system_time();
 
 
+    //=========================================
+    // HTTP and WebSocket server initialization
     http_init(queue_cards);
 
     ESP_LOGI(TAG, "Initializing WebSocket server");
     ws_init();
 
-
-
-    ESP_LOGI(TAG, "Creating worker task");
-    if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
-    {
-        ESP_LOGE(TAG, "Failed to create worker task");
-    }
-
+    //=========================================
 
 
     log_add(0, 0, 0, 0);
@@ -386,8 +463,35 @@ void app_main()
 
 
     //play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
-    play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
+    //play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
 
-    xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL);
+
+    //=========================================
+    // Creating Tasks
+
+    ESP_LOGI(TAG, "Creating connection check task");
+
+    if (xTaskCreate(connection_check_task, "connection_check_task", 2048, system_event_queue, 3, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create connection check task");
+    }
     
+    ESP_LOGI(TAG, "Creating system event task");
+    
+    if (xTaskCreate(system_event_task, "system_event_task", 4096, NULL, 5, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create system event task");
+    }
+
+    ESP_LOGI(TAG, "Creating worker task");
+    if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create worker task");
+    }
+
+    ESP_LOGI(TAG, "Creating input task");
+    if (xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create input task");
+    }
 }

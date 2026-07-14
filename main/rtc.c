@@ -89,43 +89,45 @@ static esp_err_t ds3231_write(uint8_t reg, const uint8_t *data, uint16_t len)
  */
 esp_err_t rtc_app_init(void)
 {
-    if (dev_handle != NULL) {
-        return ESP_OK;
-    }
-
-    ESP_LOGI(TAG, "Init RTC");
+    if (dev_handle == NULL) {
+        ESP_LOGI(TAG, "Init RTC");
     
-    // Configure I2C master bus
-    i2c_master_bus_config_t i2c_mst_config = {
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .i2c_port = I2C_NUM_0,
-        .scl_io_num = I2C_MASTER_SCL_IO,
-        .sda_io_num = I2C_MASTER_SDA_IO,
-        .glitch_ignore_cnt = 7,
-        .flags.enable_internal_pullup = true,
-    };
+        // Configure I2C master bus
+        i2c_master_bus_config_t i2c_mst_config = {
+            .clk_source = I2C_CLK_SRC_DEFAULT,
+            .i2c_port = I2C_NUM_0,
+            .scl_io_num = I2C_MASTER_SCL_IO,
+            .sda_io_num = I2C_MASTER_SDA_IO,
+            .glitch_ignore_cnt = 7,
+            .flags.enable_internal_pullup = true,
+        };
 
-    esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &bus_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create I2C master bus: %s", esp_err_to_name(err));
-        return err;
+        esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &bus_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to create I2C master bus: %s", esp_err_to_name(err));
+            return err;
+        }
+
+        // Configure DS3231 device
+        i2c_device_config_t dev_cfg = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = DS3231_ADDR,
+            .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+        };
+
+        err = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to add DS3231 device to I2C bus: %s", esp_err_to_name(err));
+            i2c_del_master_bus(bus_handle);
+            bus_handle = NULL;
+            return err;
+        }    
     }
 
-    // Configure DS3231 device
-    i2c_device_config_t dev_cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = DS3231_ADDR,
-        .scl_speed_hz = I2C_MASTER_FREQ_HZ,
-    };
-
-    err = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to add DS3231 device to I2C bus: %s", esp_err_to_name(err));
-        i2c_del_master_bus(bus_handle);
-        bus_handle = NULL;
-        return err;
-    }
-
+    esp_err_t err = rtc_is_connected() ? ESP_OK : ESP_ERR_INVALID_STATE;
+    //ESP_LOGE(TAG, "Failed to communicate with DS3231: %s", esp_err_to_name(err));
+    return err;
+    /*
     // Verify DS3231 is responding
     uint8_t reg_val;
     err = ds3231_read(DS3231_REG_SECONDS, &reg_val, 1);
@@ -140,6 +142,7 @@ esp_err_t rtc_app_init(void)
 
     ESP_LOGI(TAG, "RTC DS3231 initialized successfully");
     return ESP_OK;
+    */
 }
 
 /**
@@ -159,7 +162,7 @@ esp_err_t rtc_read_time(time_t *time)
     uint8_t date_time[7];
     esp_err_t err = ds3231_read(DS3231_REG_SECONDS, date_time, 7);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read time from DS3231: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Failed to read time from DS3231 FROM rtc_read_time: %s", esp_err_to_name(err));
         return err;
     }
 
@@ -261,7 +264,7 @@ esp_err_t rtc_write_time(const time_t *time)
 esp_err_t rtc_set_rtc_time(void)
 {
     if (dev_handle == NULL) {
-        ESP_LOGE(TAG, "RTC not initialized");
+        ESP_LOGE(TAG, "RTC not initialized FROM RTC_SET_RTC_TIME");
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -292,7 +295,7 @@ esp_err_t rtc_set_system_time(void)
     time_t rtc_time;
     esp_err_t err = rtc_read_time(&rtc_time);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read time from RTC");
+        ESP_LOGE(TAG, "Failed to read time from RTC FROM rtc_set_system_time: %s", esp_err_to_name(err));
         return err;
     }
 
@@ -315,6 +318,7 @@ esp_err_t rtc_set_system_time(void)
 bool rtc_is_connected(void)
 {
     if (dev_handle == NULL) {
+        ESP_LOGE(TAG, "RTC not CONNECTED FROM rtc_is_connected");
         return false;
     }
 
