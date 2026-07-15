@@ -52,7 +52,6 @@ void example_ppp_start(void);
 void example_ppp_shutdown(void);
 
 esp_err_t ethernet_init(QueueHandle_t system_event_queue);
-bool ethernet_is_connected(void);
 
 #ifdef __cplusplus
 }

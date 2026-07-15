@@ -135,14 +135,20 @@ void system_event_task(void *arg)
             switch (event.type)
             {
             case SYSTEM_EVENT_ETHERNET_CONNECTED:
-                ESP_LOGI(TAG, "Ethernet connected");
+                ESP_LOGI(TAG, "Ethernet connected"); //Indicates when the Ethernet cable is connected and the link is up
                 break;
             case SYSTEM_EVENT_ETHERNET_DISCONNECTED:
                 ESP_LOGW(TAG, "Ethernet disconnected");
                 break;
+            case SYSTEM_EVENT_ETHERNET_GOT_IP:
+                ESP_LOGI(TAG, "Ethernet got IP");
+                fetch_and_store_time_in_nvs(NULL); // Fetch and store time in NVS when Ethernet gets an IP
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                rtc_set_rtc_time();
+                break;
             case SYSTEM_EVENT_RTC_CONNECTED:
                 ESP_LOGI(TAG, "RTC connected");
-                rtc_set_system_time();
+                rtc_set_rtc_time();
                 access_control_enabled = true;
                 break;
             case SYSTEM_EVENT_RTC_DISCONNECTED:
@@ -190,16 +196,22 @@ void worker(void *p)
             ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
             if (access_control_enabled)
             {
-                if (card_exists(e.card) && access_control_enabled)
+                int ok = card_exists(e.card) ? 1 : 0;
+                if (ok)
                 {
                     ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
                     pulse_output(reader_relay_gpio, reader_relay_duration_ms);
                     play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
+                    int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
+                    log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
                 }
                 else
                 {
                     ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
+                    time_t now;
+                    rtc_read_time(&now);
                     play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
+                    
                 }
             }
             else
@@ -207,7 +219,10 @@ void worker(void *p)
                 ESP_LOGW(TAG, "Access control is disabled. Ignoring card=%llu", e.card);
                 play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
             }
-            
+            //send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
+
+            //ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
+            //int ok = card_exists(e.card);
             //int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
             //log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
             //ws_broadcast(e.card, ts, ok);
@@ -310,7 +325,7 @@ static void input_task(void *arg)
 
 static void connection_check_task(void *arg)
 {
-    static const char *TAG = "connection_check";
+    //static const char *TAG = "connection_check";
     QueueHandle_t event_queue = (QueueHandle_t)arg;
     system_event_t event;
 
@@ -443,7 +458,7 @@ void app_main()
 
 
     
-    fetch_and_store_time_in_nvs(NULL);
+    //fetch_and_store_time_in_nvs(NULL);
     //rtc_set_rtc_time();
     //rtc_set_system_time();
 
@@ -464,6 +479,7 @@ void app_main()
 
     //play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
     //play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
+
 
 
     //=========================================
@@ -494,4 +510,8 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create input task");
     }
+
+    time_t now;
+    time(&now);
+    ESP_LOGI(TAG, "time = %lld", (long long)now);
 }

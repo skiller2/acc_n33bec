@@ -16,21 +16,25 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-
 #include "system_event.h"
 
 
 static const char *TAG = "ethernet_connect";
-static SemaphoreHandle_t s_semph_get_ip_addrs = NULL;
-#if CONFIG_EXAMPLE_CONNECT_IPV6
-static SemaphoreHandle_t s_semph_get_ip6_addrs = NULL;
-#endif
+//static SemaphoreHandle_t s_semph_get_ip_addrs = NULL;
+//#if CONFIG_EXAMPLE_CONNECT_IPV6
+//static SemaphoreHandle_t s_semph_get_ip6_addrs = NULL;
+//#endif
 
 
 static esp_netif_t *eth_start(QueueHandle_t system_event_queue);
-static void eth_stop(void);
+static void eth_on_got_ipv6(void *arg, esp_event_base_t event_base,int32_t event_id, void *event_data);
+static void on_eth_event(void *esp_netif, esp_event_base_t event_base,int32_t event_id, void *event_data);
+//static void eth_stop(void);
 
-static bool s_eth_connected = false;
+static esp_eth_handle_t *s_eth_handles = NULL;
+static uint8_t s_eth_count = 0;
+static esp_eth_netif_glue_handle_t s_eth_glue = NULL;
+static esp_netif_t *s_eth_netif = NULL;
 
 
 /** Event handler for Ethernet events */
@@ -46,25 +50,19 @@ static void eth_on_got_ip(void *arg,
         return;
     }
 
-    s_eth_connected = true;
-
     ESP_LOGI(TAG,
              "Got IPv4 event: Interface \"%s\" address: " IPSTR,
              esp_netif_get_desc(event->esp_netif),
              IP2STR(&event->ip_info.ip));
+
+    QueueHandle_t system_event_queue = (QueueHandle_t)arg;
+    system_event_t system_event;
+    system_event.type = SYSTEM_EVENT_ETHERNET_GOT_IP;
+    xQueueSend(system_event_queue, &system_event, portMAX_DELAY);
+    
+
 }
-/*
-static void eth_on_got_ip(void *arg, esp_event_base_t event_base,
-                      int32_t event_id, void *event_data)
-{
-    ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-    if (!example_is_our_netif(EXAMPLE_NETIF_DESC_ETH, event->esp_netif)) {
-        return;
-    }
-    ESP_LOGI(TAG, "Got IPv4 event: Interface \"%s\" address: " IPSTR, esp_netif_get_desc(event->esp_netif), IP2STR(&event->ip_info.ip));
-    xSemaphoreGive(s_semph_get_ip_addrs);
-}
-*/
+
 
 static void eth_event_handler(void *arg,
                               esp_event_base_t event_base,
@@ -87,7 +85,6 @@ static void eth_event_handler(void *arg,
         ESP_LOGW(TAG, "Ethernet Link Down");
         system_event.type = SYSTEM_EVENT_ETHERNET_DISCONNECTED;
         xQueueSend(system_event_queue, &system_event, portMAX_DELAY);
-        s_eth_connected = false;
         break;
 
     case ETHERNET_EVENT_START:
@@ -96,7 +93,6 @@ static void eth_event_handler(void *arg,
 
     case ETHERNET_EVENT_STOP:
         ESP_LOGI(TAG, "Ethernet Stopped");
-        s_eth_connected = false;
         break;
 
     default:
@@ -104,6 +100,58 @@ static void eth_event_handler(void *arg,
     }
 }
 
+
+static esp_netif_t *eth_start(QueueHandle_t system_event_queue)
+{
+    ESP_ERROR_CHECK(ethernet_init_all(&s_eth_handles, &s_eth_count));
+
+    esp_netif_inherent_config_t esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_ETH();
+    // Warning: the interface desc is used in tests to capture actual connection details (IP, gw, mask)
+    esp_netif_config.if_desc = EXAMPLE_NETIF_DESC_ETH;
+    esp_netif_config.route_prio = 64;
+    esp_netif_config_t netif_config = {
+        .base = &esp_netif_config,
+        .stack = ESP_NETIF_NETSTACK_DEFAULT_ETH
+    };
+    s_eth_netif = esp_netif_new(&netif_config);
+
+    s_eth_glue = esp_eth_new_netif_glue(s_eth_handles[0]);
+    esp_netif_attach(s_eth_netif, s_eth_glue);
+
+    ESP_ERROR_CHECK(esp_netif_set_default_netif(s_eth_netif));
+
+    // Register user defined event handlers
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &eth_on_got_ip, system_event_queue));
+#ifdef CONFIG_EXAMPLE_CONNECT_IPV6
+    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ETHERNET_EVENT_CONNECTED, &on_eth_event, s_eth_netif));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &eth_on_got_ipv6, NULL));
+#endif
+
+    ESP_ERROR_CHECK(
+    esp_event_handler_register(
+        ETH_EVENT,
+        ESP_EVENT_ANY_ID,
+        &eth_event_handler,
+        system_event_queue)); //Sending the system_event_queue to the ethernet event handler to send events to the main task
+
+    ESP_ERROR_CHECK(esp_eth_start(s_eth_handles[0]));
+
+    
+
+    return s_eth_netif;
+}
+
+
+esp_err_t ethernet_init(QueueHandle_t system_event_queue)
+{
+    eth_start(system_event_queue);
+
+    return ESP_OK;
+}
+
+
+// ===============================================
+// IPv6
 
 #if CONFIG_EXAMPLE_CONNECT_IPV6
 
@@ -139,47 +187,9 @@ static void on_eth_event(void *esp_netif, esp_event_base_t event_base,
 
 #endif // CONFIG_EXAMPLE_CONNECT_IPV6
 
-static esp_eth_handle_t *s_eth_handles = NULL;
-static uint8_t s_eth_count = 0;
-static esp_eth_netif_glue_handle_t s_eth_glue = NULL;
-static esp_netif_t *s_eth_netif = NULL;
 
-static esp_netif_t *eth_start(QueueHandle_t system_event_queue)
-{
-    ESP_ERROR_CHECK(ethernet_init_all(&s_eth_handles, &s_eth_count));
 
-    esp_netif_inherent_config_t esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_ETH();
-    // Warning: the interface desc is used in tests to capture actual connection details (IP, gw, mask)
-    esp_netif_config.if_desc = EXAMPLE_NETIF_DESC_ETH;
-    esp_netif_config.route_prio = 64;
-    esp_netif_config_t netif_config = {
-        .base = &esp_netif_config,
-        .stack = ESP_NETIF_NETSTACK_DEFAULT_ETH
-    };
-    s_eth_netif = esp_netif_new(&netif_config);
-
-    s_eth_glue = esp_eth_new_netif_glue(s_eth_handles[0]);
-    esp_netif_attach(s_eth_netif, s_eth_glue);
-
-    // Register user defined event handlers
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &eth_on_got_ip, NULL));
-#ifdef CONFIG_EXAMPLE_CONNECT_IPV6
-    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ETHERNET_EVENT_CONNECTED, &on_eth_event, s_eth_netif));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &eth_on_got_ipv6, NULL));
-#endif
-
-    ESP_ERROR_CHECK(esp_eth_start(s_eth_handles[0]));
-
-    ESP_ERROR_CHECK(
-    esp_event_handler_register(
-        ETH_EVENT,
-        ESP_EVENT_ANY_ID,
-        &eth_event_handler,
-        system_event_queue)); //Sending the system_event_queue to the ethernet event handler to send events to the main task
-
-    return s_eth_netif;
-}
-
+/*
 static void eth_stop(void)
 {
     ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, IP_EVENT_ETH_GOT_IP, &eth_on_got_ip));
@@ -197,7 +207,7 @@ static void eth_stop(void)
     s_eth_handles = NULL;
     s_eth_count = 0;
 }
-
+*/
 /* tear down connection, release resources */
 /*
 void example_ethernet_shutdown(void)
@@ -250,18 +260,15 @@ esp_err_t example_ethernet_connect(void)
 }
 */
 
-esp_err_t ethernet_init(QueueHandle_t system_event_queue)
+/*
+static void eth_on_got_ip(void *arg, esp_event_base_t event_base,
+                      int32_t event_id, void *event_data)
 {
-    s_eth_connected = false;
-
-    eth_start(system_event_queue);
-
-    //ESP_LOGI(TAG, "Ethernet initialized");
-
-    return ESP_OK;
+    ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+    if (!example_is_our_netif(EXAMPLE_NETIF_DESC_ETH, event->esp_netif)) {
+        return;
+    }
+    ESP_LOGI(TAG, "Got IPv4 event: Interface \"%s\" address: " IPSTR, esp_netif_get_desc(event->esp_netif), IP2STR(&event->ip_info.ip));
+    xSemaphoreGive(s_semph_get_ip_addrs);
 }
-
-bool ethernet_is_connected(void)
-{
-    return s_eth_connected;
-}
+*/
