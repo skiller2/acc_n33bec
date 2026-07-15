@@ -13,6 +13,8 @@
 #include "freertos/task.h"
 #include "esp_netif_sntp.h"
 #include "rtc.h"
+#include "time_sync.h"
+
 
 static const char *TAG = "rtc_ds3231";
 
@@ -277,6 +279,8 @@ esp_err_t rtc_set_rtc_time(void)
         ESP_LOGE(TAG, "Failed to write synced time to RTC");
         return err;
     }
+
+    rtc_set_initialized();
 
     ESP_LOGI(TAG, "Successfully synced time from SYSTEM to RTC");
     return ESP_OK;

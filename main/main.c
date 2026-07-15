@@ -16,8 +16,6 @@
 #include "nvs_flash.h"
 #include "example_common_private.h"
 
-#include "system_event.h"
-
 static const char *TAG = "main";
 
     tone_t melody_ok[] = {
@@ -118,50 +116,6 @@ extern void ws_broadcast(uint64_t, int64_t, int);
 extern esp_err_t  send_json(uint8_t device_id, uint64_t card_id);
 
 static QueueHandle_t queue_cards;
-static QueueHandle_t system_event_queue;
-
-bool access_control_enabled;
-
-
-void system_event_task(void *arg)
-{
-    static const char *TAG = "system_event_task";   
-    system_event_t event;
-    while (1)
-    {
-        if (xQueueReceive(system_event_queue, &event, portMAX_DELAY))
-        {
-            ESP_LOGI(TAG, "Received system event: %d", event);
-            switch (event.type)
-            {
-            case SYSTEM_EVENT_ETHERNET_CONNECTED:
-                ESP_LOGI(TAG, "Ethernet connected"); //Indicates when the Ethernet cable is connected and the link is up
-                break;
-            case SYSTEM_EVENT_ETHERNET_DISCONNECTED:
-                ESP_LOGW(TAG, "Ethernet disconnected");
-                break;
-            case SYSTEM_EVENT_ETHERNET_GOT_IP:
-                ESP_LOGI(TAG, "Ethernet got IP");
-                fetch_and_store_time_in_nvs(NULL); // Fetch and store time in NVS when Ethernet gets an IP
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                rtc_set_rtc_time();
-                break;
-            case SYSTEM_EVENT_RTC_CONNECTED:
-                ESP_LOGI(TAG, "RTC connected");
-                rtc_set_rtc_time();
-                access_control_enabled = true;
-                break;
-            case SYSTEM_EVENT_RTC_DISCONNECTED:
-                ESP_LOGW(TAG, "RTC disconnected");
-                access_control_enabled = false;
-                break;
-            default:
-                ESP_LOGW(TAG, "Unknown system event: %d", event);
-                break;
-            }
-        }
-    }
-}
 
 
 void worker(void *p)
@@ -183,42 +137,48 @@ void worker(void *p)
                 reader_buzzer_gpio = READER1_BUZZER;
                 reader_relay_duration_ms = g_config.reader1_relay_duration_ms;
             } else {
-                //pulse_output(g_config.reader2_relay_gpio, g_config.reader2_relay_duration_ms);
-                //play_melody_async(READER2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
                 reader_relay_gpio = g_config.reader2_relay_gpio;
                 reader_buzzer_gpio = READER2_BUZZER;
                 reader_relay_duration_ms = g_config.reader2_relay_duration_ms;
+                //pulse_output(g_config.reader2_relay_gpio, g_config.reader2_relay_duration_ms);
+                //play_melody_async(READER2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
             }
 
-            //send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
+            send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
 
             ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
             ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
-            if (access_control_enabled)
+            int ok = card_exists(e.card) ? 1 : 0;
+            if (ok)
             {
-                int ok = card_exists(e.card) ? 1 : 0;
-                if (ok)
-                {
-                    ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
-                    pulse_output(reader_relay_gpio, reader_relay_duration_ms);
-                    play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
-                    int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
-                    log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
-                }
-                else
-                {
-                    ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
-                    time_t now;
-                    rtc_read_time(&now);
-                    play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
-                    
-                }
+                ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
+                pulse_output(reader_relay_gpio, reader_relay_duration_ms);
+                play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
+                int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
+                log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
             }
             else
             {
-                ESP_LOGW(TAG, "Access control is disabled. Ignoring card=%llu", e.card);
+                ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
                 play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
+                
             }
+            time_t now;
+            time(&now);
+
+            struct tm tm_info;
+            gmtime_r(&now, &tm_info);
+
+            ESP_LOGI(TAG,
+                    "Card %llu detected at %04d-%02d-%02d %02d:%02d:%02d UTC (reader %d)",
+                    e.card,
+                    tm_info.tm_year + 1900,
+                    tm_info.tm_mon + 1,
+                    tm_info.tm_mday,
+                    tm_info.tm_hour,
+                    tm_info.tm_min,
+                    tm_info.tm_sec,
+                    e.reader);
             //send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
 
             //ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
@@ -322,57 +282,53 @@ static void input_task(void *arg)
     }
 }
 
-
-static void connection_check_task(void *arg)
+void wait_for_valid_time(void)
 {
-    //static const char *TAG = "connection_check";
-    QueueHandle_t event_queue = (QueueHandle_t)arg;
-    system_event_t event;
-
-    // To send the event only when the state changes
-    bool last_connected = false;
-    bool first_run = true;
-
     while (1)
     {
-        bool connected = rtc_is_connected();
-
-        if (!connected)
+        if (rtc_app_init() != ESP_OK && rtc_is_initialized() == false)
         {
-            connected = (rtc_app_init() == ESP_OK); // Try to reinitialize the RTC if not connected
+            ESP_LOGE(TAG, "RTC missing");
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            continue;
         }
 
-        if (connected != last_connected || first_run)
+        // Si el RTC ya fue sincronizado alguna vez, usarlo inmediatamente
+        if (rtc_is_initialized())
         {
-            last_connected = connected;
-            first_run = false;
+            if (rtc_set_system_time() == ESP_OK)
+            {
+                ESP_LOGI(TAG, "Time restored from RTC");
+                return;
+            }
 
-            event.type = connected ?
-                SYSTEM_EVENT_RTC_CONNECTED :
-                SYSTEM_EVENT_RTC_DISCONNECTED;
-
-            xQueueSendToBack(event_queue, &event, 0);
+            ESP_LOGW(TAG, "RTC invalid");
+        }
+        else
+        {
+            ESP_LOGW(TAG, "RTC has never been initialized");
         }
 
+        // Primera inicialización obligatoria mediante SNTP
+        if (fetch_and_store_time_in_nvs(NULL) == ESP_OK)
+        {
+            if (rtc_set_rtc_time() == ESP_OK)
+            {
+                ESP_LOGI(TAG, "RTC initialized from SNTP");
+                return;
+            }
+        }
+
+        ESP_LOGW(TAG, "Waiting for SNTP...");
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 
-
 void app_main()
 {
-
-    access_control_enabled = false;
+    
     // =====================================
-    // Queues
-
-
-    system_event_queue = xQueueCreate(10, sizeof(system_event_t));
-    if (system_event_queue == NULL )
-    {
-        ESP_LOGE(TAG, "Failed to create system event queue");
-        return;
-    }
+    // Queue
 
     ESP_LOGI(TAG, "Creating card event queue");
     queue_cards = xQueueCreate(64, sizeof(evt_t));
@@ -398,10 +354,6 @@ void app_main()
     // ====================================
     //RTC DS3231 configuration and initialization
     
-    if (rtc_app_init() == ESP_OK) {
-        rtc_set_system_time();
-        access_control_enabled = true;
-    }
     // ====================================
 
 
@@ -413,8 +365,10 @@ void app_main()
 
     //ESP_LOGI(TAG, "Initializing Ethernet");
     ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(ethernet_init(system_event_queue));
+    ESP_ERROR_CHECK(ethernet_init());
 
+
+    wait_for_valid_time();  
     //=========================================
 
     
@@ -485,20 +439,6 @@ void app_main()
     //=========================================
     // Creating Tasks
 
-    ESP_LOGI(TAG, "Creating connection check task");
-
-    if (xTaskCreate(connection_check_task, "connection_check_task", 2048, system_event_queue, 3, NULL) != pdPASS)
-    {
-        ESP_LOGE(TAG, "Failed to create connection check task");
-    }
-    
-    ESP_LOGI(TAG, "Creating system event task");
-    
-    if (xTaskCreate(system_event_task, "system_event_task", 4096, NULL, 5, NULL) != pdPASS)
-    {
-        ESP_LOGE(TAG, "Failed to create system event task");
-    }
-
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
     {
@@ -510,8 +450,4 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create input task");
     }
-
-    time_t now;
-    time(&now);
-    ESP_LOGI(TAG, "time = %lld", (long long)now);
 }

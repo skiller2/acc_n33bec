@@ -16,7 +16,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "system_event.h"
 
 
 static const char *TAG = "ethernet_connect";
@@ -26,7 +25,7 @@ static const char *TAG = "ethernet_connect";
 //#endif
 
 
-static esp_netif_t *eth_start(QueueHandle_t system_event_queue);
+static esp_netif_t *eth_start(void);
 static void eth_on_got_ipv6(void *arg, esp_event_base_t event_base,int32_t event_id, void *event_data);
 static void on_eth_event(void *esp_netif, esp_event_base_t event_base,int32_t event_id, void *event_data);
 //static void eth_stop(void);
@@ -54,13 +53,6 @@ static void eth_on_got_ip(void *arg,
              "Got IPv4 event: Interface \"%s\" address: " IPSTR,
              esp_netif_get_desc(event->esp_netif),
              IP2STR(&event->ip_info.ip));
-
-    QueueHandle_t system_event_queue = (QueueHandle_t)arg;
-    system_event_t system_event;
-    system_event.type = SYSTEM_EVENT_ETHERNET_GOT_IP;
-    xQueueSend(system_event_queue, &system_event, portMAX_DELAY);
-    
-
 }
 
 
@@ -69,22 +61,14 @@ static void eth_event_handler(void *arg,
                               int32_t event_id,
                               void *event_data)
 {
-
-    QueueHandle_t system_event_queue = (QueueHandle_t)arg;
-    system_event_t system_event;
-
     switch (event_id) {
 
     case ETHERNET_EVENT_CONNECTED:
         ESP_LOGI(TAG, "Ethernet Link Up");
-        system_event.type = SYSTEM_EVENT_ETHERNET_CONNECTED;
-        xQueueSend(system_event_queue, &system_event, portMAX_DELAY);
         break;
 
     case ETHERNET_EVENT_DISCONNECTED:
         ESP_LOGW(TAG, "Ethernet Link Down");
-        system_event.type = SYSTEM_EVENT_ETHERNET_DISCONNECTED;
-        xQueueSend(system_event_queue, &system_event, portMAX_DELAY);
         break;
 
     case ETHERNET_EVENT_START:
@@ -101,7 +85,7 @@ static void eth_event_handler(void *arg,
 }
 
 
-static esp_netif_t *eth_start(QueueHandle_t system_event_queue)
+static esp_netif_t *eth_start(void)
 {
     ESP_ERROR_CHECK(ethernet_init_all(&s_eth_handles, &s_eth_count));
 
@@ -121,7 +105,7 @@ static esp_netif_t *eth_start(QueueHandle_t system_event_queue)
     ESP_ERROR_CHECK(esp_netif_set_default_netif(s_eth_netif));
 
     // Register user defined event handlers
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &eth_on_got_ip, system_event_queue));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &eth_on_got_ip, NULL));
 #ifdef CONFIG_EXAMPLE_CONNECT_IPV6
     ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ETHERNET_EVENT_CONNECTED, &on_eth_event, s_eth_netif));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &eth_on_got_ipv6, NULL));
@@ -132,7 +116,7 @@ static esp_netif_t *eth_start(QueueHandle_t system_event_queue)
         ETH_EVENT,
         ESP_EVENT_ANY_ID,
         &eth_event_handler,
-        system_event_queue)); //Sending the system_event_queue to the ethernet event handler to send events to the main task
+        NULL));
 
     ESP_ERROR_CHECK(esp_eth_start(s_eth_handles[0]));
 
@@ -142,9 +126,9 @@ static esp_netif_t *eth_start(QueueHandle_t system_event_queue)
 }
 
 
-esp_err_t ethernet_init(QueueHandle_t system_event_queue)
+esp_err_t ethernet_init(void)
 {
-    eth_start(system_event_queue);
+    eth_start();
 
     return ESP_OK;
 }

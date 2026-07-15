@@ -30,6 +30,9 @@ static const char *TAG = "time_sync";
 
 #define STORAGE_NAMESPACE "storage"
 
+#define KEY_TIMESTAMP "timestamp"
+#define KEY_RTC_INIT  "rtc_init"
+
 void initialize_sntp(void)
 {
     ESP_LOGI(TAG, "Initializing SNTP");
@@ -139,5 +142,38 @@ exit:
     if (my_handle != 0) {
         nvs_close(my_handle);
     }
+    return err;
+}
+
+bool rtc_is_initialized(void)
+{
+    nvs_handle_t handle;
+    uint8_t value = 0;
+
+    if (nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &handle) != ESP_OK)
+        return false;
+
+    esp_err_t err = nvs_get_u8(handle, KEY_RTC_INIT, &value);
+
+    nvs_close(handle);
+
+    return (err == ESP_OK && value == 1);
+}
+
+esp_err_t rtc_set_initialized(void)
+{
+    nvs_handle_t handle;
+
+    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK)
+        return err;
+
+    err = nvs_set_u8(handle, KEY_RTC_INIT, 1);
+
+    if (err == ESP_OK)
+        err = nvs_commit(handle);
+
+    nvs_close(handle);
+
     return err;
 }
