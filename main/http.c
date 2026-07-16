@@ -116,7 +116,7 @@ esp_err_t  send_json(uint8_t device_id, uint64_t card_id)
 
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
-    char filepath[1024];
+    char filepath[516];
 
     if (strcmp(req->uri, "/") == 0)
     {
@@ -137,7 +137,7 @@ static esp_err_t static_file_handler(httpd_req_t *req)
 
     httpd_resp_set_type(req, get_content_type(filepath));
 
-    char buf[512];
+    char buf[256];
     size_t r;
     while ((r = fread(buf, 1, sizeof(buf), f)))
     {
@@ -375,6 +375,8 @@ void http_init(QueueHandle_t qh)
     c.max_open_sockets = 3;
     c.max_uri_handlers = 10;
     c.lru_purge_enable = true;
+
+    c.stack_size = 8192;
 
     ESP_LOGI(TAG, "Starting server on port: '%d'", c.server_port);
     if (httpd_start(&s, &c) == ESP_OK)

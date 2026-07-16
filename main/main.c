@@ -14,7 +14,7 @@
 #include "beep.h"
 #include "config.h"
 #include "nvs_flash.h"
-#include "example_common_private.h"
+#include "example_common_private.h" 
 
 static const char *TAG = "main";
 
@@ -144,28 +144,26 @@ void worker(void *p)
                 //play_melody_async(READER2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
             }
 
-            send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
+            
 
-            ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
-            ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
+            //ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
+            //ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
             int ok = card_exists(e.card) ? 1 : 0;
             if (ok)
             {
-                ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
+                //ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
                 pulse_output(reader_relay_gpio, reader_relay_duration_ms);
                 play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
-                int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
-                log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
             }
             else
             {
-                ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
+                //ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
                 play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
                 
             }
             time_t now;
             time(&now);
-
+            /*
             struct tm tm_info;
             gmtime_r(&now, &tm_info);
 
@@ -178,18 +176,143 @@ void worker(void *p)
                     tm_info.tm_hour,
                     tm_info.tm_min,
                     tm_info.tm_sec,
-                    e.reader);
-            //send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
-
-            //ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
+                    e.reader);*/
+            send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
             //int ok = card_exists(e.card);
             //int64_t ts = esp_timer_get_time(); // Get the current timestamp in microseconds since boot
-            //log_add(e.card, ts, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
-            //ws_broadcast(e.card, ts, ok);
+            log_add(e.card, now, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
+            ws_broadcast(e.card, now, ok);
         }
     }
 }
 
+static void input_task(void *arg)
+{
+    static const char *TAG = "inputs";
+
+    gpio_config_t io = {
+        .pin_bit_mask =
+            (1ULL << DOOR1_GPIO) |
+            (1ULL << DOOR2_GPIO) |
+            (1ULL << REX1_GPIO) |
+            (1ULL << REX2_GPIO)|
+            (1ULL << BAT_GPIO)|
+            (1ULL << CAR_GPIO)|
+            (1ULL << ALI_GPIO),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE, // typical for switches
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE};
+
+    gpio_config(&io);
+
+    int last_door1 = -1;
+    int last_door2 = -1;
+    int last_rex1 = -1;
+    int last_rex2 = -1;
+    int last_bat=-1;
+    int last_car=-1;
+    int last_ali=-1;
+
+    while (1)
+    {
+        int door1 = gpio_get_level(DOOR1_GPIO);
+        int door2 = gpio_get_level(DOOR2_GPIO);
+        int rex1 = gpio_get_level(REX1_GPIO);
+        int rex2 = gpio_get_level(REX2_GPIO);
+        int bat = gpio_get_level(BAT_GPIO);
+        int car = gpio_get_level(CAR_GPIO);
+        int ali = gpio_get_level(ALI_GPIO);
+
+        time_t now;
+        time(&now);
+
+        vTaskDelay(pdMS_TO_TICKS(500));
+
+        
+        // DOOR 1 TRACKING (Virtual IDs: 999101 / 999102)
+        if (door1 != last_door1)
+        {
+            uint64_t virtual_card = door1 ? 999101 : 999102; // 101 = OPEN, 102 = CLOSED
+            ESP_LOGI(TAG, "Door1: %s", door1 ? "OPEN" : "CLOSED");
+            
+            log_add(virtual_card, now, 1, 1);   
+            send_json(1, virtual_card);         
+            
+            last_door1 = door1;
+        }
+
+        
+        // DOOR 2 TRACKING (Virtual IDs: 999201 / 999202)
+        if (door2 != last_door2)
+        {
+            uint64_t virtual_card = door2 ? 999201 : 999202; // 201 = OPEN, 202 = CLOSED
+            ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
+            
+            log_add(virtual_card, now, 2, 1);   
+            send_json(2, virtual_card);         
+            
+            last_door2 = door2;
+        }
+
+        
+        // AC MAIN POWER TRACKING (Virtual IDs: 999301 / 999302)
+        if (ali != last_ali)
+        {
+            uint64_t virtual_card = ali ? 999301 : 999302; // 301 = AC FAIL, 302 = AC OK
+            ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
+            
+            //log_add(virtual_card, now, 0, ali ? 0 : 1); // Status = 0 if power is lost
+            //send_json(0, virtual_card);                 // Dispatch JSON payload to server .235
+            
+            last_ali = ali;
+        }
+
+        if (bat != last_bat)
+        {
+            ESP_LOGI(TAG, "Bateria: %s (%d)", bat ? "FALLA" : "OK",bat);
+            last_bat = bat;
+        }
+
+        if (car != last_car)
+        {
+            ESP_LOGI(TAG, "Carga: %s (%d)", car ? "OK" : "FALLA",car);
+            last_car = car;
+        }
+
+        
+        // REQUEST TO EXIT 1 (REX1) & RELAY 1 (Virtual ID: 999100)
+        if (rex1 != last_rex1)
+        {
+            if (!rex1) {  // Active low edge trigger
+                pulse_output(g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
+                ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_gpio);
+                
+                log_add(999100, now, 1, 1);     // Local log entry
+                send_json(1, 999100);           // Upload to server .235
+            }
+            last_rex1 = rex1;
+        }
+
+        // REQUEST TO EXIT 2 (REX2) & RELAY 2 (Virtual ID: 999200)
+        if (rex2 != last_rex2)
+        {
+            if (!rex2) {  // only trigger on transition to ACTIVE (0)
+                pulse_output(g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
+                ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_gpio);
+                
+                log_add(999200, now, 2, 1);     
+                send_json(2, 999200);         
+            }
+            last_rex2 = rex2;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms)); 
+    }
+}
+
+
+/*
 static void input_task(void *arg)
 {
     static const char *TAG = "inputs";
@@ -281,35 +404,41 @@ static void input_task(void *arg)
         vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms)); // debounce + CPU friendly
     }
 }
-
+*/
 void wait_for_valid_time(void)
 {
     while (1)
     {
-        if (rtc_app_init() != ESP_OK && rtc_is_initialized() == false)
+        if (rtc_app_init() != ESP_OK)
         {
             ESP_LOGE(TAG, "RTC missing");
             vTaskDelay(pdMS_TO_TICKS(5000));
             continue;
         }
 
-        // Si el RTC ya fue sincronizado alguna vez, usarlo inmediatamente
-        if (rtc_is_initialized())
+        time_t rtc_now;
+        if (rtc_read_time(&rtc_now) == ESP_OK)
         {
-            if (rtc_set_system_time() == ESP_OK)
+            struct tm *tm_info = gmtime(&rtc_now);
+            
+            if (tm_info != NULL && (tm_info->tm_year + 1900) >= 2026)
             {
-                ESP_LOGI(TAG, "Time restored from RTC");
-                return;
+                if (rtc_set_system_time() == ESP_OK)
+                {
+                    ESP_LOGI(TAG, "Time restored successfully from RTC");
+                    return;
+                }
             }
-
-            ESP_LOGW(TAG, "RTC invalid");
+            else
+            {
+                ESP_LOGE(TAG, "Invalid date");
+            }
         }
         else
         {
-            ESP_LOGW(TAG, "RTC has never been initialized");
+            ESP_LOGE(TAG, "Failed to read DS3231 registers");
         }
 
-        // Primera inicialización obligatoria mediante SNTP
         if (fetch_and_store_time_in_nvs(NULL) == ESP_OK)
         {
             if (rtc_set_rtc_time() == ESP_OK)
@@ -321,6 +450,34 @@ void wait_for_valid_time(void)
 
         ESP_LOGW(TAG, "Waiting for SNTP...");
         vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+
+
+void time_sync_task(void *arg)
+{
+
+    while (1)
+    {
+        vTaskDelay(pdMS_TO_TICKS(RTC_TIMESTAMP_UPDATE));
+        ESP_LOGI(TAG, "Synchronizing time with SNTP...");
+        if (fetch_and_store_time_in_nvs(NULL) == ESP_OK)
+        {
+            if (rtc_set_rtc_time() == ESP_OK)
+            {
+                ESP_LOGI(TAG, "RTC updated from SNTP");
+            }
+            else
+            {
+                ESP_LOGE(TAG, "Failed to update RTC from SNTP");
+            }
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to fetch time from SNTP");
+        }
+
+        
     }
 }
 
@@ -357,7 +514,7 @@ void app_main()
     // ====================================
 
 
-
+    
     
 
     //=========================================
@@ -371,6 +528,7 @@ void app_main()
     wait_for_valid_time();  
     //=========================================
 
+    
     
     //initialize_sntp();
     //rtc_sync_time_from_sntp();
@@ -439,6 +597,12 @@ void app_main()
     //=========================================
     // Creating Tasks
 
+    ESP_LOGI(TAG,"Creating update time task");
+    if (xTaskCreate(time_sync_task, "time_sync_task", 4096, NULL, 3, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create time_sync_task");
+    }
+
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
     {
@@ -446,7 +610,7 @@ void app_main()
     }
 
     ESP_LOGI(TAG, "Creating input task");
-    if (xTaskCreate(input_task, "input_task", 2048, NULL, 5, NULL) != pdPASS)
+    if (xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create input task");
     }

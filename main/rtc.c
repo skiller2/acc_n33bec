@@ -263,26 +263,19 @@ esp_err_t rtc_write_time(const time_t *time)
 /**
  * @brief write system time to RTC
  */
-esp_err_t rtc_set_rtc_time(void)
-{
+esp_err_t rtc_set_rtc_time(void) {
     if (dev_handle == NULL) {
         ESP_LOGE(TAG, "RTC not initialized FROM RTC_SET_RTC_TIME");
         return ESP_ERR_INVALID_STATE;
     }
-
-    // Get current system time
     time_t now = time(NULL);
     
-    // Write to RTC
     esp_err_t err = rtc_write_time(&now);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to write synced time to RTC");
         return err;
     }
-
     rtc_set_initialized();
-
-    ESP_LOGI(TAG, "Successfully synced time from SYSTEM to RTC");
     return ESP_OK;
 }
 

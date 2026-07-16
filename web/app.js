@@ -153,11 +153,41 @@ function loadLogs() {
         const div = document.createElement('div');
         div.className = 'card';
 
-        // Adjust to your JSON structure
         if (typeof log === 'object') {
-//          div.innerText = JSON.stringify(log);
           const readableTime = formatTimestamp(log.ts);
-          div.innerText = `${readableTime} - ${log.card} - Lector${log.reader} - ${log.ok ? 'OK' : 'DENIED'}`;
+          
+          let cardDisplay = log.card;
+          let eventDisplay = log.ok ? 'OK' : 'DENIED';
+
+          if (log.card >= 999100 && log.card <= 999302) {
+            
+            if (log.card === 999100) {
+              cardDisplay = "Door 1";
+              eventDisplay = "REX EXIT";
+            } else if (log.card === 999200) {
+              cardDisplay = "Door 2";
+              eventDisplay = "REX EXIT";
+            } else if (log.card === 999101) {
+              cardDisplay = "Door 1";
+              eventDisplay = "DOOR OPEN";
+            } else if (log.card === 999102) {
+              cardDisplay = "Door 1";
+              eventDisplay = "DOOR CLOSED";
+            } else if (log.card === 999201) {
+              cardDisplay = "Door 2";
+              eventDisplay = "DOOR OPEN";
+            } else if (log.card === 999202) {
+              cardDisplay = "Door 2";
+              eventDisplay = "DOOR CLOSED";
+            } else if (log.card === 999301) {
+              cardDisplay = "Main AC 220V";
+              eventDisplay = "POWER FAIL";
+            } else if (log.card === 999302) {
+              cardDisplay = "AC Power";
+              eventDisplay = "SYSTEM OK";
+            }
+          }
+          div.innerText = `${readableTime} - ${cardDisplay} - Lector${log.reader} - ${eventDisplay}`;
         } else {
           div.innerText = log;
         }

@@ -8,6 +8,8 @@
 extern "C" {
 #endif
 
+#define RTC_TIMESTAMP_UPDATE (10*60*1000) // hours in milliseconds
+
 /**
  * @brief Initialize RTC (DS3231) with I2C on GPIO 1 (SDA) and GPIO 2 (SCL)
  *
