@@ -155,39 +155,19 @@ function loadLogs() {
 
         if (typeof log === 'object') {
           const readableTime = formatTimestamp(log.ts);
+          const  valueDisplay = log.value;
+          let eventDisplay = "";
 
-          let cardDisplay = log.card;
-          let eventDisplay = log.ok ? 'OK' : 'DENIED';
-
-          if (log.card >= 999100 && log.card <= 999302) {
-
-            if (log.card === 999100) {
-              cardDisplay = "Door 1";
-              eventDisplay = "REX EXIT";
-            } else if (log.card === 999200) {
-              cardDisplay = "Door 2";
-              eventDisplay = "REX EXIT";
-            } else if (log.card === 999101) {
-              cardDisplay = "Door 1";
-              eventDisplay = "DOOR OPEN";
-            } else if (log.card === 999102) {
-              cardDisplay = "Door 1";
-              eventDisplay = "DOOR CLOSED";
-            } else if (log.card === 999201) {
-              cardDisplay = "Door 2";
-              eventDisplay = "DOOR OPEN";
-            } else if (log.card === 999202) {
-              cardDisplay = "Door 2";
-              eventDisplay = "DOOR CLOSED";
-            } else if (log.card === 999301) {
-              cardDisplay = "Main AC 220V";
-              eventDisplay = "POWER FAIL";
-            } else if (log.card === 999302) {
-              cardDisplay = "AC Power";
-              eventDisplay = "SYSTEM OK";
-            }
+          if (log.event_id == 10) {
+            eventDisplay = "CARD PASSED";
+          } else if (log.event_id == 11) {
+            eventDisplay = "CARD DENIED";
+          } else if (log.event_id == 5) {
+            eventDisplay = "REX";
+          } else if (log.event_id == 5) {
+            eventDisplay = "DOOR";
           }
-          div.innerText = `${readableTime} - ${cardDisplay} - Lector${log.reader} - ${eventDisplay}`;
+          div.innerText = `${readableTime} - ${eventDisplay} - Port${log.port_id} - ${valueDisplay}`;
         } else {
           div.innerText = log;
         }

@@ -13,10 +13,10 @@ static const char *TAG = "logs";
 
 typedef struct
 {
-    uint64_t id;
+    uint8_t event_id;
     uint64_t ts;
-    int reader_id;
-    int ok;
+    int port_id;
+    uint64_t value;
 } log_t;
 
 void log_store_init()
@@ -96,9 +96,9 @@ char* log_read_all_json()
     while (fread(&e, sizeof(e), 1, f)) {
         char temp[128];
         snprintf(temp, sizeof(temp),
-            "%s{\"card\":%llu,\"ts\":%llu,\"reader\":%d}",
+            "%s{\"event_id\":%d,\"value\":%llu,\"ts\":%llu,\"port_id\":%d}",
             first ? "" : ",",
-            e.id, e.ts, e.reader_id);
+            e.event_id, e.value, e.ts, e.port_id);
 
         if (strlen(json) + strlen(temp) + 2 > buf_size) {
             buf_size *= 2;
