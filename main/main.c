@@ -525,7 +525,7 @@ void app_main()
     ESP_ERROR_CHECK(ethernet_init());
 
 
-    wait_for_valid_time();  
+    //wait_for_valid_time();  
     //=========================================
 
     
