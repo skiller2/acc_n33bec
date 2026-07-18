@@ -1294,9 +1294,9 @@ Siemens, Hewlett-Packard, Texas Instuments, Sharp, Motorola&lt;p&gt;
 </net>
 <net name="IO18" class="2">
 <segment>
-<pinref part="J4" gate="A" pin="3"/>
-<wire x1="-15.24" y1="-68.58" x2="-15.24" y2="-81.28" width="0.1524" layer="91"/>
-<label x="-15.24" y="-81.28" size="1.27" layer="95" rot="R270" xref="yes"/>
+<label x="-20.32" y="-81.28" size="1.27" layer="95" rot="R270" xref="yes"/>
+<pinref part="J4" gate="A" pin="1"/>
+<wire x1="-20.32" y1="-68.58" x2="-20.32" y2="-81.28" width="0.1524" layer="91"/>
 </segment>
 <segment>
 <pinref part="SV1" gate="1" pin="10"/>
