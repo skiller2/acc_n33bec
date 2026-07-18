@@ -134,10 +134,12 @@ function loadCards() {
 }
 
 function formatTimestamp(ts) {
-  const ms = Number(epochUs / 1000n);
-  const micros = Number(epochUs % 1000000n);
+  const ms = Math.floor(ts / 1000);
+  const micros = ts % 1000000;
+
   const base = new Date(ms).toLocaleString();
-  return `${base}.${micros.toString().padStart(6, "0")}`;
+
+  return `${base}.${String(micros).padStart(6, "0")}`;
 }
 
 function loadLogs() {
