@@ -1266,6 +1266,8 @@ Siemens, Hewlett-Packard, Texas Instuments, Sharp, Motorola&lt;p&gt;
 <pinref part="+3V1" gate="G$1" pin="+3V3"/>
 <wire x1="-7.62" y1="-38.1" x2="0" y2="-38.1" width="0.1524" layer="91"/>
 <wire x1="0" y1="-38.1" x2="0" y2="-35.56" width="0.1524" layer="91"/>
+<wire x1="0" y1="-38.1" x2="10.16" y2="-38.1" width="0.1524" layer="91"/>
+<junction x="0" y="-38.1"/>
 </segment>
 <segment>
 <pinref part="+3V2" gate="G$1" pin="+3V3"/>

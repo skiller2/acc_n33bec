@@ -24,7 +24,7 @@
 <layer number="13" name="Route13" color="4" fill="5" visible="no" active="no"/>
 <layer number="14" name="Route14" color="1" fill="6" visible="no" active="no"/>
 <layer number="15" name="Route15" color="4" fill="6" visible="no" active="no"/>
-<layer number="16" name="Bottom" color="1" fill="1" visible="yes" active="yes"/>
+<layer number="16" name="Bottom" color="1" fill="1" visible="no" active="yes"/>
 <layer number="17" name="Pads" color="2" fill="1" visible="yes" active="yes"/>
 <layer number="18" name="Vias" color="2" fill="1" visible="yes" active="yes"/>
 <layer number="19" name="Unrouted" color="6" fill="1" visible="yes" active="yes"/>
@@ -878,15 +878,15 @@ design rules under a new name.</description>
 <wire x1="33.16" y1="24.03" x2="33.16" y2="23.1" width="0.5" layer="1"/>
 </signal>
 <signal name="IO18" class="2">
-<contactref element="J4" pad="3"/>
 <contactref element="SV1" pad="10"/>
-<wire x1="48.8328" y1="23.84199375" x2="46.10759375" y2="26.5672" width="0.5" layer="1"/>
-<wire x1="43.1" y1="15.31" x2="46.042" y2="15.31" width="0.5" layer="1"/>
-<wire x1="46.10759375" y1="26.5672" x2="33.6828" y2="26.5672" width="0.5" layer="1"/>
-<wire x1="46.042" y1="15.31" x2="48.8328" y2="18.1008" width="0.5" layer="1"/>
-<wire x1="48.8328" y1="18.1008" x2="48.8328" y2="23.84199375" width="0.5" layer="1"/>
+<wire x1="34.6828" y1="25.5672" x2="44.092275" y2="25.5672" width="0.5" layer="1"/>
 <wire x1="32.73" y1="27.52" x2="32.73" y2="29" width="0.5" layer="1"/>
-<wire x1="33.6828" y1="26.5672" x2="32.73" y2="27.52" width="0.5" layer="1"/>
+<wire x1="34.6828" y1="25.5672" x2="32.73" y2="27.52" width="0.5" layer="1"/>
+<wire x1="44.092275" y1="25.5672" x2="45.530475" y2="24.129" width="0.5" layer="1"/>
+<contactref element="J4" pad="1"/>
+<wire x1="45.530475" y1="21.695" x2="45.530475" y2="24.129" width="0.5" layer="1"/>
+<wire x1="43.1" y1="20.39" x2="44.225475" y2="20.39" width="0.5" layer="1"/>
+<wire x1="45.530475" y1="21.695" x2="44.225475" y2="20.39" width="0.5" layer="1"/>
 </signal>
 <signal name="IO40" class="2">
 <contactref element="J1" pad="11"/>

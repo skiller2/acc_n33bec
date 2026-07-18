@@ -204,9 +204,6 @@ static void input_task(void *arg)
         int car = gpio_get_level(CAR_GPIO);
         int ali = gpio_get_level(ALI_GPIO);
 
-
-        vTaskDelay(pdMS_TO_TICKS(500));
-
         // DOOR 1 TRACKING (Virtual IDs: 999101 / 999102)
         if (door1 != last_door1)
         {
