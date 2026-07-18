@@ -34,7 +34,7 @@ uint64_t getTimeStamp()
     return epoch_us;
 }
 
-void log_add(uint64_t id, uint64_t ts, int reader_id,int ok)
+void log_add(uint8_t event_id, int port_id, uint64_t value, int64_t ts)
 {
     if (ts==0)
         ts=getTimeStamp();
@@ -62,9 +62,8 @@ void log_add(uint64_t id, uint64_t ts, int reader_id,int ok)
         }
 
         // Add new log at the end
-        ESP_LOGI(TAG, "Adding log: card=%llu, ts=%llu, reader=%d, ok=%d", id, ts, reader_id, ok);
         
-        logs[log_count - 1] = (log_t){id, ts, reader_id, ok};
+        logs[log_count - 1] = (log_t){event_id, ts, port_id, value};
 
         // Rewrite entire file
         rewind(f);
@@ -75,9 +74,7 @@ void log_add(uint64_t id, uint64_t ts, int reader_id,int ok)
         // Just append new log
         fseek(f, 0, SEEK_END);
 
-        ESP_LOGI(TAG, "Adding log: card=%llu, ts=%llu, reader=%d, ok=%d", id, ts, reader_id, ok);
-
-        log_t l = {id, ts, reader_id, ok};
+        log_t l = {event_id, ts, port_id, value};
         fwrite(&l, sizeof(l), 1, f);
     }
 

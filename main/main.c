@@ -109,7 +109,8 @@ extern void card_store_init();
 extern void log_store_init();
 extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
-extern esp_err_t send_json(uint8_t reader_id, uint64_t card_id);
+extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value);
+
 
 static QueueHandle_t queue_cards;
 
@@ -158,9 +159,10 @@ void worker(void *p)
             }
             uint64_t now;
             now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
-            send_json(e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
+            send_json(10,e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
             // int ok = card_exists(e.card);
-            log_add(e.card, now, e.reader, ok); // Log the card event with timestamp, reader ID, and access result
+            log_add(10, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
+
             ws_broadcast(e.card, now, ok);
         }
     }
@@ -207,11 +209,10 @@ static void input_task(void *arg)
         // DOOR 1 TRACKING (Virtual IDs: 999101 / 999102)
         if (door1 != last_door1)
         {
-            uint64_t virtual_card = door1 ? 999101 : 999102; // 101 = OPEN, 102 = CLOSED
             ESP_LOGI(TAG, "Door1: %s", door1 ? "OPEN" : "CLOSED");
 
-            log_add(virtual_card, 0, 1, 1);
-            send_json(1, virtual_card);
+            log_add(5, 1, door1, 0);
+            send_json(5, 1, door1);
 
             last_door1 = door1;
         }
@@ -219,11 +220,10 @@ static void input_task(void *arg)
         // DOOR 2 TRACKING (Virtual IDs: 999201 / 999202)
         if (door2 != last_door2)
         {
-            uint64_t virtual_card = door2 ? 999201 : 999202; // 201 = OPEN, 202 = CLOSED
             ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
 
-            log_add(virtual_card, 0, 2, 1);
-            send_json(2, virtual_card);
+            log_add(5, 2, door2, 0);
+            send_json(5, 2, door2);
 
             last_door2 = door2;
         }
@@ -231,7 +231,6 @@ static void input_task(void *arg)
         // AC MAIN POWER TRACKING (Virtual IDs: 999301 / 999302)
         if (ali != last_ali)
         {
-            uint64_t virtual_card = ali ? 999301 : 999302; // 301 = AC FAIL, 302 = AC OK
             ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
 
             // log_add(virtual_card, now, 0, ali ? 0 : 1); // Status = 0 if power is lost
@@ -260,8 +259,8 @@ static void input_task(void *arg)
                 pulse_output(g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
                 ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_gpio);
 
-                log_add(999100, 0, 1, 1); // Local log entry
-                send_json(1, 999100);     // Upload to server .235
+                log_add(6, 1, rex1, 0); // Local log entry
+                send_json(6, 1, rex1);     // Upload to server .235
             }
             last_rex1 = rex1;
         }
@@ -274,8 +273,8 @@ static void input_task(void *arg)
                 pulse_output(g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
                 ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_gpio);
 
-                log_add(999200, 0, 2, 1);
-                send_json(2, 999200);
+                log_add(6, 2, rex2, 0);
+                send_json(6, 2, rex2);
             }
             last_rex2 = rex2;
         }
@@ -540,7 +539,7 @@ void app_main()
 
     //=========================================
 
-    log_add(0, 0, 0, 0);
+    log_add(1, 0, 0, 0);
     ESP_LOGI(TAG, "app_main complete");
 
     // play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);

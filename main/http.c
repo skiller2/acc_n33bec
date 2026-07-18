@@ -27,7 +27,7 @@ static const char *get_content_type(const char *uri)
     return "text/plain";
 }
 
-esp_err_t  send_json(uint8_t reader_id, uint64_t card_id)
+esp_err_t  send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
 {
     config_load(&g_config);
 
@@ -43,9 +43,9 @@ esp_err_t  send_json(uint8_t reader_id, uint64_t card_id)
     char cod_credencial[32];
     char cod_tema_origen[32];
 
-    snprintf(cod_tema_origen,  sizeof(cod_tema_origen), "demo/acceso/%lu/10%d", g_config.device_id, reader_id);
+    snprintf(cod_tema_origen,  sizeof(cod_tema_origen), "demo/acceso/%lu/10%d", g_config.device_id, port_id);
 
-    snprintf(cod_credencial,  sizeof(cod_credencial), "000-%llu", card_id);
+    snprintf(cod_credencial,  sizeof(cod_credencial), "000-%llu", value);
 
     bool ind_separa_facility_code=true;
 
