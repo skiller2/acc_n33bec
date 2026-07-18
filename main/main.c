@@ -204,7 +204,6 @@ static void input_task(void *arg)
         int car = gpio_get_level(CAR_GPIO);
         int ali = gpio_get_level(ALI_GPIO);
 
-
         vTaskDelay(pdMS_TO_TICKS(500));
 
         // DOOR 1 TRACKING (Virtual IDs: 999101 / 999102)
@@ -264,7 +263,7 @@ static void input_task(void *arg)
                 ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_gpio);
 
                 log_add(999100, 0, 1, 1); // Local log entry
-                send_json(1, 999100);       // Upload to server .235
+                send_json(1, 999100);     // Upload to server .235
             }
             last_rex1 = rex1;
         }
@@ -490,10 +489,9 @@ void app_main()
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(ethernet_init());
 
-
-    #if !SKIP_WAIT_FOR_RTC
+#if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();
-    #endif
+#endif
     //=========================================
 
     // initialize_sntp();
