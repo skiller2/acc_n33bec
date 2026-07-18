@@ -113,7 +113,7 @@ extern void card_store_init();
 extern void log_store_init();
 extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
-extern esp_err_t  send_json(uint8_t device_id, uint64_t card_id);
+extern esp_err_t  send_json(uint8_t reader_id, uint64_t card_id);
 
 static QueueHandle_t queue_cards;
 

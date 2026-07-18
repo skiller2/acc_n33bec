@@ -27,7 +27,7 @@ static const char *get_content_type(const char *uri)
     return "text/plain";
 }
 
-esp_err_t  send_json(uint8_t device_id, uint64_t card_id)
+esp_err_t  send_json(uint8_t reader_id, uint64_t card_id)
 {
     config_load(&g_config);
 
@@ -41,9 +41,9 @@ esp_err_t  send_json(uint8_t device_id, uint64_t card_id)
     char post_data[256];
 
     char cod_credencial[32];
-    char cod_tema_origen[32]="demo/acceso/65/10";
+    char cod_tema_origen[32];
 
-    snprintf(cod_tema_origen,  sizeof(cod_tema_origen), "demo/acceso/65/10%d", device_id);
+    snprintf(cod_tema_origen,  sizeof(cod_tema_origen), "demo/acceso/%d/10%d", g_config.device_id, reader_id);
 
     snprintf(cod_credencial,  sizeof(cod_credencial), "000-%llu", card_id);
 
@@ -293,6 +293,9 @@ static esp_err_t post_config(httpd_req_t *req)
     item = cJSON_GetObjectItemCaseSensitive(json, "input_debounce_ms");
     if (cJSON_IsNumber(item))
         cfg.input_debounce_ms = (uint32_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "device_id");
+    if (cJSON_IsNumber(item))
+        cfg.device_id = (uint8_t)item->valuedouble;
 
     item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_duration_ms");
     if (cJSON_IsNumber(item))
@@ -347,8 +350,9 @@ static esp_err_t get_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "rex2_relay_duration_ms", cfg.rex2_relay_duration_ms);
     cJSON_AddNumberToObject(json, "reader1_relay_duration_ms", cfg.reader1_relay_duration_ms);
     cJSON_AddNumberToObject(json, "reader2_relay_duration_ms", cfg.reader2_relay_duration_ms);
-    cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);
     cJSON_AddStringToObject(json, "url_n33bec", cfg.url_n33bec);
+    cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);
+    cJSON_AddNumberToObject(json, "device_id", cfg.device_id);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);

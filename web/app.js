@@ -53,6 +53,7 @@ function loadConfig() {
       document.getElementById('reader1_relay_duration_ms').value = cfg.reader1_relay_duration_ms;
       document.getElementById('reader2_relay_duration_ms').value = cfg.reader2_relay_duration_ms;
       document.getElementById('input_debounce_ms').value = cfg.input_debounce_ms;
+      document.getElementById('device_id').value = cfg.device_id;
       setStatus('Config loaded', 'success');
     })
     .catch(e => setStatus('Load error: ' + e, 'error'));
@@ -69,7 +70,8 @@ function saveConfig() {
     rex2_relay_duration_ms: parseInt(document.getElementById('rex2_relay_duration_ms').value),
     reader1_relay_duration_ms: parseInt(document.getElementById('reader1_relay_duration_ms').value),
     reader2_relay_duration_ms: parseInt(document.getElementById('reader2_relay_duration_ms').value),
-    input_debounce_ms: parseInt(document.getElementById('input_debounce_ms').value)
+    input_debounce_ms: parseInt(document.getElementById('input_debounce_ms').value),
+    device_id: parseInt(document.getElementById('device_id').value)
   };
   
   fetch('/config', {

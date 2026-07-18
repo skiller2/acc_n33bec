@@ -18,6 +18,7 @@ typedef struct {
     uint32_t reader1_relay_duration_ms;
     uint32_t reader2_relay_duration_ms;
     uint32_t input_debounce_ms;
+    uint32_t device_id;                     // Unique device ID for this access control unit
     char url_n33bec[256]; // URL for N33-BEC server
 } config_t;
 
