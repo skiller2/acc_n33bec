@@ -90,7 +90,7 @@ static void clamp_config(config_t *config)
         config->device_id = mac[5]; // Use the last byte of the MAC address as the device ID    
     }
     if (strlen(config->url_n33bec) == 0) {
-        strncpy(config->url_n33bec, "http://192.168.80.235/api/v1/movimientos/test", sizeof(config->url_n33bec) - 1);
+        strncpy(config->url_n33bec, "http://192.168.80.235/api/v1/movimientos/evento", sizeof(config->url_n33bec) - 1);
         config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
     }
 }

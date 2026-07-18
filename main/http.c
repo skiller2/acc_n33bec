@@ -43,17 +43,15 @@ esp_err_t  send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
     char cod_credencial[32];
     char cod_tema_origen[32];
 
-    snprintf(cod_tema_origen,  sizeof(cod_tema_origen), "demo/acceso/%lu/10%d", g_config.device_id, port_id);
+    snprintf(cod_tema_origen,  sizeof(cod_tema_origen), "acceso/%lu/10%d", g_config.device_id, port_id);
 
     snprintf(cod_credencial,  sizeof(cod_credencial), "000-%llu", value);
 
-    bool ind_separa_facility_code=true;
+    //bool ind_separa_facility_code=true;
 
     snprintf(post_data, sizeof(post_data),
-             "{\"cod_credencial\":\"%s\",\"cod_tema_origen\":\"%s\",\"ind_separa_facility_code\":%s}",
-             cod_credencial,
-             cod_tema_origen,
-             ind_separa_facility_code ? "true" : "false");
+             "{\"cod_tema\":\"%s\",\"valor\":%s,\"des_valor\":%s}",
+             cod_tema_origen, cod_credencial, "PRUEBA");
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
 
