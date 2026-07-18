@@ -162,10 +162,14 @@ function loadLogs() {
             eventDisplay = "CARD PASSED";
           } else if (log.event_id == 11) {
             eventDisplay = "CARD DENIED";
-          } else if (log.event_id == 5) {
+          } else if (log.event_id == 6) {
             eventDisplay = "REX";
           } else if (log.event_id == 5) {
             eventDisplay = "DOOR";
+          } else if (log.event_id == 1) {
+            eventDisplay = "SYSTEM START";
+          } else {
+            eventDisplay = "EVENT" + log.event_id;
           }
           div.innerText = `${readableTime} - ${eventDisplay} - Port${log.port_id} - ${valueDisplay}`;
         } else {
