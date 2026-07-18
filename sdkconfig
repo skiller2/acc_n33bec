@@ -984,7 +984,7 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
-# Example Connection Configuration
+# Application Configuration
 #
 # default:
 CONFIG_ENV_GPIO_RANGE_MIN=0
@@ -1055,7 +1055,9 @@ CONFIG_EXAMPLE_CONNECT_IPV6_PREF_LOCAL_LINK=y
 # CONFIG_EXAMPLE_CONNECT_IPV6_PREF_SITE_LOCAL is not set
 # default:
 # CONFIG_EXAMPLE_CONNECT_IPV6_PREF_UNIQUE_LOCAL is not set
-# end of Example Connection Configuration
+# default:
+# CONFIG_SKIP_WAIT_FOR_RTC is not set
+# end of Application Configuration
 
 #
 # Ethernet Configuration

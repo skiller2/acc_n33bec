@@ -491,7 +491,7 @@ void app_main()
     ESP_ERROR_CHECK(ethernet_init());
 
 
-    #if !CONFIG_SKIP_WAIT_FOR_VALID_TIME
+    #if !SKIP_WAIT_FOR_RTC
     wait_for_valid_time();
     #endif
     //=========================================
