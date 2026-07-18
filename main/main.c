@@ -145,23 +145,26 @@ void worker(void *p)
 
             // ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
             // ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
+            uint64_t now;
+            now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
+
             int ok = card_exists(e.card) ? 1 : 0;
             if (ok)
             {
                 // ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
                 pulse_output(reader_relay_gpio, reader_relay_duration_ms);
                 play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
+                log_add(10, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
             }
             else
             {
+                log_add(11, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
+
                 // ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
                 play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
             }
-            uint64_t now;
-            now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
             send_json(10,e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
             // int ok = card_exists(e.card);
-            log_add(10, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
 
             ws_broadcast(e.card, now, ok);
         }
