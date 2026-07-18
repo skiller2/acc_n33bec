@@ -5,8 +5,11 @@
 #include <string.h>
 #include "esp_timer.h"
 #include <sys/time.h>
+#include <esp_log.h>
 
 #define MAX_LOGS 1000
+
+static const char *TAG = "logs";
 
 typedef struct
 {
@@ -59,6 +62,8 @@ void log_add(uint64_t id, uint64_t ts, int reader_id,int ok)
         }
 
         // Add new log at the end
+        ESP_LOGI(TAG, "Adding log: card=%llu, ts=%llu, reader=%d, ok=%d", id, ts, reader_id, ok);
+        
         logs[log_count - 1] = (log_t){id, ts, reader_id, ok};
 
         // Rewrite entire file
@@ -69,6 +74,9 @@ void log_add(uint64_t id, uint64_t ts, int reader_id,int ok)
     } else {
         // Just append new log
         fseek(f, 0, SEEK_END);
+
+        ESP_LOGI(TAG, "Adding log: card=%llu, ts=%llu, reader=%d, ok=%d", id, ts, reader_id, ok);
+
         log_t l = {id, ts, reader_id, ok};
         fwrite(&l, sizeof(l), 1, f);
     }

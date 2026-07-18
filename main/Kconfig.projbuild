@@ -1,4 +1,4 @@
-menu "Example Connection Configuration"
+menu "Application Configuration"
 
     orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
 
@@ -311,6 +311,13 @@ menu "Example Connection Configuration"
         endchoice
 
     endif
+
+
+config SKIP_WAIT_FOR_RTC
+    bool "Skip wait_for_valid_time()"
+    default n
+    help
+        If enabled, the firmware will not wait for RTC.
 
 
 endmenu
