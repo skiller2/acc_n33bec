@@ -3,7 +3,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(tab + '-tab').classList.add('active');
   event.target.classList.add('active');
-  
+
   if (tab === 'cards') {
     loadCards();
   } else if (tab === 'logs') {
@@ -15,17 +15,17 @@ function switchTab(tab) {
 
 function addCard() {
   const id = document.getElementById('cardId').value;
-  fetch('/card', {method:'PUT', body: id});
+  fetch('/card', { method: 'PUT', body: id });
 }
 
 function simulateCardRead() {
   const cardId = Number(document.getElementById('simulateCardId').value);
   const reader = Number(document.getElementById('simulateReader').value);
-  
+
   fetch('/simulate', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({card: cardId, reader: reader})
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card: cardId, reader: reader })
   })
     .then(r => r.text())
     .then(txt => {
@@ -73,10 +73,10 @@ function saveConfig() {
     input_debounce_ms: parseInt(document.getElementById('input_debounce_ms').value),
     device_id: parseInt(document.getElementById('device_id').value)
   };
-  
+
   fetch('/config', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(cfg)
   })
     .then(r => r.text())
@@ -97,10 +97,10 @@ function setStatus(msg, cls) {
 }
 
 const ws = new WebSocket(`ws://${location.host}/ws`);
-ws.onmessage = (e)=>{
+ws.onmessage = (e) => {
   const data = JSON.parse(e.data);
   const li = document.createElement('li');
-  li.innerText = data.card + ' ' + (data.ok?'OK':'DENIED');
+  li.innerText = data.card + ' ' + (data.ok ? 'OK' : 'DENIED');
   document.getElementById('live').appendChild(li);
 };
 
@@ -134,7 +134,10 @@ function loadCards() {
 }
 
 function formatTimestamp(ts) {
-  return new Date(ts/1000).toLocaleString();
+  const ms = Number(epochUs / 1000n);
+  const micros = Number(epochUs % 1000000n);
+  const base = new Date(ms).toLocaleString();
+  return `${base}.${micros.toString().padStart(6, "0")}`;
 }
 
 function loadLogs() {
@@ -150,12 +153,12 @@ function loadLogs() {
 
         if (typeof log === 'object') {
           const readableTime = formatTimestamp(log.ts);
-          
+
           let cardDisplay = log.card;
           let eventDisplay = log.ok ? 'OK' : 'DENIED';
 
           if (log.card >= 999100 && log.card <= 999302) {
-            
+
             if (log.card === 999100) {
               cardDisplay = "Door 1";
               eventDisplay = "REX EXIT";
