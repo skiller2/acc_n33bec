@@ -52,6 +52,7 @@ void example_ppp_start(void);
 void example_ppp_shutdown(void);
 
 esp_err_t ethernet_init(void);
+bool ethernet_got_ip(void);
 
 #ifdef __cplusplus
 }

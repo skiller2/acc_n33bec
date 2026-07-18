@@ -412,42 +412,35 @@ void wait_for_valid_time(void)
         {
             ESP_LOGE(TAG, "Failed to read DS3231 registers");
         }
-
-        if (fetch_and_store_time_in_nvs(NULL) == ESP_OK)
-        {
-            if (rtc_set_rtc_time() == ESP_OK)
-            {
-                ESP_LOGI(TAG, "RTC initialized from SNTP");
-                return;
-            }
-        }
-
-        ESP_LOGW(TAG, "Waiting for SNTP...");
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 
 void time_sync_task(void *arg)
 {
-
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(RTC_TIMESTAMP_UPDATE));
-        ESP_LOGI(TAG, "Synchronizing time with SNTP...");
-        if (fetch_and_store_time_in_nvs(NULL) == ESP_OK)
+        ESP_LOGI(TAG, "ethernet_got_ip = %d", ethernet_got_ip());
+
+        if (ethernet_got_ip())
         {
-            if (rtc_set_rtc_time() == ESP_OK)
+            ESP_LOGI(TAG, "Trying SNTP...");
+
+            esp_err_t err = fetch_and_store_time_in_nvs(NULL);
+            ESP_LOGI(TAG, "fetch_and_store_time_in_nvs = %s", esp_err_to_name(err));
+
+            if (err == ESP_OK)
             {
-                ESP_LOGI(TAG, "RTC updated from SNTP");
+                err = rtc_set_rtc_time();
+                ESP_LOGI(TAG, "rtc_set_rtc_time = %s", esp_err_to_name(err));
             }
-            else
-            {
-                ESP_LOGE(TAG, "Failed to update RTC from SNTP");
-            }
+
+            vTaskDelay(pdMS_TO_TICKS(RTC_TIMESTAMP_UPDATE));
         }
         else
         {
-            ESP_LOGE(TAG, "Failed to fetch time from SNTP");
+            ESP_LOGI(TAG, "Waiting for Ethernet...");
+            vTaskDelay(pdMS_TO_TICKS(RTC_TIMESTAMP_RETRYING_SNTP));
         }
     }
 }

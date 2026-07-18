@@ -29,11 +29,13 @@ static esp_netif_t *eth_start(void);
 static void eth_on_got_ipv6(void *arg, esp_event_base_t event_base,int32_t event_id, void *event_data);
 static void on_eth_event(void *esp_netif, esp_event_base_t event_base,int32_t event_id, void *event_data);
 //static void eth_stop(void);
+bool ethernet_got_ip();
 
 static esp_eth_handle_t *s_eth_handles = NULL;
 static uint8_t s_eth_count = 0;
 static esp_eth_netif_glue_handle_t s_eth_glue = NULL;
 static esp_netif_t *s_eth_netif = NULL;
+static bool eth_got_ip_state;
 
 
 /** Event handler for Ethernet events */
@@ -48,6 +50,8 @@ static void eth_on_got_ip(void *arg,
     if (!example_is_our_netif(EXAMPLE_NETIF_DESC_ETH, event->esp_netif)) {
         return;
     }
+
+    eth_got_ip_state = true;
 
     ESP_LOGI(TAG,
              "Got IPv4 event: Interface \"%s\" address: " IPSTR,
@@ -68,6 +72,7 @@ static void eth_event_handler(void *arg,
         break;
 
     case ETHERNET_EVENT_DISCONNECTED:
+        eth_got_ip_state = false;
         ESP_LOGW(TAG, "Ethernet Link Down");
         break;
 
@@ -78,7 +83,7 @@ static void eth_event_handler(void *arg,
     case ETHERNET_EVENT_STOP:
         ESP_LOGI(TAG, "Ethernet Stopped");
         break;
-
+        
     default:
         break;
     }
@@ -133,6 +138,11 @@ esp_err_t ethernet_init(void)
     return ESP_OK;
 }
 
+bool ethernet_got_ip(void)
+{
+    return eth_got_ip_state;
+}
+
 
 // ===============================================
 // IPv6
@@ -168,6 +178,7 @@ static void on_eth_event(void *esp_netif, esp_event_base_t event_base,
         break;
     }
 }
+
 
 #endif // CONFIG_EXAMPLE_CONNECT_IPV6
 
