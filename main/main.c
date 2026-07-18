@@ -161,8 +161,8 @@ void worker(void *p)
                 play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
                 
             }
-            time_t now;
-            time(&now);
+            uint64_t now;
+            now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
             /*
             struct tm tm_info;
             gmtime_r(&now, &tm_info);
@@ -525,7 +525,7 @@ void app_main()
     ESP_ERROR_CHECK(ethernet_init());
 
 
-    //wait_for_valid_time();  
+    wait_for_valid_time();  
     //=========================================
 
     

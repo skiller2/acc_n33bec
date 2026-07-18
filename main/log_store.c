@@ -4,13 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "esp_timer.h"
+#include <sys/time.h>
 
 #define MAX_LOGS 1000
 
 typedef struct
 {
     uint64_t id;
-    int64_t ts;
+    uint64_t ts;
     int reader_id;
     int ok;
 } log_t;
@@ -22,10 +23,18 @@ void log_store_init()
         fclose(f);
 }
 
-void log_add(uint64_t id, int64_t ts, int reader_id,int ok)
+uint64_t getTimeStamp()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    uint64_t epoch_us = (uint64_t)tv.tv_sec * 1000000ULL + tv.tv_usec;
+    return epoch_us;
+}
+
+void log_add(uint64_t id, uint64_t ts, int reader_id,int ok)
 {
     if (ts==0)
-        ts=esp_timer_get_time();
+        ts=getTimeStamp();
 
     FILE *f = fopen("/fs/logs.dat", "r+b");
     if (!f) {
@@ -82,7 +91,7 @@ char* log_read_all_json()
     while (fread(&e, sizeof(e), 1, f)) {
         char temp[128];
         snprintf(temp, sizeof(temp),
-            "%s{\"card\":%llu,\"ts\":%lld,\"reader\":%d}",
+            "%s{\"card\":%llu,\"ts\":%llu,\"reader\":%d}",
             first ? "" : ",",
             e.id, e.ts, e.reader_id);
 
