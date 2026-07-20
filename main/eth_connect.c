@@ -35,7 +35,12 @@ static esp_eth_handle_t *s_eth_handles = NULL;
 static uint8_t s_eth_count = 0;
 static esp_eth_netif_glue_handle_t s_eth_glue = NULL;
 static esp_netif_t *s_eth_netif = NULL;
-static bool eth_got_ip_state;
+static TaskHandle_t s_time_sync_task_handle = NULL;
+
+void ethernet_register_time_sync_task(TaskHandle_t task_handle)
+{
+    s_time_sync_task_handle = task_handle;
+}
 
 
 /** Event handler for Ethernet events */
@@ -51,12 +56,15 @@ static void eth_on_got_ip(void *arg,
         return;
     }
 
-    eth_got_ip_state = true;
 
     ESP_LOGI(TAG,
              "Got IPv4 event: Interface \"%s\" address: " IPSTR,
              esp_netif_get_desc(event->esp_netif),
              IP2STR(&event->ip_info.ip));
+             
+    if (s_time_sync_task_handle != NULL) {
+        xTaskNotifyGive(s_time_sync_task_handle);
+    }
 }
 
 
@@ -72,7 +80,6 @@ static void eth_event_handler(void *arg,
         break;
 
     case ETHERNET_EVENT_DISCONNECTED:
-        eth_got_ip_state = false;
         ESP_LOGW(TAG, "Ethernet Link Down");
         break;
 
@@ -136,11 +143,6 @@ esp_err_t ethernet_init(void)
     eth_start();
 
     return ESP_OK;
-}
-
-bool ethernet_got_ip(void)
-{
-    return eth_got_ip_state;
 }
 
 

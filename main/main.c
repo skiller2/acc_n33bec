@@ -110,6 +110,7 @@ extern void log_store_init();
 extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value);
+extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
 
 
 static QueueHandle_t queue_cards;
@@ -286,99 +287,7 @@ static void input_task(void *arg)
     }
 }
 
-/*
-static void input_task(void *arg)
-{
-    static const char *TAG = "inputs";
 
-    gpio_config_t io = {
-        .pin_bit_mask =
-            (1ULL << DOOR1_GPIO) |
-            (1ULL << DOOR2_GPIO) |
-            (1ULL << REX1_GPIO) |
-            (1ULL << REX2_GPIO)|
-            (1ULL << BAT_GPIO)|
-            (1ULL << CAR_GPIO)|
-            (1ULL << ALI_GPIO),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE, // typical for switches
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE};
-
-    gpio_config(&io);
-
-    int last_door1 = -1;
-    int last_door2 = -1;
-    int last_rex1 = -1;
-    int last_rex2 = -1;
-    int last_bat=-1;
-    int last_car=-1;
-    int last_ali=-1;
-
-    while (1)
-    {
-        int door1 = gpio_get_level(DOOR1_GPIO);
-        int door2 = gpio_get_level(DOOR2_GPIO);
-        int rex1 = gpio_get_level(REX1_GPIO);
-        int rex2 = gpio_get_level(REX2_GPIO);
-        int bat = gpio_get_level(BAT_GPIO);
-        int car = gpio_get_level(CAR_GPIO);
-        int ali = gpio_get_level(ALI_GPIO);
-
-        if (door1 != last_door1)
-        {
-            ESP_LOGI(TAG, "Door1: %s", door1 ? "OPEN" : "CLOSED");
-
-            last_door1 = door1;
-        }
-
-        if (door2 != last_door2)
-        {
-            ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
-            last_door2 = door2;
-        }
-
-        if (ali != last_ali)
-        {
-            ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
-            last_ali = ali;
-        }
-
-        if (bat != last_bat)
-        {
-            ESP_LOGI(TAG, "Bateria: %s (%d)", bat ? "FALLA" : "OK",bat);
-            last_bat = bat;
-        }
-
-        if (car != last_car)
-        {
-            ESP_LOGI(TAG, "Carga: %s (%d)", car ? "OK" : "FALLA",car);
-            last_car = car;
-        }
-
-        if (rex1 != last_rex1)
-        {
-            ESP_LOGI(TAG, "REX1: %s", !rex1 ? "ACTIVE" : "OFF");
-            if (!rex1) {  // only trigger on transition to ACTIVE (0)
-                pulse_output(g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
-                ESP_LOGI(TAG, "REX1 activated relay %d for %u ms", g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
-            }
-            last_rex1 = rex1;
-        }
-
-        if (rex2 != last_rex2)
-        {
-            ESP_LOGI(TAG, "REX2: %s", !rex2 ? "ACTIVE" : "OFF");
-            if (!rex2) {  // only trigger on transition to ACTIVE (0)
-                pulse_output(g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
-                ESP_LOGI(TAG, "REX2 activated relay %d for %u ms", g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
-            }
-            last_rex2 = rex2;
-        }
-        vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms)); // debounce + CPU friendly
-    }
-}
-*/
 void wait_for_valid_time(void)
 {
     while (1)
@@ -420,31 +329,16 @@ void time_sync_task(void *arg)
 {
     while (1)
     {
-        ESP_LOGI(TAG, "ethernet_got_ip = %d", ethernet_got_ip());
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        if (ethernet_got_ip())
+        ESP_LOGI(TAG, "Ethernet got IP, syncing time");
+
+        if (fetch_and_store_time_in_nvs(NULL) == ESP_OK)
         {
-            ESP_LOGI(TAG, "Trying SNTP...");
-
-            esp_err_t err = fetch_and_store_time_in_nvs(NULL);
-            ESP_LOGI(TAG, "fetch_and_store_time_in_nvs = %s", esp_err_to_name(err));
-
-            if (err == ESP_OK)
-            {
-                err = rtc_set_rtc_time();
-                ESP_LOGI(TAG, "rtc_set_rtc_time = %s", esp_err_to_name(err));
-            }
-
-            vTaskDelay(pdMS_TO_TICKS(RTC_TIMESTAMP_UPDATE));
-        }
-        else
-        {
-            ESP_LOGI(TAG, "Waiting for Ethernet...");
-            vTaskDelay(pdMS_TO_TICKS(RTC_TIMESTAMP_RETRYING_SNTP));
+            rtc_set_rtc_time();
         }
     }
 }
-
 void app_main()
 {
 
@@ -458,6 +352,10 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create card event queue");
         return;
     }
+    
+    // =====================================
+    // Ethernet Task Handle
+    TaskHandle_t time_sync_handle = NULL;
 
     // =====================================
 
@@ -545,10 +443,12 @@ void app_main()
     // Creating Tasks
 
     ESP_LOGI(TAG, "Creating update time task");
-    if (xTaskCreate(time_sync_task, "time_sync_task", 4096, NULL, 3, NULL) != pdPASS)
+    if (xTaskCreate(time_sync_task, "time_sync_task", 4096, NULL, 5, &time_sync_handle) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create time_sync_task");
     }
+
+    ethernet_register_time_sync_task(time_sync_handle);
 
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
