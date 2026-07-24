@@ -194,6 +194,20 @@ function uploadStorageImage() {
     .catch(e => setStorageStatus('Upload error: ' + e, 'error'));
 }
 
+function rebootDevice() {
+  setOtaStatus('Rebooting device...', 'success');
+  fetch('/reboot', { method: 'POST' })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setOtaStatus('Reboot command sent.', 'success');
+      } else {
+        setOtaStatus('Reboot failed: ' + txt, 'error');
+      }
+    })
+    .catch(e => setOtaStatus('Reboot error: ' + e, 'error'));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadFirmwareVersion();
 });

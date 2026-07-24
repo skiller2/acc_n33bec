@@ -611,6 +611,14 @@ static esp_err_t apply_web_bundle_stream(httpd_req_t *req, size_t content_len)
     return ESP_OK;
 }
 
+static esp_err_t reboot_handler(httpd_req_t *req)
+{
+    httpd_resp_sendstr(req, "OK: rebooting");
+    vTaskDelay(pdMS_TO_TICKS(500));
+    esp_restart();
+    return ESP_OK;
+}
+
 static esp_err_t ota_handler(httpd_req_t *req)
 {
     size_t content_len = req->content_len;
@@ -808,6 +816,11 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_POST,
             .handler = ota_handler};
 
+        httpd_uri_t reboot_uri = {
+            .uri = "/reboot",
+            .method = HTTP_POST,
+            .handler = reboot_handler};
+
         httpd_uri_t bundle_uri = {
             .uri = "/storage",
             .method = HTTP_POST,
@@ -830,6 +843,7 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &get_cfg_uri);
         httpd_register_uri_handler(s, &version_uri);
         httpd_register_uri_handler(s, &ota_uri);
+        httpd_register_uri_handler(s, &reboot_uri);
         httpd_register_uri_handler(s, &bundle_uri);
         httpd_register_uri_handler(s, &simulate_card_uri);
 
