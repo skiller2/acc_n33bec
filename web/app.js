@@ -94,19 +94,54 @@ function saveConfig() {
     .catch(e => setStatus('Save error: ' + e, 'error'));
 }
 
+function formatBytes(bytes) {
+  if (typeof bytes !== 'number' || bytes < 0) {
+    return 'unknown';
+  }
+
+  if (bytes < 1024) {
+    return bytes + ' B';
+  }
+
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return value.toFixed(value >= 10 ? 1 : 0) + ' ' + units[unitIndex];
+}
+
 function loadFirmwareVersion() {
   fetch('/version')
     .then(r => r.json())
     .then(data => {
-      const el = document.getElementById('firmware-version');
-      if (el) {
-        el.innerText = 'Version: ' + data.version;
+      const versionEl = document.getElementById('firmware-version');
+      const fsEl = document.getElementById('filesystem-info');
+
+      if (versionEl) {
+        versionEl.innerText = 'Version: ' + data.version;
+      }
+
+      if (fsEl) {
+        const total = typeof data.fs_total_bytes === 'number' ? data.fs_total_bytes : 0;
+        const free = typeof data.fs_free_bytes === 'number' ? data.fs_free_bytes : 0;
+        fsEl.innerText = 'Filesystem: ' + formatBytes(total) + ' total, ' + formatBytes(free) + ' free';
       }
     })
     .catch(() => {
-      const el = document.getElementById('firmware-version');
-      if (el) {
-        el.innerText = 'Version: unavailable';
+      const versionEl = document.getElementById('firmware-version');
+      const fsEl = document.getElementById('filesystem-info');
+
+      if (versionEl) {
+        versionEl.innerText = 'Version: unavailable';
+      }
+
+      if (fsEl) {
+        fsEl.innerText = 'Filesystem: unavailable';
       }
     });
 }
@@ -158,6 +193,10 @@ function uploadStorageImage() {
     })
     .catch(e => setStorageStatus('Upload error: ' + e, 'error'));
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadFirmwareVersion();
+});
 
 function setStatus(msg, cls) {
   const st = document.getElementById('config-status');

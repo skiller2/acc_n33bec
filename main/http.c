@@ -12,6 +12,7 @@
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_system.h"
+#include "esp_littlefs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -333,8 +334,21 @@ static esp_err_t post_config(httpd_req_t *req)
 
 static esp_err_t get_version(httpd_req_t *req)
 {
+    size_t total_bytes = 0;
+    size_t used_bytes = 0;
+    size_t free_bytes = 0;
+
+    if (esp_littlefs_info("storage", &total_bytes, &used_bytes) == ESP_OK && total_bytes >= used_bytes)
+    {
+        free_bytes = total_bytes - used_bytes;
+    }
+
+    char version_json[256];
+    snprintf(version_json, sizeof(version_json),
+             "{\"version\":\"%s\",\"fs_total_bytes\":%u,\"fs_free_bytes\":%u}",
+             PROJECT_VERSION, (unsigned)total_bytes, (unsigned)free_bytes);
+
     httpd_resp_set_type(req, "application/json");
-    const char *version_json = "{\"version\":\"" PROJECT_VERSION "\"}";
     httpd_resp_sendstr(req, version_json);
     return ESP_OK;
 }
