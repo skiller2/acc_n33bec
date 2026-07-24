@@ -13,6 +13,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#ifndef PROJECT_VERSION
+#define PROJECT_VERSION "dev"
+#endif
+
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
 extern char *log_read_all_json(void);
@@ -325,6 +329,14 @@ static esp_err_t post_config(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t get_version(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "application/json");
+    const char *version_json = "{\"version\":\"" PROJECT_VERSION "\"}";
+    httpd_resp_sendstr(req, version_json);
+    return ESP_OK;
+}
+
 static esp_err_t get_config(httpd_req_t *req)
 {
     config_t cfg;
@@ -552,6 +564,11 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_GET,
             .handler = get_config};
 
+        httpd_uri_t version_uri = {
+            .uri = "/version",
+            .method = HTTP_GET,
+            .handler = get_version};
+
         httpd_uri_t ota_uri = {
             .uri = "/ota",
             .method = HTTP_POST,
@@ -577,6 +594,7 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &cards_uri);
         httpd_register_uri_handler(s, &cfg_uri);
         httpd_register_uri_handler(s, &get_cfg_uri);
+        httpd_register_uri_handler(s, &version_uri);
         httpd_register_uri_handler(s, &ota_uri);
         httpd_register_uri_handler(s, &storage_uri);
         httpd_register_uri_handler(s, &simulate_card_uri);

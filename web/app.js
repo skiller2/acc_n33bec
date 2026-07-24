@@ -10,6 +10,8 @@ function switchTab(tab) {
     loadLogs();
   } else if (tab === 'config') {
     loadConfig();
+  } else if (tab === 'firmware') {
+    loadFirmwareVersion();
   }
 }
 
@@ -90,6 +92,23 @@ function saveConfig() {
       }
     })
     .catch(e => setStatus('Save error: ' + e, 'error'));
+}
+
+function loadFirmwareVersion() {
+  fetch('/version')
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById('firmware-version');
+      if (el) {
+        el.innerText = 'Version: ' + data.version;
+      }
+    })
+    .catch(() => {
+      const el = document.getElementById('firmware-version');
+      if (el) {
+        el.innerText = 'Version: unavailable';
+      }
+    });
 }
 
 function uploadFirmware() {
