@@ -275,7 +275,6 @@ esp_err_t rtc_set_rtc_time(void) {
         ESP_LOGE(TAG, "Failed to write synced time to RTC");
         return err;
     }
-    rtc_set_initialized();
     return ESP_OK;
 }
 

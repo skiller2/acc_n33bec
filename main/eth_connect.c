@@ -76,19 +76,19 @@ static void eth_event_handler(void *arg,
     switch (event_id) {
 
     case ETHERNET_EVENT_CONNECTED:
-        ESP_LOGI(TAG, "Ethernet Link Up");
+        //ESP_LOGI(TAG, "Ethernet Link Up");
         break;
 
     case ETHERNET_EVENT_DISCONNECTED:
-        ESP_LOGW(TAG, "Ethernet Link Down");
+        //ESP_LOGW(TAG, "Ethernet Link Down");
         break;
 
     case ETHERNET_EVENT_START:
-        ESP_LOGI(TAG, "Ethernet Started");
+        //ESP_LOGI(TAG, "Ethernet Started");
         break;
 
     case ETHERNET_EVENT_STOP:
-        ESP_LOGI(TAG, "Ethernet Stopped");
+        //ESP_LOGI(TAG, "Ethernet Stopped");
         break;
         
     default:

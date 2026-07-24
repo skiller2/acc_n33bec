@@ -262,10 +262,9 @@ static void input_task(void *arg)
             { // Active low edge trigger
                 pulse_output(g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
                 ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_gpio);
-
-                log_add(6, 1, rex1, 0); // Local log entry
-                send_json(6, 1, rex1);     // Upload to server .235
             }
+            log_add(6, 1, rex1, 0); // Local log entry
+            send_json(6, 1, rex1);     // Upload to server .235
             last_rex1 = rex1;
         }
 
@@ -276,10 +275,9 @@ static void input_task(void *arg)
             { // only trigger on transition to ACTIVE (0)
                 pulse_output(g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
                 ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_gpio);
-
-                log_add(6, 2, rex2, 0);
-                send_json(6, 2, rex2);
             }
+            log_add(6, 2, rex2, 0);
+            send_json(6, 2, rex2);
             last_rex2 = rex2;
         }
 
@@ -383,6 +381,11 @@ void app_main()
 #if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();
 #endif
+
+    if (rtc_app_init() != ESP_OK)
+    {
+        ESP_LOGE(TAG,"RTC NOT WORKING");
+    }
     //=========================================
 
     // initialize_sntp();
@@ -457,7 +460,7 @@ void app_main()
     }
 
     ESP_LOGI(TAG, "Creating input task");
-    if (xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL) != pdPASS)
+    if (xTaskCreate(input_task, "input_task", 8192, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create input task");
     }
