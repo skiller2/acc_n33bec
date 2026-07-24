@@ -3,7 +3,8 @@
 #include <string.h>
 #include "esp_log.h"
 #include <esp_mac.h>
-
+#include "nvs.h"
+#include "nvs_flash.h"
 
 #define RELE1_GPIO GPIO_NUM_45  //Reader 1 LED
 #define RELE2_GPIO GPIO_NUM_39  //Reader 2 LED
@@ -11,7 +12,8 @@
 
 
 static const char *TAG = "config";
-static const char *CONFIG_PATH = "/fs/config.dat";
+static const char *NVS_NAMESPACE = "device_config";
+static const char *NVS_KEY = "config";
 static const uint32_t CONFIG_MAGIC = 0x434F4E46; // 'CONF'
 static const uint8_t CONFIG_VERSION = 1;
 
@@ -108,18 +110,25 @@ esp_err_t config_save(const config_t *config)
     strcpy(stored.url_n33bec, config->url_n33bec);
     strcpy(stored.cod_tema, config->cod_tema);
 
-    FILE *f = fopen(CONFIG_PATH, "wb");
-    if (!f) {
-        ESP_LOGE(TAG, "Failed to open config file for write: %s", CONFIG_PATH);
-        return ESP_FAIL;
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS namespace for config: %s", esp_err_to_name(err));
+        return err;
     }
 
-    size_t written = fwrite(&stored, 1, sizeof(stored), f);
-    fclose(f);
+    err = nvs_set_blob(nvs, NVS_KEY, &stored, sizeof(stored));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to save config to NVS: %s", esp_err_to_name(err));
+        nvs_close(nvs);
+        return err;
+    }
 
-    if (written != sizeof(stored)) {
-        ESP_LOGE(TAG, "Failed to write full config file");
-        return ESP_FAIL;
+    err = nvs_commit(nvs);
+    nvs_close(nvs);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to commit config to NVS: %s", esp_err_to_name(err));
+        return err;
     }
 
     ESP_LOGI(TAG, "Saved Reader config: reader1_relay=%u reader1_ms=%u reader2_relay=%u reader2_ms=%u",
@@ -128,13 +137,12 @@ esp_err_t config_save(const config_t *config)
              stored.reader2_relay_gpio,
              stored.reader2_relay_duration_ms);
 
-
     ESP_LOGI(TAG, "Saved REX config: rex1_relay=%u rex1_ms=%u rex2_relay=%u rex2_ms=%u",
              stored.rex1_relay_gpio,
              stored.rex1_relay_duration_ms,
              stored.rex2_relay_gpio,
              stored.rex2_relay_duration_ms);
-    //TODO: reload config into RAM struct to ensure it's valid and clamp values if needed
+
     config_load(&g_config);
 
     return ESP_OK;
@@ -148,18 +156,20 @@ esp_err_t config_load(config_t *config)
 
     set_defaults(config);
 
-    FILE *f = fopen(CONFIG_PATH, "rb");
-    if (!f) {
-        ESP_LOGW(TAG, "Config file not found, using defaults");
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Config not found in NVS, using defaults");
         return config_save(config);
     }
 
     config_t stored;
-    size_t read = fread(&stored, 1, sizeof(stored), f);
-    fclose(f);
+    size_t len = sizeof(stored);
+    err = nvs_get_blob(nvs, NVS_KEY, &stored, &len);
+    nvs_close(nvs);
 
-    if (read != sizeof(stored) || stored.magic != CONFIG_MAGIC || stored.version != CONFIG_VERSION) {
-        ESP_LOGW(TAG, "Invalid config file or unsupported version, using defaults");
+    if (err != ESP_OK || len != sizeof(stored) || stored.magic != CONFIG_MAGIC || stored.version != CONFIG_VERSION) {
+        ESP_LOGW(TAG, "Invalid config in NVS or unsupported version, using defaults");
         return config_save(config);
     }
 

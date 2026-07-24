@@ -16,6 +16,10 @@
 #include "nvs_flash.h"
 #include "example_common_private.h"
 
+#ifndef PROJECT_VERSION
+#define PROJECT_VERSION "dev"
+#endif
+
 static const char *TAG = "main";
 
 tone_t melody_ok[] = {
@@ -437,7 +441,7 @@ void app_main()
     //=========================================
 
     log_add(1, 0, 0, 0);
-    ESP_LOGI(TAG, "app_main complete");
+    ESP_LOGI(TAG, "app_main complete - version %s", PROJECT_VERSION);
 
     // play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
     // play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);

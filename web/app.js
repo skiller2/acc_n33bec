@@ -10,6 +10,8 @@ function switchTab(tab) {
     loadLogs();
   } else if (tab === 'config') {
     loadConfig();
+  } else if (tab === 'firmware') {
+    loadFirmwareVersion();
   }
 }
 
@@ -92,6 +94,58 @@ function saveConfig() {
     .catch(e => setStatus('Save error: ' + e, 'error'));
 }
 
+function formatBytes(bytes) {
+  if (typeof bytes !== 'number' || bytes < 0) {
+    return 'unknown';
+  }
+
+  if (bytes < 1024) {
+    return bytes + ' B';
+  }
+
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return value.toFixed(value >= 10 ? 1 : 0) + ' ' + units[unitIndex];
+}
+
+function loadFirmwareVersion() {
+  fetch('/version')
+    .then(r => r.json())
+    .then(data => {
+      const versionEl = document.getElementById('firmware-version');
+      const fsEl = document.getElementById('filesystem-info');
+
+      if (versionEl) {
+        versionEl.innerText = 'Version: ' + data.version;
+      }
+
+      if (fsEl) {
+        const total = typeof data.fs_total_bytes === 'number' ? data.fs_total_bytes : 0;
+        const free = typeof data.fs_free_bytes === 'number' ? data.fs_free_bytes : 0;
+        fsEl.innerText = 'Filesystem: ' + formatBytes(total) + ' total, ' + formatBytes(free) + ' free';
+      }
+    })
+    .catch(() => {
+      const versionEl = document.getElementById('firmware-version');
+      const fsEl = document.getElementById('filesystem-info');
+
+      if (versionEl) {
+        versionEl.innerText = 'Version: unavailable';
+      }
+
+      if (fsEl) {
+        fsEl.innerText = 'Filesystem: unavailable';
+      }
+    });
+}
+
 function uploadFirmware() {
   const file = document.getElementById('firmwareFile').files[0];
   if (!file) {
@@ -119,11 +173,11 @@ function uploadFirmware() {
 function uploadStorageImage() {
   const file = document.getElementById('storageFile').files[0];
   if (!file) {
-    setStorageStatus('Select a storage image first.', 'error');
+    setStorageStatus('Select a web bundle first.', 'error');
     return;
   }
 
-  setStorageStatus('Uploading storage image...', 'success');
+  setStorageStatus('Uploading web bundle...', 'success');
 
   fetch('/storage', {
     method: 'POST',
@@ -132,13 +186,31 @@ function uploadStorageImage() {
     .then(r => r.text())
     .then(txt => {
       if (txt.startsWith('OK')) {
-        setStorageStatus('Storage image uploaded. Rebooting...', 'success');
+        setStorageStatus('Web bundle uploaded. Files updated.', 'success');
       } else {
         setStorageStatus('Upload failed: ' + txt, 'error');
       }
     })
     .catch(e => setStorageStatus('Upload error: ' + e, 'error'));
 }
+
+function rebootDevice() {
+  setOtaStatus('Rebooting device...', 'success');
+  fetch('/reboot', { method: 'POST' })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setOtaStatus('Reboot command sent.', 'success');
+      } else {
+        setOtaStatus('Reboot failed: ' + txt, 'error');
+      }
+    })
+    .catch(e => setOtaStatus('Reboot error: ' + e, 'error'));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadFirmwareVersion();
+});
 
 function setStatus(msg, cls) {
   const st = document.getElementById('config-status');

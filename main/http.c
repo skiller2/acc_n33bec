@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include "esp_log.h"
 #include "config.h"
 #include "cJSON.h"
@@ -10,8 +12,13 @@
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_system.h"
+#include "esp_littlefs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#ifndef PROJECT_VERSION
+#define PROJECT_VERSION "dev"
+#endif
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
@@ -20,6 +27,9 @@ extern char *card_read_all_json(void);
 static const char *TAG = "http";
 
 static QueueHandle_t event_queue = NULL;
+
+static uint32_t bundle_read_u32_le(const uint8_t *p);
+static bool bundle_is_safe_name(const char *name);
 
 static const char *get_content_type(const char *uri)
 {
@@ -335,6 +345,27 @@ static esp_err_t post_config(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t get_version(httpd_req_t *req)
+{
+    size_t total_bytes = 0;
+    size_t used_bytes = 0;
+    size_t free_bytes = 0;
+
+    if (esp_littlefs_info("storage", &total_bytes, &used_bytes) == ESP_OK && total_bytes >= used_bytes)
+    {
+        free_bytes = total_bytes - used_bytes;
+    }
+
+    char version_json[256];
+    snprintf(version_json, sizeof(version_json),
+             "{\"version\":\"%s\",\"fs_total_bytes\":%u,\"fs_free_bytes\":%u}",
+             PROJECT_VERSION, (unsigned)total_bytes, (unsigned)free_bytes);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, version_json);
+    return ESP_OK;
+}
+
 static esp_err_t get_config(httpd_req_t *req)
 {
     config_t cfg;
@@ -377,13 +408,277 @@ static esp_err_t get_config(httpd_req_t *req)
     return ESP_OK;
 }
 
+#define UPDATE_BUNDLE_MAGIC "ACN2"
+#define UPDATE_BUNDLE_VERSION 1
+
+static uint32_t bundle_read_u32_le(const uint8_t *p)
+{
+    return ((uint32_t)p[0]) |
+           ((uint32_t)p[1] << 8) |
+           ((uint32_t)p[2] << 16) |
+           ((uint32_t)p[3] << 24);
+}
+
+static bool bundle_is_safe_name(const char *name)
+{
+    if (!name || name[0] == '\0')
+    {
+        return false;
+    }
+
+    if (strchr(name, '/') || strchr(name, '\\'))
+    {
+        return false;
+    }
+
+    if (strstr(name, ".."))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+static esp_err_t read_exact(httpd_req_t *req, uint8_t *buf, size_t len)
+{
+    size_t received = 0;
+    while (received < len)
+    {
+        int recv_len = httpd_req_recv(req, (char *)buf + received, len - received);
+        if (recv_len <= 0)
+        {
+            ESP_LOGE(TAG, "Failed to receive %u bytes from request", (unsigned)len);
+            return ESP_FAIL;
+        }
+        received += (size_t)recv_len;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t skip_exact(httpd_req_t *req, size_t len)
+{
+    uint8_t buf[256];
+    size_t remaining = len;
+    while (remaining > 0)
+    {
+        size_t chunk = (remaining > sizeof(buf)) ? sizeof(buf) : remaining;
+        if (read_exact(req, buf, chunk) != ESP_OK)
+        {
+            return ESP_FAIL;
+        }
+        remaining -= chunk;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t apply_web_bundle_stream(httpd_req_t *req, size_t content_len)
+{
+    if (content_len == 0 || content_len > 512 * 1024)
+    {
+        ESP_LOGE(TAG, "Invalid bundle size: %u", (unsigned)content_len);
+        httpd_resp_sendstr(req, "ERR: invalid bundle size");
+        return ESP_FAIL;
+    }
+
+    uint8_t header[12];
+    if (read_exact(req, header, sizeof(header)) != ESP_OK)
+    {
+        httpd_resp_sendstr(req, "ERR: bundle recv");
+        return ESP_FAIL;
+    }
+
+    if (memcmp(header, "WAB1", 4) != 0)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid bundle format");
+        return ESP_FAIL;
+    }
+
+    uint32_t version = bundle_read_u32_le(header + 4);
+    if (version != 1)
+    {
+        httpd_resp_sendstr(req, "ERR: unsupported bundle version");
+        return ESP_FAIL;
+    }
+
+    uint32_t file_count = bundle_read_u32_le(header + 8);
+    uint32_t written = 0;
+    size_t consumed = 12;
+
+    for (uint32_t i = 0; i < file_count; ++i)
+    {
+        if (consumed + 4 > content_len)
+        {
+            httpd_resp_sendstr(req, "ERR: truncated bundle header");
+            return ESP_FAIL;
+        }
+
+        uint8_t name_len_buf[4];
+        if (read_exact(req, name_len_buf, sizeof(name_len_buf)) != ESP_OK)
+        {
+            httpd_resp_sendstr(req, "ERR: bundle recv");
+            return ESP_FAIL;
+        }
+        uint32_t name_len = bundle_read_u32_le(name_len_buf);
+        consumed += 4;
+
+        if (consumed + name_len > content_len)
+        {
+            httpd_resp_sendstr(req, "ERR: truncated bundle filename");
+            return ESP_FAIL;
+        }
+
+        char filename[128];
+        if (name_len >= sizeof(filename))
+        {
+            httpd_resp_sendstr(req, "ERR: filename too long");
+            return ESP_FAIL;
+        }
+
+        if (read_exact(req, (uint8_t *)filename, name_len) != ESP_OK)
+        {
+            httpd_resp_sendstr(req, "ERR: bundle recv");
+            return ESP_FAIL;
+        }
+        filename[name_len] = '\0';
+        consumed += name_len;
+
+        uint8_t data_len_buf[4];
+        if (read_exact(req, data_len_buf, sizeof(data_len_buf)) != ESP_OK)
+        {
+            httpd_resp_sendstr(req, "ERR: bundle recv");
+            return ESP_FAIL;
+        }
+        uint32_t data_len = bundle_read_u32_le(data_len_buf);
+        consumed += 4;
+
+        if (consumed + data_len > content_len)
+        {
+            httpd_resp_sendstr(req, "ERR: truncated bundle data");
+            return ESP_FAIL;
+        }
+
+        if (strcmp(filename, "log.dat") == 0 || strcmp(filename, "log.txt") == 0)
+        {
+            consumed += data_len;
+            if (skip_exact(req, data_len) != ESP_OK)
+            {
+                httpd_resp_sendstr(req, "ERR: bundle recv");
+                return ESP_FAIL;
+            }
+            continue;
+        }
+
+        if (!bundle_is_safe_name(filename))
+        {
+            ESP_LOGW(TAG, "Ignoring unsafe bundle entry: %s", filename);
+            consumed += data_len;
+            if (skip_exact(req, data_len) != ESP_OK)
+            {
+                httpd_resp_sendstr(req, "ERR: bundle recv");
+                return ESP_FAIL;
+            }
+            continue;
+        }
+
+        char filepath[160];
+        snprintf(filepath, sizeof(filepath), "/fs/%s", filename);
+
+        FILE *f = fopen(filepath, "wb");
+        if (!f)
+        {
+            ESP_LOGE(TAG, "Failed to open bundle file for write: %s", filepath);
+            httpd_resp_sendstr(req, "ERR: open bundle file");
+            return ESP_FAIL;
+        }
+
+        uint8_t buf[1024];
+        size_t remaining = data_len;
+        while (remaining > 0)
+        {
+            size_t chunk = (remaining > sizeof(buf)) ? sizeof(buf) : remaining;
+            if (read_exact(req, buf, chunk) != ESP_OK)
+            {
+                fclose(f);
+                httpd_resp_sendstr(req, "ERR: bundle recv");
+                return ESP_FAIL;
+            }
+            if (fwrite(buf, 1, chunk, f) != chunk)
+            {
+                ESP_LOGE(TAG, "Failed to write bundle file: %s", filepath);
+                fclose(f);
+                httpd_resp_sendstr(req, "ERR: write bundle file");
+                return ESP_FAIL;
+            }
+            remaining -= chunk;
+        }
+
+        fclose(f);
+        consumed += data_len;
+        written++;
+    }
+
+    ESP_LOGI(TAG, "Web bundle updated: %u files", written);
+    return ESP_OK;
+}
+
+static esp_err_t reboot_handler(httpd_req_t *req)
+{
+    httpd_resp_sendstr(req, "OK: rebooting");
+    vTaskDelay(pdMS_TO_TICKS(500));
+    esp_restart();
+    return ESP_OK;
+}
+
 static esp_err_t ota_handler(httpd_req_t *req)
 {
+    size_t content_len = req->content_len;
+    if (content_len == 0 || content_len > 4 * 1024 * 1024)
+    {
+        ESP_LOGE(TAG, "Invalid update bundle size: %u", (unsigned)content_len);
+        httpd_resp_sendstr(req, "ERR: invalid update size");
+        return ESP_FAIL;
+    }
+
+    uint8_t header[16];
+    if (read_exact(req, header, sizeof(header)) != ESP_OK)
+    {
+        httpd_resp_sendstr(req, "ERR: update recv");
+        return ESP_FAIL;
+    }
+
+    if (memcmp(header, UPDATE_BUNDLE_MAGIC, 4) != 0)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid update bundle format");
+        return ESP_FAIL;
+    }
+
+    uint32_t version = bundle_read_u32_le(header + 4);
+    if (version != UPDATE_BUNDLE_VERSION)
+    {
+        httpd_resp_sendstr(req, "ERR: unsupported update bundle version");
+        return ESP_FAIL;
+    }
+
+    uint32_t firmware_len = bundle_read_u32_le(header + 8);
+    uint32_t web_bundle_len = bundle_read_u32_le(header + 12);
+    if (firmware_len == 0 || web_bundle_len == 0)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid update bundle layout");
+        return ESP_FAIL;
+    }
+
     const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
     if (!update_partition)
     {
         ESP_LOGE(TAG, "No OTA partition available");
         httpd_resp_sendstr(req, "ERR: no ota partition");
+        return ESP_FAIL;
+    }
+
+    if (firmware_len > update_partition->size)
+    {
+        ESP_LOGE(TAG, "Firmware image exceeds OTA partition size");
+        httpd_resp_sendstr(req, "ERR: image too large");
         return ESP_FAIL;
     }
 
@@ -396,21 +691,21 @@ static esp_err_t ota_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    char buf[1024];
-    int recv_len = 0;
+    uint8_t buf[1024];
     size_t total = 0;
+    size_t remaining = firmware_len;
 
-    while ((recv_len = httpd_req_recv(req, buf, sizeof(buf))) > 0)
+    while (remaining > 0)
     {
-        if ((total + recv_len) > update_partition->size)
+        size_t chunk = (remaining > sizeof(buf)) ? sizeof(buf) : remaining;
+        if (read_exact(req, buf, chunk) != ESP_OK)
         {
-            ESP_LOGE(TAG, "Firmware image exceeds OTA partition size");
             esp_ota_abort(update_handle);
-            httpd_resp_sendstr(req, "ERR: image too large");
+            httpd_resp_sendstr(req, "ERR: update recv");
             return ESP_FAIL;
         }
 
-        err = esp_ota_write(update_handle, buf, recv_len);
+        err = esp_ota_write(update_handle, buf, chunk);
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "esp_ota_write failed: %s", esp_err_to_name(err));
@@ -418,15 +713,9 @@ static esp_err_t ota_handler(httpd_req_t *req)
             httpd_resp_sendstr(req, "ERR: ota write");
             return ESP_FAIL;
         }
-        total += recv_len;
-    }
 
-    if (recv_len < 0)
-    {
-        ESP_LOGE(TAG, "httpd_req_recv failed: %d", recv_len);
-        esp_ota_abort(update_handle);
-        httpd_resp_sendstr(req, "ERR: ota recv");
-        return ESP_FAIL;
+        remaining -= chunk;
+        total += chunk;
     }
 
     err = esp_ota_end(update_handle);
@@ -434,6 +723,11 @@ static esp_err_t ota_handler(httpd_req_t *req)
     {
         ESP_LOGE(TAG, "esp_ota_end failed: %s", esp_err_to_name(err));
         httpd_resp_sendstr(req, "ERR: ota end");
+        return ESP_FAIL;
+    }
+
+    if (apply_web_bundle_stream(req, web_bundle_len) != ESP_OK)
+    {
         return ESP_FAIL;
     }
 
@@ -446,68 +740,28 @@ static esp_err_t ota_handler(httpd_req_t *req)
     }
 
     ESP_LOGI(TAG, "OTA image accepted, %u bytes", (unsigned)total);
-    httpd_resp_sendstr(req, "OK: app update prepared");
+    httpd_resp_sendstr(req, "OK: update prepared");
     vTaskDelay(pdMS_TO_TICKS(500));
     esp_restart();
     return ESP_OK;
 }
 
-static esp_err_t storage_handler(httpd_req_t *req)
+static esp_err_t web_bundle_handler(httpd_req_t *req)
 {
-    const esp_partition_t *storage_partition = esp_partition_find_first(
-        ESP_PARTITION_TYPE_DATA,
-        ESP_PARTITION_SUBTYPE_ANY,
-        "storage");
-    if (!storage_partition)
+    size_t content_len = req->content_len;
+    if (content_len == 0 || content_len > 512 * 1024)
     {
-        ESP_LOGE(TAG, "Storage partition not found");
-        httpd_resp_sendstr(req, "ERR: storage partition not found");
+        ESP_LOGE(TAG, "Invalid bundle size: %u", (unsigned)content_len);
+        httpd_resp_sendstr(req, "ERR: invalid bundle size");
         return ESP_FAIL;
     }
 
-    esp_err_t err = esp_partition_erase_range(storage_partition, 0, storage_partition->size);
-    if (err != ESP_OK)
+    esp_err_t err = apply_web_bundle_stream(req, content_len);
+    if (err == ESP_OK)
     {
-        ESP_LOGE(TAG, "Failed to erase storage partition: %s", esp_err_to_name(err));
-        httpd_resp_sendstr(req, "ERR: erase storage");
-        return ESP_FAIL;
+        httpd_resp_sendstr(req, "OK: web bundle updated");
     }
-
-    char buf[1024];
-    int recv_len = 0;
-    size_t total = 0;
-
-    while ((recv_len = httpd_req_recv(req, buf, sizeof(buf))) > 0)
-    {
-        if ((total + recv_len) > storage_partition->size)
-        {
-            ESP_LOGE(TAG, "Storage image exceeds partition size");
-            httpd_resp_sendstr(req, "ERR: image too large");
-            return ESP_FAIL;
-        }
-
-        err = esp_partition_write(storage_partition, total, buf, recv_len);
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(TAG, "Failed to write storage partition: %s", esp_err_to_name(err));
-            httpd_resp_sendstr(req, "ERR: write storage");
-            return ESP_FAIL;
-        }
-        total += recv_len;
-    }
-
-    if (recv_len < 0)
-    {
-        ESP_LOGE(TAG, "httpd_req_recv failed: %d", recv_len);
-        httpd_resp_sendstr(req, "ERR: storage recv");
-        return ESP_FAIL;
-    }
-
-    ESP_LOGI(TAG, "Storage image accepted, %u bytes", (unsigned)total);
-    httpd_resp_sendstr(req, "OK: storage update prepared");
-    vTaskDelay(pdMS_TO_TICKS(500));
-    esp_restart();
-    return ESP_OK;
+    return err;
 }
 
 void http_init(QueueHandle_t qh)
@@ -562,15 +816,25 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_GET,
             .handler = get_config};
 
+        httpd_uri_t version_uri = {
+            .uri = "/version",
+            .method = HTTP_GET,
+            .handler = get_version};
+
         httpd_uri_t ota_uri = {
             .uri = "/ota",
             .method = HTTP_POST,
             .handler = ota_handler};
 
-        httpd_uri_t storage_uri = {
+        httpd_uri_t reboot_uri = {
+            .uri = "/reboot",
+            .method = HTTP_POST,
+            .handler = reboot_handler};
+
+        httpd_uri_t bundle_uri = {
             .uri = "/storage",
             .method = HTTP_POST,
-            .handler = storage_handler};
+            .handler = web_bundle_handler};
 
         httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = static_file_handler};
         httpd_register_uri_handler(s, &u1);
@@ -587,8 +851,10 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &cards_uri);
         httpd_register_uri_handler(s, &cfg_uri);
         httpd_register_uri_handler(s, &get_cfg_uri);
+        httpd_register_uri_handler(s, &version_uri);
         httpd_register_uri_handler(s, &ota_uri);
-        httpd_register_uri_handler(s, &storage_uri);
+        httpd_register_uri_handler(s, &reboot_uri);
+        httpd_register_uri_handler(s, &bundle_uri);
         httpd_register_uri_handler(s, &simulate_card_uri);
 
         ESP_LOGI(TAG, "End Initializing HTTP server");
