@@ -34,28 +34,24 @@ esp_err_t  send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
 
     esp_http_client_config_t config = {
         .url =             g_config.url_n33bec, 
-        .timeout_ms = 200 // Your server endpoint
+        .timeout_ms = 1000, // Your server endpoint
+        .skip_cert_common_name_check=true,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
-    char post_data[256];
+    char post_data[512];
 
-    char cod_credencial[32];
-    char cod_tema_origen[32];
+    char str_value[32];
 
-    snprintf(cod_tema_origen,  sizeof(cod_tema_origen), "acceso/%lu/%d%d", g_config.device_id, event_id, port_id);
+    if (event_id==10) {
+        snprintf(str_value,  sizeof(str_value), "000-%llu", value);
+    } else {
+        snprintf(str_value,  sizeof(str_value), "%llu", value);
+    }
 
-    snprintf(cod_credencial,  sizeof(cod_credencial), "000-%llu", value);
-
-    //bool ind_separa_facility_code=true;
-    if (event_id==10)
     snprintf(post_data, sizeof(post_data),
-             "{\"cod_tema\":\"%s\",\"valor\":%s,\"des_valor\":%s}",
-             cod_tema_origen, cod_credencial, "PRUEBA");
-    else 
-    snprintf(post_data, sizeof(post_data),
-             "{\"cod_tema\":\"%s\",\"valor\":%llu,\"des_valor\":%s}",
-             cod_tema_origen, value, "PRUEBA");
+             "{\"cod_tema\":\"%s/%lu/%d%d\",\"valor\":\"%s\",\"event_id\":\"%d\"}",
+             g_config.cod_tema, g_config.device_id, event_id, port_id,str_value, event_id);
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
 
@@ -311,10 +307,16 @@ static esp_err_t post_config(httpd_req_t *req)
     item = cJSON_GetObjectItemCaseSensitive(json, "reader2_relay_duration_ms");
     if (cJSON_IsNumber(item))
         cfg.reader2_relay_duration_ms = (uint32_t)item->valuedouble;
+
     item = cJSON_GetObjectItemCaseSensitive(json, "url_n33bec");
     if (cJSON_IsString(item) && (item->valuestring != NULL))
         strncpy(cfg.url_n33bec, item->valuestring, sizeof(cfg.url_n33bec) - 1);
     cfg.url_n33bec[sizeof(cfg.url_n33bec) - 1] = '\0'; // Ensure null termination
+
+    item = cJSON_GetObjectItemCaseSensitive(json, "cod_tema");
+    if (cJSON_IsString(item) && (item->valuestring != NULL))
+        strncpy(cfg.cod_tema, item->valuestring, sizeof(cfg.cod_tema) - 1);
+    cfg.cod_tema[sizeof(cfg.cod_tema) - 1] = '\0'; // Ensure null termination
 
 
     cJSON_Delete(json);
@@ -353,6 +355,7 @@ static esp_err_t get_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "reader1_relay_duration_ms", cfg.reader1_relay_duration_ms);
     cJSON_AddNumberToObject(json, "reader2_relay_duration_ms", cfg.reader2_relay_duration_ms);
     cJSON_AddStringToObject(json, "url_n33bec", cfg.url_n33bec);
+    cJSON_AddStringToObject(json, "cod_tema", cfg.cod_tema);
     cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);
     cJSON_AddNumberToObject(json, "device_id", cfg.device_id);
 

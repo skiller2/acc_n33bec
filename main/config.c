@@ -15,21 +15,6 @@ static const char *CONFIG_PATH = "/fs/config.dat";
 static const uint32_t CONFIG_MAGIC = 0x434F4E46; // 'CONF'
 static const uint8_t CONFIG_VERSION = 1;
 
-typedef struct {
-    uint32_t magic;
-    uint8_t version;
-    gpio_num_t rex1_relay_gpio;
-    gpio_num_t rex2_relay_gpio;
-    gpio_num_t reader1_relay_gpio;
-    gpio_num_t reader2_relay_gpio;
-    uint32_t rex1_relay_duration_ms;
-    uint32_t rex2_relay_duration_ms;
-    uint32_t reader1_relay_duration_ms;
-    uint32_t reader2_relay_duration_ms;
-    uint32_t input_debounce_ms;
-    uint32_t device_id;                     // Unique device ID for this access control unit
-    char url_n33bec[256]; // URL for N33-BEC server
-} stored_config_t;
 
 static void set_defaults(config_t *config)
 {
@@ -44,6 +29,7 @@ static void set_defaults(config_t *config)
     config->input_debounce_ms = 100;
     config->device_id = 0; // Default device ID, will be set to last byte of MAC if not specified
     config->url_n33bec[0] = '\0'; // Default to empty string
+    config->cod_tema[0] = '\0'; // Default to empty string
 }
 
 static bool valid_relay_number(gpio_num_t relay)
@@ -90,8 +76,12 @@ static void clamp_config(config_t *config)
         config->device_id = mac[5]; // Use the last byte of the MAC address as the device ID    
     }
     if (strlen(config->url_n33bec) == 0) {
-        strncpy(config->url_n33bec, "http://192.168.80.235/api/v1/movimientos/evento", sizeof(config->url_n33bec) - 1);
+        strncpy(config->url_n33bec, "https://pepaofi.efaisa.com.ar/api/v1/movieventos/evento", sizeof(config->url_n33bec) - 1);
         config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
+    }
+    if (strlen(config->cod_tema) == 0) {
+        strncpy(config->cod_tema, "demo/acceso", sizeof(config->cod_tema) - 1);
+        config->cod_tema[sizeof(config->cod_tema) - 1] = '\0'; // Ensure null termination
     }
 }
 
@@ -101,7 +91,7 @@ esp_err_t config_save(const config_t *config)
         return ESP_ERR_INVALID_ARG;
     }
 
-    stored_config_t stored = {
+    config_t stored = {
         .magic = CONFIG_MAGIC,
         .version = CONFIG_VERSION,
         .rex1_relay_gpio = config->rex1_relay_gpio,
@@ -116,6 +106,7 @@ esp_err_t config_save(const config_t *config)
         .device_id = config->device_id
     };
     strcpy(stored.url_n33bec, config->url_n33bec);
+    strcpy(stored.cod_tema, config->cod_tema);
 
     FILE *f = fopen(CONFIG_PATH, "wb");
     if (!f) {
@@ -163,7 +154,7 @@ esp_err_t config_load(config_t *config)
         return config_save(config);
     }
 
-    stored_config_t stored;
+    config_t stored;
     size_t read = fread(&stored, 1, sizeof(stored), f);
     fclose(f);
 
@@ -184,6 +175,10 @@ esp_err_t config_load(config_t *config)
     config->device_id = stored.device_id;
     strncpy(config->url_n33bec, stored.url_n33bec, sizeof(config->url_n33bec) - 1);
     config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
+    
+    strncpy(config->cod_tema, stored.cod_tema, sizeof(config->cod_tema) - 1);
+    config->cod_tema[sizeof(config->cod_tema) - 1] = '\0'; // Ensure null termination
+    
     clamp_config(config);
 
     ESP_LOGI(TAG, "Loaded REX config: rex1_relay=%u rex1_ms=%u rex2_relay=%u rex2_ms=%u",
