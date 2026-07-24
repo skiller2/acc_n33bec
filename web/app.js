@@ -116,6 +116,30 @@ function uploadFirmware() {
     .catch(e => setOtaStatus('Upload error: ' + e, 'error'));
 }
 
+function uploadStorageImage() {
+  const file = document.getElementById('storageFile').files[0];
+  if (!file) {
+    setStorageStatus('Select a storage image first.', 'error');
+    return;
+  }
+
+  setStorageStatus('Uploading storage image...', 'success');
+
+  fetch('/storage', {
+    method: 'POST',
+    body: file
+  })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setStorageStatus('Storage image uploaded. Rebooting...', 'success');
+      } else {
+        setStorageStatus('Upload failed: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStorageStatus('Upload error: ' + e, 'error'));
+}
+
 function setStatus(msg, cls) {
   const st = document.getElementById('config-status');
   st.innerText = msg;
@@ -124,6 +148,12 @@ function setStatus(msg, cls) {
 
 function setOtaStatus(msg, cls) {
   const st = document.getElementById('ota-status');
+  st.innerText = msg;
+  st.className = 'status ' + cls;
+}
+
+function setStorageStatus(msg, cls) {
+  const st = document.getElementById('storage-status');
   st.innerText = msg;
   st.className = 'status ' + cls;
 }

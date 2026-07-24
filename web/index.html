@@ -152,15 +152,22 @@
 
   <div id="firmware-tab" class="tab-content">
     <div class="card">
-      <div class="card">
-        <h2>Firmware Update</h2>
-        <label>Firmware binary:
-          <input type="file" id="firmwareFile" accept=".bin">
-        </label>
-        <button onclick="uploadFirmware()">Upload</button>
-      </div>
+      <h2>Firmware Update</h2>
+      <label>Firmware binary:
+        <input type="file" id="firmwareFile" accept=".bin">
+      </label>
+      <button onclick="uploadFirmware()">Upload App</button>
+      <div id="ota-status"></div>
     </div>
-    <div id="ota-status"></div>
+
+    <div class="card">
+      <h2>Storage Update (LittleFS)</h2>
+      <label>Storage image:
+        <input type="file" id="storageFile" accept=".bin">
+      </label>
+      <button onclick="uploadStorageImage()">Upload Storage</button>
+      <div id="storage-status"></div>
+    </div>
   </div>
 
   <script src="/app.js"></script>

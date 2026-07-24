@@ -8,6 +8,7 @@
 #include "wiegand_local.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
+#include "esp_partition.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -391,6 +392,14 @@ static esp_err_t ota_handler(httpd_req_t *req)
 
     while ((recv_len = httpd_req_recv(req, buf, sizeof(buf))) > 0)
     {
+        if ((total + recv_len) > update_partition->size)
+        {
+            ESP_LOGE(TAG, "Firmware image exceeds OTA partition size");
+            esp_ota_abort(update_handle);
+            httpd_resp_sendstr(req, "ERR: image too large");
+            return ESP_FAIL;
+        }
+
         err = esp_ota_write(update_handle, buf, recv_len);
         if (err != ESP_OK)
         {
@@ -427,7 +436,65 @@ static esp_err_t ota_handler(httpd_req_t *req)
     }
 
     ESP_LOGI(TAG, "OTA image accepted, %u bytes", (unsigned)total);
-    httpd_resp_sendstr(req, "OK: update prepared");
+    httpd_resp_sendstr(req, "OK: app update prepared");
+    vTaskDelay(pdMS_TO_TICKS(500));
+    esp_restart();
+    return ESP_OK;
+}
+
+static esp_err_t storage_handler(httpd_req_t *req)
+{
+    const esp_partition_t *storage_partition = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA,
+        ESP_PARTITION_SUBTYPE_ANY,
+        "storage");
+    if (!storage_partition)
+    {
+        ESP_LOGE(TAG, "Storage partition not found");
+        httpd_resp_sendstr(req, "ERR: storage partition not found");
+        return ESP_FAIL;
+    }
+
+    esp_err_t err = esp_partition_erase_range(storage_partition, 0, storage_partition->size);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to erase storage partition: %s", esp_err_to_name(err));
+        httpd_resp_sendstr(req, "ERR: erase storage");
+        return ESP_FAIL;
+    }
+
+    char buf[1024];
+    int recv_len = 0;
+    size_t total = 0;
+
+    while ((recv_len = httpd_req_recv(req, buf, sizeof(buf))) > 0)
+    {
+        if ((total + recv_len) > storage_partition->size)
+        {
+            ESP_LOGE(TAG, "Storage image exceeds partition size");
+            httpd_resp_sendstr(req, "ERR: image too large");
+            return ESP_FAIL;
+        }
+
+        err = esp_partition_write(storage_partition, total, buf, recv_len);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "Failed to write storage partition: %s", esp_err_to_name(err));
+            httpd_resp_sendstr(req, "ERR: write storage");
+            return ESP_FAIL;
+        }
+        total += recv_len;
+    }
+
+    if (recv_len < 0)
+    {
+        ESP_LOGE(TAG, "httpd_req_recv failed: %d", recv_len);
+        httpd_resp_sendstr(req, "ERR: storage recv");
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Storage image accepted, %u bytes", (unsigned)total);
+    httpd_resp_sendstr(req, "OK: storage update prepared");
     vTaskDelay(pdMS_TO_TICKS(500));
     esp_restart();
     return ESP_OK;
@@ -490,6 +557,11 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_POST,
             .handler = ota_handler};
 
+        httpd_uri_t storage_uri = {
+            .uri = "/storage",
+            .method = HTTP_POST,
+            .handler = storage_handler};
+
         httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = static_file_handler};
         httpd_register_uri_handler(s, &u1);
 
@@ -506,6 +578,7 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &cfg_uri);
         httpd_register_uri_handler(s, &get_cfg_uri);
         httpd_register_uri_handler(s, &ota_uri);
+        httpd_register_uri_handler(s, &storage_uri);
         httpd_register_uri_handler(s, &simulate_card_uri);
 
         ESP_LOGI(TAG, "End Initializing HTTP server");
