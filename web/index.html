@@ -14,6 +14,7 @@
     <button class="tab-btn active" onclick="switchTab('cards')">Cards</button>
     <button class="tab-btn" onclick="switchTab('logs')">Logs</button>
     <button class="tab-btn" onclick="switchTab('config')">Config</button>
+    <button class="tab-btn" onclick="switchTab('firmware')">Firmware</button>
   </div>
 
   <!-- Cards Tab -->
@@ -145,8 +146,21 @@
         <button onclick="loadConfig()">Reload</button>
         <button onclick="saveConfig()">Save</button>
       </div>
-      <div id="config-status"></div>
     </div>
+    <div id="config-status"></div>
+  </div>
+
+  <div id="firmware-tab" class="tab-content">
+    <div class="card">
+      <div class="card">
+        <h2>Firmware Update</h2>
+        <label>Firmware binary:
+          <input type="file" id="firmwareFile" accept=".bin">
+        </label>
+        <button onclick="uploadFirmware()">Upload</button>
+      </div>
+    </div>
+    <div id="ota-status"></div>
   </div>
 
   <script src="/app.js"></script>

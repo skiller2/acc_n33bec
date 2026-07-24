@@ -7,6 +7,10 @@
 #include "cJSON.h"
 #include "wiegand_local.h"
 #include "esp_http_client.h"
+#include "esp_ota_ops.h"
+#include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
@@ -34,7 +38,7 @@ esp_err_t  send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
 
     esp_http_client_config_t config = {
         .url =             g_config.url_n33bec, 
-        .timeout_ms = 1000, // Your server endpoint
+        .timeout_ms = 500, // Your server endpoint
         .skip_cert_common_name_check=true,
     };
 
@@ -85,18 +89,7 @@ esp_err_t  send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
 
             if (root)
             {
-                cJSON *rele1 = cJSON_GetObjectItem(root, "rele1");
-                cJSON *rele2 = cJSON_GetObjectItem(root, "rele2");
-                cJSON *rele3 = cJSON_GetObjectItem(root, "rele3");
-
-
-                //if (cJSON_IsNumber(rele1))
-                //{
-                //   ESP_LOGI(TAG, "success = %d",
-                //             cJSON_Number(rele1) );
-                //}
-
-
+                (void)root;
                 cJSON_Delete(root);
             }
         }
@@ -373,6 +366,73 @@ static esp_err_t get_config(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t ota_handler(httpd_req_t *req)
+{
+    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+    if (!update_partition)
+    {
+        ESP_LOGE(TAG, "No OTA partition available");
+        httpd_resp_sendstr(req, "ERR: no ota partition");
+        return ESP_FAIL;
+    }
+
+    esp_ota_handle_t update_handle = 0;
+    esp_err_t err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_ota_begin failed: %s", esp_err_to_name(err));
+        httpd_resp_sendstr(req, "ERR: ota begin");
+        return ESP_FAIL;
+    }
+
+    char buf[1024];
+    int recv_len = 0;
+    size_t total = 0;
+
+    while ((recv_len = httpd_req_recv(req, buf, sizeof(buf))) > 0)
+    {
+        err = esp_ota_write(update_handle, buf, recv_len);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "esp_ota_write failed: %s", esp_err_to_name(err));
+            esp_ota_abort(update_handle);
+            httpd_resp_sendstr(req, "ERR: ota write");
+            return ESP_FAIL;
+        }
+        total += recv_len;
+    }
+
+    if (recv_len < 0)
+    {
+        ESP_LOGE(TAG, "httpd_req_recv failed: %d", recv_len);
+        esp_ota_abort(update_handle);
+        httpd_resp_sendstr(req, "ERR: ota recv");
+        return ESP_FAIL;
+    }
+
+    err = esp_ota_end(update_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_ota_end failed: %s", esp_err_to_name(err));
+        httpd_resp_sendstr(req, "ERR: ota end");
+        return ESP_FAIL;
+    }
+
+    err = esp_ota_set_boot_partition(update_partition);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed: %s", esp_err_to_name(err));
+        httpd_resp_sendstr(req, "ERR: ota boot");
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "OTA image accepted, %u bytes", (unsigned)total);
+    httpd_resp_sendstr(req, "OK: update prepared");
+    vTaskDelay(pdMS_TO_TICKS(500));
+    esp_restart();
+    return ESP_OK;
+}
+
 void http_init(QueueHandle_t qh)
 {
     ESP_LOGI(TAG, "Initializing HTTP server");
@@ -382,7 +442,7 @@ void http_init(QueueHandle_t qh)
 
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
     c.max_open_sockets = 3;
-    c.max_uri_handlers = 10;
+    c.max_uri_handlers = 12;
     c.lru_purge_enable = true;
 
     c.stack_size = 8192;
@@ -425,6 +485,11 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_GET,
             .handler = get_config};
 
+        httpd_uri_t ota_uri = {
+            .uri = "/ota",
+            .method = HTTP_POST,
+            .handler = ota_handler};
+
         httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = static_file_handler};
         httpd_register_uri_handler(s, &u1);
 
@@ -440,6 +505,7 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &cards_uri);
         httpd_register_uri_handler(s, &cfg_uri);
         httpd_register_uri_handler(s, &get_cfg_uri);
+        httpd_register_uri_handler(s, &ota_uri);
         httpd_register_uri_handler(s, &simulate_card_uri);
 
         ESP_LOGI(TAG, "End Initializing HTTP server");

@@ -84,6 +84,16 @@ input[type="number"]:focus {
   border-color:#007bff;
 }
 
+input[type="file"] {
+  background:#333;
+  color:#eee;
+  border:1px solid #555;
+  padding:8px;
+  border-radius:3px;
+  width:100%;
+  max-width:320px;
+}
+
 #cardId {
   background:#333;
   color:#0f0;

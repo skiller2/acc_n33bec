@@ -92,8 +92,38 @@ function saveConfig() {
     .catch(e => setStatus('Save error: ' + e, 'error'));
 }
 
+function uploadFirmware() {
+  const file = document.getElementById('firmwareFile').files[0];
+  if (!file) {
+    setOtaStatus('Select a firmware binary first.', 'error');
+    return;
+  }
+
+  setOtaStatus('Uploading firmware...', 'success');
+
+  fetch('/ota', {
+    method: 'POST',
+    body: file
+  })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setOtaStatus('Firmware upload accepted. Rebooting...', 'success');
+      } else {
+        setOtaStatus('Upload failed: ' + txt, 'error');
+      }
+    })
+    .catch(e => setOtaStatus('Upload error: ' + e, 'error'));
+}
+
 function setStatus(msg, cls) {
   const st = document.getElementById('config-status');
+  st.innerText = msg;
+  st.className = 'status ' + cls;
+}
+
+function setOtaStatus(msg, cls) {
+  const st = document.getElementById('ota-status');
   st.innerText = msg;
   st.className = 'status ' + cls;
 }
