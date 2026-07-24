@@ -138,11 +138,11 @@ function uploadFirmware() {
 function uploadStorageImage() {
   const file = document.getElementById('storageFile').files[0];
   if (!file) {
-    setStorageStatus('Select a storage image first.', 'error');
+    setStorageStatus('Select a web bundle first.', 'error');
     return;
   }
 
-  setStorageStatus('Uploading storage image...', 'success');
+  setStorageStatus('Uploading web bundle...', 'success');
 
   fetch('/storage', {
     method: 'POST',
@@ -151,7 +151,7 @@ function uploadStorageImage() {
     .then(r => r.text())
     .then(txt => {
       if (txt.startsWith('OK')) {
-        setStorageStatus('Storage image uploaded. Rebooting...', 'success');
+        setStorageStatus('Web bundle uploaded. Files updated.', 'success');
       } else {
         setStorageStatus('Upload failed: ' + txt, 'error');
       }
