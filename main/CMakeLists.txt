@@ -26,7 +26,7 @@ set(WEB_BUNDLE ${CMAKE_BINARY_DIR}/web_bundle.bin)
 set(OTA_FW ${CMAKE_BINARY_DIR}/acc_n33bec.bin)
 
 # Bundle generado
-set(FULL_FW ${CMAKE_BINARY_DIR}/full_firmware.bin)
+set(FULL_FW "${CMAKE_BINARY_DIR}/acc-n33bec-fw-${GIT_TAG}.bin")
 
 # Buscar todos los archivos web
 file(GLOB_RECURSE WEB_FILES
@@ -68,3 +68,21 @@ add_custom_target(generate_web_bundle ALL
 add_custom_target(generate_full_firmware ALL
     DEPENDS ${FULL_FW}
 )
+
+
+
+#add_custom_target(release ALL
+#    COMMAND git release create ${GIT_TAG}
+#            ${CMAKE_BINARY_DIR}/acc_n33bec.bin
+#            --clobber
+#    DEPENDS ${CMAKE_BINARY_DIR}/acc_n33bec.bin
+#)
+
+#add_custom_target(release2 ALL
+#    COMMAND git release upload ${GIT_TAG}
+#            ${CMAKE_BINARY_DIR}/acc_n33bec.bin
+#            --clobber
+#    DEPENDS ${CMAKE_BINARY_DIR}/acc_n33bec.bin
+#)
+
+
