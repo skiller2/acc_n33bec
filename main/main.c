@@ -115,9 +115,47 @@ extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
+void log_input_task(void *arg);
+void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts );
 
+typedef struct {
+    uint8_t event_id;
+    int port_id;
+    uint64_t value;
+    int64_t ts;
+}input_event_t;
 
 static QueueHandle_t queue_cards;
+static QueueHandle_t queue_inputs;
+
+void log_input_task(void *arg)
+{
+    ESP_LOGI(TAG,"log input task started");
+    input_event_t evt;
+
+    while(1)
+    {
+        if (xQueueReceive(queue_inputs,&evt,portMAX_DELAY) == pdTRUE)
+        {
+            log_add(evt.event_id,evt.port_id,evt.value,evt.ts);
+            send_json(evt.event_id,evt.port_id,evt.value);
+        }
+    }
+}
+
+void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts)
+{
+    if (queue_inputs != NULL)
+    {
+        input_event_t evt = {
+            .event_id = event_id,
+            .port_id = port_id,
+            .value = value,
+            .ts = ts
+        };
+        xQueueSendToBack(queue_inputs,&evt,0); 
+    }
+}
 
 void worker(void *p)
 {
@@ -126,6 +164,7 @@ void worker(void *p)
     gpio_num_t reader_relay_gpio;
     gpio_num_t reader_buzzer_gpio;
     uint32_t reader_relay_duration_ms;
+    static uint8_t event_reader_code = 0;
 
     while (1)
     {
@@ -159,16 +198,20 @@ void worker(void *p)
                 // ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
                 pulse_output(reader_relay_gpio, reader_relay_duration_ms);
                 play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
-                log_add(10, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
+                event_reader_code = 10;
+                //log_add(event_reader_code, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
             }
             else
             {
-                log_add(11, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
+                event_reader_code = 11;
+                //log_add(event_reader_code, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
 
                 // ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
                 play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
+                
             }
-            send_json(10,e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
+            dispatch_log_event(event_reader_code,e.reader,e.card,now);
+            //send_json(event_reader_code,e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
             // int ok = card_exists(e.card);
 
             ws_broadcast(e.card, now, ok);
@@ -204,6 +247,7 @@ static void input_task(void *arg)
     int last_car = -1;
     int last_ali = -1;
 
+
     while (1)
     {
         int door1 = gpio_get_level(DOOR1_GPIO);
@@ -219,8 +263,9 @@ static void input_task(void *arg)
         {
             ESP_LOGI(TAG, "Door1: %s", door1 ? "OPEN" : "CLOSED");
 
-            log_add(5, 1, door1, 0);
-            send_json(5, 1, door1);
+            dispatch_log_event(5,1,door1,0);
+            //log_add(5, 1, door1, 0);
+            //send_json(5, 1, door1);
 
             last_door1 = door1;
         }
@@ -229,9 +274,10 @@ static void input_task(void *arg)
         if (door2 != last_door2)
         {
             ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
-
-            log_add(5, 2, door2, 0);
-            send_json(5, 2, door2);
+            
+            dispatch_log_event(5,2,door2,0);
+            //log_add(5, 2, door2, 0);
+            //send_json(5, 2, door2);
 
             last_door2 = door2;
         }
@@ -241,6 +287,7 @@ static void input_task(void *arg)
         {
             ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
 
+            
             // log_add(virtual_card, now, 0, ali ? 0 : 1); // Status = 0 if power is lost
             // send_json(0, virtual_card);                 // Dispatch JSON payload to server .235
 
@@ -267,8 +314,10 @@ static void input_task(void *arg)
                 pulse_output(g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
                 ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_gpio);
             }
-            log_add(6, 1, rex1, 0); // Local log entry
-            send_json(6, 1, rex1);     // Upload to server .235
+
+            dispatch_log_event(6,1,rex1,0);
+            //log_add(6, 1, rex1, 0); // Local log entry
+            //send_json(6, 1, rex1);     // Upload to server .235
             last_rex1 = rex1;
         }
 
@@ -280,8 +329,9 @@ static void input_task(void *arg)
                 pulse_output(g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
                 ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_gpio);
             }
-            log_add(6, 2, rex2, 0);
-            send_json(6, 2, rex2);
+            dispatch_log_event(6,2,rex2,0);
+            //log_add(6, 2, rex2, 0);
+            //send_json(6, 2, rex2);
             last_rex2 = rex2;
         }
 
@@ -346,6 +396,13 @@ void app_main()
 
     // =====================================
     // Queue
+
+    ESP_LOGI(TAG,"Creating input event queue");
+    queue_inputs = xQueueCreate(64,sizeof(input_event_t));
+    if (!queue_inputs)
+    {
+        ESP_LOGE(TAG,"Failed to create input event queue");
+    }
 
     ESP_LOGI(TAG, "Creating card event queue");
     queue_cards = xQueueCreate(64, sizeof(evt_t));
@@ -457,6 +514,12 @@ void app_main()
 
     ethernet_register_time_sync_task(time_sync_handle);
 
+    ESP_LOGI(TAG,"Creating log input task");
+    if (xTaskCreate(log_input_task,"log input task",8192,NULL,4,NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG,"Failed to create log input task");
+    }
+
     ESP_LOGI(TAG, "Creating worker task");
     if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
     {
@@ -464,7 +527,7 @@ void app_main()
     }
 
     ESP_LOGI(TAG, "Creating input task");
-    if (xTaskCreate(input_task, "input_task", 8192, NULL, 5, NULL) != pdPASS)
+    if (xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create input task");
     }

@@ -42,20 +42,18 @@ static const char *get_content_type(const char *uri)
     return "text/plain";
 }
 
-esp_err_t  send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
+esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
 {
     config_load(&g_config);
 
-
     esp_http_client_config_t config = {
-        .url =             g_config.url_n33bec, 
-        .timeout_ms = 500, // Your server endpoint
-        .skip_cert_common_name_check=true,
+        .url = g_config.url_n33bec, 
+        .timeout_ms = 1000,
+        .skip_cert_common_name_check = true,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
     char post_data[512];
-
     char str_value[32];
 
     if (event_id == 10 || event_id == 11) 
@@ -67,16 +65,22 @@ esp_err_t  send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
 
         snprintf(str_value, sizeof(str_value), "%03u-%05u", facility, card);
 
-        ESP_LOGI(TAG, "Tarjeta Wiegand26 Desglosada -> RAW: %llu, FC: %u, Card: %u, String: %s", 
+        ESP_LOGI(TAG, "Tarjeta Wiegand26 -> RAW: %llu, FC: %u, Card: %u, String: %s", 
                  (unsigned long long)value, facility, card, str_value);
     }
-    else {
-        snprintf(str_value,  sizeof(str_value), "%llu", value);
+    else 
+    {
+        snprintf(str_value, sizeof(str_value), "%llu", (unsigned long long)value);
     }
 
     snprintf(post_data, sizeof(post_data),
-             "{\"cod_tema\":\"%s/%lu/%d%d\",\"valor\":\"%s\",\"event_id\":\"%d\"}",
-             g_config.cod_tema, g_config.device_id, event_id, port_id,str_value, event_id);
+             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\"}",
+             g_config.cod_tema, 
+             (unsigned int)g_config.device_id, 
+             (int)event_id, 
+             (int)port_id, 
+             str_value, 
+             (int)event_id);
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
 
@@ -88,37 +92,11 @@ esp_err_t  send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
 
     if (err == ESP_OK)
     {
-        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %lld",
-                 esp_http_client_get_status_code(client),
-                 esp_http_client_get_content_length(client));
-
-        char response[512];
-        int len = esp_http_client_read_response(
-            client,
-            response,
-            sizeof(response) - 1);
-
-        if (len > 0)
-        {
-            response[len] = '\0';
-
-            ESP_LOGI(TAG, "Response: %s", response);
-
-
-
-            cJSON *root = cJSON_Parse(response);
-
-            if (root)
-            {
-                (void)root;
-                cJSON_Delete(root);
-            }
-        }
+        ESP_LOGI(TAG, "HTTP POST Status = %d", esp_http_client_get_status_code(client));
     }
     else
     {
-        ESP_LOGE(TAG, "HTTP POST failed: %s",
-                 esp_err_to_name(err));
+        ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
 
     esp_http_client_cleanup(client);
