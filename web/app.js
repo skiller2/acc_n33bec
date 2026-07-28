@@ -116,7 +116,7 @@ function formatBytes(bytes) {
 }
 
 function loadFirmwareVersion() {
-  fetch('/version')
+  return fetch('/version')
     .then(r => r.json())
     .then(data => {
       const versionEl = document.getElementById('firmware-version');
@@ -129,25 +129,49 @@ function loadFirmwareVersion() {
       if (fsEl) {
         const total = typeof data.fs_total_bytes === 'number' ? data.fs_total_bytes : 0;
         const free = typeof data.fs_free_bytes === 'number' ? data.fs_free_bytes : 0;
-        fsEl.innerText = 'Filesystem: ' + formatBytes(total) + ' total, ' + formatBytes(free) + ' free';
-      }
-    })
-    .catch(() => {
-      const versionEl = document.getElementById('firmware-version');
-      const fsEl = document.getElementById('filesystem-info');
-
-      if (versionEl) {
-        versionEl.innerText = 'Version: unavailable';
+        fsEl.innerText =
+          'Filesystem: ' + formatBytes(total) + ' total, ' + formatBytes(free) + ' free';
       }
 
-      if (fsEl) {
-        fsEl.innerText = 'Filesystem: unavailable';
-      }
+      return data.version;
     });
+}
+
+function waitForFirmwareApplied() {
+  let retries = 0;
+
+  const timer = setInterval(() => {
+    retries++;
+
+    loadFirmwareVersion()
+      .then(version => {
+        clearInterval(timer);
+
+        setOtaStatus(
+          'Firmware applied successfully. Running version: ' + version,
+          'success'
+        );
+      })
+      .catch(() => {
+        setOtaStatus(
+          'Firmware upload accepted. Waiting for reboot...',
+          'success'
+        );
+      });
+
+    if (retries > 60) { // 60 segundos
+      clearInterval(timer);
+      setOtaStatus(
+        'Timeout waiting for device to come back online.',
+        'error'
+      );
+    }
+  }, 1000);
 }
 
 function uploadFirmware() {
   const file = document.getElementById('firmwareFile').files[0];
+
   if (!file) {
     setOtaStatus('Select a firmware binary first.', 'error');
     return;
@@ -162,7 +186,12 @@ function uploadFirmware() {
     .then(r => r.text())
     .then(txt => {
       if (txt.startsWith('OK')) {
-        setOtaStatus('Firmware upload accepted. Rebooting...', 'success');
+        setOtaStatus(
+          'Firmware upload accepted. Waiting for reboot...',
+          'success'
+        );
+
+        waitForFirmwareApplied();
       } else {
         setOtaStatus('Upload failed: ' + txt, 'error');
       }
