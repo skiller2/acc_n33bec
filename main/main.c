@@ -164,7 +164,7 @@ void worker(void *p)
     gpio_num_t reader_relay_gpio;
     gpio_num_t reader_buzzer_gpio;
     uint32_t reader_relay_duration_ms;
-    static uint8_t event_reader_code = 0;
+    static uint8_t event_id = 0;
 
     while (1)
     {
@@ -198,17 +198,19 @@ void worker(void *p)
                 // ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
                 pulse_output(reader_relay_gpio, reader_relay_duration_ms);
                 play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
+                event_id = 10;  //CARD PASS
                 //log_add(event_reader_code, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
             }
             else
             {
+                event_id = 11; //CARD REJECT
                 //log_add(event_reader_code, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
 
                 // ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
                 play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
                 
             }
-            dispatch_log_event(10,e.reader,e.card,now);
+            dispatch_log_event(event_id,e.reader,e.card,now);
             //send_json(event_reader_code,e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
             // int ok = card_exists(e.card);
 
