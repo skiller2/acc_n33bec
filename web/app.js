@@ -117,7 +117,12 @@ function formatBytes(bytes) {
 
 function loadFirmwareVersion() {
   return fetch('/version')
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) {
+        throw new Error('HTTP ' + r.status);
+      }
+      return r.json();
+    })
     .then(data => {
       const versionEl = document.getElementById('firmware-version');
       const fsEl = document.getElementById('filesystem-info');
@@ -127,8 +132,8 @@ function loadFirmwareVersion() {
       }
 
       if (fsEl) {
-        const total = typeof data.fs_total_bytes === 'number' ? data.fs_total_bytes : 0;
-        const free = typeof data.fs_free_bytes === 'number' ? data.fs_free_bytes : 0;
+        const total = data.fs_total_bytes || 0;
+        const free = data.fs_free_bytes || 0;
         fsEl.innerText =
           'Filesystem: ' + formatBytes(total) + ' total, ' + formatBytes(free) + ' free';
       }
@@ -137,36 +142,29 @@ function loadFirmwareVersion() {
     });
 }
 
-function waitForFirmwareApplied() {
-  let retries = 0;
+async function waitForFirmwareApplied() {
+  const maxRetries = 60;
 
-  const timer = setInterval(() => {
-    retries++;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const version = await loadFirmwareVersion();
 
-    loadFirmwareVersion()
-      .then(version => {
-        clearInterval(timer);
-
-        setOtaStatus(
-          'Firmware applied successfully. Running version: ' + version,
-          'success'
-        );
-      })
-      .catch(() => {
-        setOtaStatus(
-          'Firmware upload accepted. Waiting for reboot...',
-          'success'
-        );
-      });
-
-    if (retries > 60) { // 60 segundos
-      clearInterval(timer);
       setOtaStatus(
-        'Timeout waiting for device to come back online.',
-        'error'
+        'Firmware applied successfully. Running version: ' + version,
+        'success'
       );
+      return;
+    } catch (e) {
+      // El equipo sigue reiniciando
     }
-  }, 1000);
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  setOtaStatus(
+    'Timeout waiting for device to come back online.',
+    'error'
+  );
 }
 
 function uploadFirmware() {
