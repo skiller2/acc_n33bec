@@ -123,6 +123,7 @@ typedef struct {
     int port_id;
     uint64_t value;
     int64_t ts;
+    uint8_t send_retry;
 }input_event_t;
 
 static QueueHandle_t queue_cards;
@@ -130,14 +131,29 @@ static QueueHandle_t queue_inputs;
 
 void log_input_task(void *arg)
 {
-    ESP_LOGI(TAG,"log input task started");
+    ESP_LOGI(TAG, "log input task started");
+
     input_event_t evt;
 
-    while(1)
+    while (1)
     {
-        if (xQueueReceive(queue_inputs,&evt,portMAX_DELAY) == pdTRUE)
+        if (xQueueReceive(queue_inputs, &evt, portMAX_DELAY) == pdTRUE)
         {
-            send_json(evt.event_id,evt.port_id,evt.value);
+            esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value);
+
+            if (err != ESP_OK)
+            {
+                evt.send_retry++;
+                ESP_LOGW(TAG, "send_json failed (%s), requeueing event retry %d",
+                         esp_err_to_name(err),evt.send_retry);
+
+                if (xQueueSendToBack(queue_inputs, &evt, 0) != pdTRUE)
+                {
+                    ESP_LOGE(TAG, "Failed to requeue event");
+                }
+
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
         }
     }
 }
@@ -151,7 +167,8 @@ void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t t
             .event_id = event_id,
             .port_id = port_id,
             .value = value,
-            .ts = ts
+            .ts = ts,
+            .send_retry=0
         };
         xQueueSendToBack(queue_inputs,&evt,0); 
     }
@@ -164,7 +181,7 @@ void worker(void *p)
     gpio_num_t reader_relay_gpio;
     gpio_num_t reader_buzzer_gpio;
     uint32_t reader_relay_duration_ms;
-    static uint8_t event_id = 0;
+    uint8_t event_id = 0;
 
     while (1)
     {
@@ -209,8 +226,6 @@ void worker(void *p)
                 
             }
             dispatch_log_event(10,e.reader,e.card,now);
-            //send_json(event_reader_code,e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
-            // int ok = card_exists(e.card);
 
             ws_broadcast(e.card, now, ok);
         }

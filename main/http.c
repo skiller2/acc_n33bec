@@ -92,7 +92,9 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
 
     if (err == ESP_OK)
     {
-        ESP_LOGI(TAG, "HTTP POST Status = %d", esp_http_client_get_status_code(client));
+        int status_code = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "HTTP POST Status = %d", status_code);
+        err = ESP_FAIL;
     }
     else
     {
