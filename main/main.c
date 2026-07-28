@@ -137,7 +137,6 @@ void log_input_task(void *arg)
     {
         if (xQueueReceive(queue_inputs,&evt,portMAX_DELAY) == pdTRUE)
         {
-            log_add(evt.event_id,evt.port_id,evt.value,evt.ts);
             send_json(evt.event_id,evt.port_id,evt.value);
         }
     }
@@ -145,6 +144,7 @@ void log_input_task(void *arg)
 
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts)
 {
+    log_add(event_id,port_id,value,ts);
     if (queue_inputs != NULL)
     {
         input_event_t evt = {
@@ -199,18 +199,16 @@ void worker(void *p)
                 pulse_output(reader_relay_gpio, reader_relay_duration_ms);
                 play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
                 event_id = 10;  //CARD PASS
-                //log_add(event_reader_code, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
             }
             else
             {
                 event_id = 11; //CARD REJECT
-                //log_add(event_reader_code, e.reader, e.card, now); // Log the card event with timestamp, reader ID, and access result
 
                 // ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
                 play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
                 
             }
-            dispatch_log_event(event_id,e.reader,e.card,now);
+            dispatch_log_event(10,e.reader,e.card,now);
             //send_json(event_reader_code,e.reader, e.card); // Example call to send JSON data (replace with actual device and card IDs)
             // int ok = card_exists(e.card);
 
@@ -258,39 +256,30 @@ static void input_task(void *arg)
         int car = gpio_get_level(CAR_GPIO);
         int ali = gpio_get_level(ALI_GPIO);
 
-        // DOOR 1 TRACKING (Virtual IDs: 999101 / 999102)
         if (door1 != last_door1)
         {
             ESP_LOGI(TAG, "Door1: %s", door1 ? "OPEN" : "CLOSED");
 
             dispatch_log_event(5,1,door1,0);
-            //log_add(5, 1, door1, 0);
-            //send_json(5, 1, door1);
 
             last_door1 = door1;
         }
 
-        // DOOR 2 TRACKING (Virtual IDs: 999201 / 999202)
         if (door2 != last_door2)
         {
             ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
             
             dispatch_log_event(5,2,door2,0);
-            //log_add(5, 2, door2, 0);
-            //send_json(5, 2, door2);
 
             last_door2 = door2;
         }
 
-        // AC MAIN POWER TRACKING (Virtual IDs: 999301 / 999302)
         if (ali != last_ali)
         {
             ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
 
+            dispatch_log_event(2,1,ali,0);
             
-            // log_add(virtual_card, now, 0, ali ? 0 : 1); // Status = 0 if power is lost
-            // send_json(0, virtual_card);                 // Dispatch JSON payload to server .235
-
             last_ali = ali;
         }
 
@@ -316,8 +305,6 @@ static void input_task(void *arg)
             }
 
             dispatch_log_event(6,1,rex1,0);
-            //log_add(6, 1, rex1, 0); // Local log entry
-            //send_json(6, 1, rex1);     // Upload to server .235
             last_rex1 = rex1;
         }
 
@@ -330,8 +317,6 @@ static void input_task(void *arg)
                 ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_gpio);
             }
             dispatch_log_event(6,2,rex2,0);
-            //log_add(6, 2, rex2, 0);
-            //send_json(6, 2, rex2);
             last_rex2 = rex2;
         }
 

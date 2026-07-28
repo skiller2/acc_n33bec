@@ -751,7 +751,7 @@ void http_init(QueueHandle_t qh)
 
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
     c.max_open_sockets = 3;
-    c.max_uri_handlers = 12;
+    c.max_uri_handlers = 20;
     c.lru_purge_enable = true;
 
     c.stack_size = 8192;

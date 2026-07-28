@@ -283,7 +283,9 @@ function loadLogs() {
       const container = document.getElementById('logs-list');
       container.innerHTML = '';
 
-      logs.forEach(log => {
+      logs
+      .sort((a, b) => b.ts - a.ts) // Mayor fecha primero
+      .forEach(log => {
         const div = document.createElement('div');
         div.className = 'card';
 
@@ -300,6 +302,8 @@ function loadLogs() {
             eventDisplay = "REX";
           } else if (log.event_id == 5) {
             eventDisplay = "DOOR";
+          } else if (log.event_id == 2) {
+            eventDisplay = "POWER";
           } else if (log.event_id == 1) {
             eventDisplay = "SYSTEM START";
           } else {
