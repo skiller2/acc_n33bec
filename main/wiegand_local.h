@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-typedef struct { uint64_t card; uint32_t reader; } evt_t;
+typedef struct { uint64_t card; uint32_t port_id; } evt_t;
 void wiegand_init(int d0, int d1, int reader, int gpio_buzzer, QueueHandle_t qh);
 
 

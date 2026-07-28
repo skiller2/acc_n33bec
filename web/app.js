@@ -49,12 +49,12 @@ function loadConfig() {
       document.getElementById('cod_tema').value = cfg.cod_tema;
       document.getElementById('rex1_relay_gpio').value = cfg.rex1_relay_gpio;
       document.getElementById('rex2_relay_gpio').value = cfg.rex2_relay_gpio;
-      document.getElementById('reader1_relay_gpio').value = cfg.reader1_relay_gpio;
-      document.getElementById('reader2_relay_gpio').value = cfg.reader2_relay_gpio;
+      document.getElementById('port1_relay_gpio').value = cfg.port1_relay_gpio;
+      document.getElementById('port2_relay_gpio').value = cfg.port2_relay_gpio;
       document.getElementById('rex1_relay_duration_ms').value = cfg.rex1_relay_duration_ms;
       document.getElementById('rex2_relay_duration_ms').value = cfg.rex2_relay_duration_ms;
-      document.getElementById('reader1_relay_duration_ms').value = cfg.reader1_relay_duration_ms;
-      document.getElementById('reader2_relay_duration_ms').value = cfg.reader2_relay_duration_ms;
+      document.getElementById('port1_relay_duration_ms').value = cfg.port1_relay_duration_ms;
+      document.getElementById('port2_relay_duration_ms').value = cfg.port2_relay_duration_ms;
       document.getElementById('input_debounce_ms').value = cfg.input_debounce_ms;
       document.getElementById('device_id').value = cfg.device_id;
       setStatus('Config loaded', 'success');
@@ -68,12 +68,12 @@ function saveConfig() {
     cod_tema: document.getElementById('cod_tema').value,
     rex1_relay_gpio: parseInt(document.getElementById('rex1_relay_gpio').value),
     rex2_relay_gpio: parseInt(document.getElementById('rex2_relay_gpio').value),
-    reader1_relay_gpio: parseInt(document.getElementById('reader1_relay_gpio').value),
-    reader2_relay_gpio: parseInt(document.getElementById('reader2_relay_gpio').value),
+    port1_relay_gpio: parseInt(document.getElementById('port1_relay_gpio').value),
+    port2_relay_gpio: parseInt(document.getElementById('port2_relay_gpio').value),
     rex1_relay_duration_ms: parseInt(document.getElementById('rex1_relay_duration_ms').value),
     rex2_relay_duration_ms: parseInt(document.getElementById('rex2_relay_duration_ms').value),
-    reader1_relay_duration_ms: parseInt(document.getElementById('reader1_relay_duration_ms').value),
-    reader2_relay_duration_ms: parseInt(document.getElementById('reader2_relay_duration_ms').value),
+    port1_relay_duration_ms: parseInt(document.getElementById('port1_relay_duration_ms').value),
+    port2_relay_duration_ms: parseInt(document.getElementById('port2_relay_duration_ms').value),
     input_debounce_ms: parseInt(document.getElementById('input_debounce_ms').value),
     device_id: parseInt(document.getElementById('device_id').value)
   };

@@ -216,16 +216,16 @@ static esp_err_t simulate_card(httpd_req_t *req)
     }
 
     uint64_t card_value = card_item->valuedouble;
-    int reader_id = reader_item->valuedouble;
+    int port_id = reader_item->valuedouble;
 
     cJSON_Delete(json);
 
-    evt_t e = {.card = card_value, .reader = reader_id};
+    evt_t e = {.card = card_value, .port_id = port_id};
 
     if (xQueueSendToBack(event_queue, &e, 0) != pdTRUE)
         ESP_LOGW(TAG, "wiegand_tsk: event queue full, card=%llu", card_value);
     else
-        ESP_LOGI(TAG, "wiegand_tsk: queued card=%llu from reader %d", card_value, reader_id);
+        ESP_LOGI(TAG, "wiegand_tsk: queued card=%llu from reader %d", card_value, port_id);
 
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
@@ -277,12 +277,12 @@ static esp_err_t post_config(httpd_req_t *req)
     item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_gpio");
     if (cJSON_IsNumber(item))
         cfg.rex2_relay_gpio = (gpio_num_t)item->valuedouble;
-    item = cJSON_GetObjectItemCaseSensitive(json, "reader1_relay_gpio");
+    item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay_gpio");
     if (cJSON_IsNumber(item))
-        cfg.reader1_relay_gpio = (gpio_num_t)item->valuedouble;
-    item = cJSON_GetObjectItemCaseSensitive(json, "reader2_relay_gpio");
+        cfg.port1_relay_gpio = (gpio_num_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay_gpio");
     if (cJSON_IsNumber(item))
-        cfg.reader2_relay_gpio = (gpio_num_t)item->valuedouble;
+        cfg.port2_relay_gpio = (gpio_num_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "input_debounce_ms");
     if (cJSON_IsNumber(item))
         cfg.input_debounce_ms = (uint32_t)item->valuedouble;
@@ -296,12 +296,12 @@ static esp_err_t post_config(httpd_req_t *req)
     item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_duration_ms");
     if (cJSON_IsNumber(item))
         cfg.rex2_relay_duration_ms = (uint32_t)item->valuedouble;
-    item = cJSON_GetObjectItemCaseSensitive(json, "reader1_relay_duration_ms");
+    item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay_duration_ms");
     if (cJSON_IsNumber(item))
-        cfg.reader1_relay_duration_ms = (uint32_t)item->valuedouble;
-    item = cJSON_GetObjectItemCaseSensitive(json, "reader2_relay_duration_ms");
+        cfg.port1_relay_duration_ms = (uint32_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay_duration_ms");
     if (cJSON_IsNumber(item))
-        cfg.reader2_relay_duration_ms = (uint32_t)item->valuedouble;
+        cfg.port2_relay_duration_ms = (uint32_t)item->valuedouble;
 
     item = cJSON_GetObjectItemCaseSensitive(json, "url_n33bec");
     if (cJSON_IsString(item) && (item->valuestring != NULL))
@@ -364,12 +364,12 @@ static esp_err_t get_config(httpd_req_t *req)
 
     cJSON_AddNumberToObject(json, "rex1_relay_gpio", cfg.rex1_relay_gpio);
     cJSON_AddNumberToObject(json, "rex2_relay_gpio", cfg.rex2_relay_gpio);
-    cJSON_AddNumberToObject(json, "reader1_relay_gpio", cfg.reader1_relay_gpio);
-    cJSON_AddNumberToObject(json, "reader2_relay_gpio", cfg.reader2_relay_gpio);
+    cJSON_AddNumberToObject(json, "port1_relay_gpio", cfg.port1_relay_gpio);
+    cJSON_AddNumberToObject(json, "port2_relay_gpio", cfg.port2_relay_gpio);
     cJSON_AddNumberToObject(json, "rex1_relay_duration_ms", cfg.rex1_relay_duration_ms);
     cJSON_AddNumberToObject(json, "rex2_relay_duration_ms", cfg.rex2_relay_duration_ms);
-    cJSON_AddNumberToObject(json, "reader1_relay_duration_ms", cfg.reader1_relay_duration_ms);
-    cJSON_AddNumberToObject(json, "reader2_relay_duration_ms", cfg.reader2_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "port1_relay_duration_ms", cfg.port1_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "port2_relay_duration_ms", cfg.port2_relay_duration_ms);
     cJSON_AddStringToObject(json, "url_n33bec", cfg.url_n33bec);
     cJSON_AddStringToObject(json, "cod_tema", cfg.cod_tema);
     cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);

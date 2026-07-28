@@ -103,8 +103,8 @@ tone_t access_denied[] = {
 
 #define REX1_GPIO GPIO_NUM_16
 #define REX2_GPIO GPIO_NUM_18
-#define READER1_BUZZER GPIO_NUM_46
-#define READER2_BUZZER GPIO_NUM_40
+#define PORT1_BUZZER GPIO_NUM_46
+#define PORT2_BUZZER GPIO_NUM_40
 
 extern void fs_init();
 extern void http_init(QueueHandle_t qh);
@@ -177,34 +177,34 @@ void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t t
 void worker(void *p)
 {
     ESP_LOGI(TAG, "worker started");
-    evt_t e; // Card and reader event structure
-    gpio_num_t reader_relay_gpio;
-    gpio_num_t reader_buzzer_gpio;
-    uint32_t reader_relay_duration_ms;
+    evt_t e; // Card and port event structure
+    gpio_num_t port_relay_gpio;
+    gpio_num_t port_buzzer_gpio;
+    uint32_t port_relay_duration_ms;
     uint8_t event_id = 0;
 
     while (1)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
         {
-            if (e.reader == 1)
-            { // Check which reader triggered the event and activate the corresponding relay and buzzer
-                // pulse_output(g_config.reader1_relay_gpio, g_config.reader1_relay_duration_ms);
-                // play_melody_async(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
-                reader_relay_gpio = g_config.reader1_relay_gpio;
-                reader_buzzer_gpio = READER1_BUZZER;
-                reader_relay_duration_ms = g_config.reader1_relay_duration_ms;
+            if (e.port_id == 1)
+            { // Check which port triggered the event and activate the corresponding relay and buzzer
+                // pulse_output(g_config.port1_relay_gpio, g_config.port1_relay_duration_ms);
+                // play_melody_async(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+                port_relay_gpio = g_config.port1_relay_gpio;
+                port_buzzer_gpio = PORT1_BUZZER;
+                port_relay_duration_ms = g_config.port1_relay_duration_ms;
             }
             else
             {
-                reader_relay_gpio = g_config.reader2_relay_gpio;
-                reader_buzzer_gpio = READER2_BUZZER;
-                reader_relay_duration_ms = g_config.reader2_relay_duration_ms;
-                // pulse_output(g_config.reader2_relay_gpio, g_config.reader2_relay_duration_ms);
-                // play_melody_async(READER2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+                port_relay_gpio = g_config.port2_relay_gpio;
+                port_buzzer_gpio = PORT2_BUZZER;
+                port_relay_duration_ms = g_config.port2_relay_duration_ms;
+                // pulse_output(g_config.port2_relay_gpio, g_config.port2_relay_duration_ms);
+                // play_melody_async(PORT2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
             }
 
-            // ESP_LOGI(TAG, "worker: processing card=%llu from reader %d", e.card, e.reader);
+            // ESP_LOGI(TAG, "worker: processing card=%llu from port %d", e.card, e.port);
             // ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
             uint64_t now;
             now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
@@ -213,8 +213,8 @@ void worker(void *p)
             if (ok)
             {
                 // ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
-                pulse_output(reader_relay_gpio, reader_relay_duration_ms);
-                play_melody_async(reader_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
+                pulse_output(port_relay_gpio, port_relay_duration_ms);
+                play_melody_async(port_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
                 event_id = 10;  //CARD PASS
             }
             else
@@ -222,10 +222,10 @@ void worker(void *p)
                 event_id = 11; //CARD REJECT
 
                 // ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
-                play_melody_async(reader_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
+                play_melody_async(port_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
                 
             }
-            dispatch_log_event(10,e.reader,e.card,now);
+            dispatch_log_event(event_id,e.port_id,e.card,now);
 
             ws_broadcast(e.card, now, ok);
         }
@@ -471,13 +471,13 @@ void app_main()
     //=========================================
 
     //=========================================
-    // Readers initialization
-    // Init Reader 1  //BEEP 46  //LED 45
-    wiegand_init(48, 47, 1, READER1_BUZZER, queue_cards);
+    // Ports initialization
+    // Init PORT 1  //BEEP 46  //LED 45
+    wiegand_init(48, 47, 1, PORT1_BUZZER, queue_cards);
 
-    // Init Reader 2  //BEEP 40  //LED 39
+    // Init PORT 2  //BEEP 40  //LED 39
 
-    wiegand_init(41, 42, 2, READER2_BUZZER, queue_cards);
+    wiegand_init(41, 42, 2, PORT2_BUZZER, queue_cards);
 
     //=========================================
 
@@ -500,8 +500,8 @@ void app_main()
     log_add(1, 0, 0, 0);
     ESP_LOGI(TAG, "app_main complete - version %s", PROJECT_VERSION);
 
-    // play_melody(READER1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
-    // play_melody_async(READER2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
+    // play_melody(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
+    // play_melody_async(PORT2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
 
     //=========================================
     // Creating Tasks

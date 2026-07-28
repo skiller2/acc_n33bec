@@ -22,12 +22,12 @@ static void set_defaults(config_t *config)
 {
     config->rex1_relay_gpio = RELE1_GPIO;
     config->rex2_relay_gpio = RELE2_GPIO;
-    config->reader1_relay_gpio = RELE1_GPIO;
-    config->reader2_relay_gpio = RELE3_GPIO;
+    config->port1_relay_gpio = RELE1_GPIO;
+    config->port2_relay_gpio = RELE3_GPIO;
     config->rex1_relay_duration_ms = 2000;
     config->rex2_relay_duration_ms = 2000;
-    config->reader1_relay_duration_ms = 2000;
-    config->reader2_relay_duration_ms = 2000;
+    config->port1_relay_duration_ms = 2000;
+    config->port2_relay_duration_ms = 2000;
     config->input_debounce_ms = 100;
     config->device_id = 0; // Default device ID, will be set to last byte of MAC if not specified
     config->url_n33bec[0] = '\0'; // Default to empty string
@@ -53,11 +53,11 @@ static void clamp_config(config_t *config)
     if (!valid_relay_number(config->rex2_relay_gpio)) {
         config->rex2_relay_gpio  = RELE2_GPIO;
     }
-    if (!valid_relay_number(config->reader1_relay_gpio)) {
-        config->reader1_relay_gpio = RELE1_GPIO;
+    if (!valid_relay_number(config->port1_relay_gpio)) {
+        config->port1_relay_gpio = RELE1_GPIO;
     }
-    if (!valid_relay_number(config->reader2_relay_gpio)) {
-        config->reader2_relay_gpio = RELE3_GPIO;
+    if (!valid_relay_number(config->port2_relay_gpio)) {
+        config->port2_relay_gpio = RELE3_GPIO;
     }
     if (config->rex1_relay_duration_ms == 0) {
         config->rex1_relay_duration_ms = 2000;
@@ -65,11 +65,11 @@ static void clamp_config(config_t *config)
     if (config->rex2_relay_duration_ms == 0) {
         config->rex2_relay_duration_ms = 2000;
     }
-    if (config->reader1_relay_duration_ms == 0) {
-        config->reader1_relay_duration_ms = 2000;
+    if (config->port1_relay_duration_ms == 0) {
+        config->port1_relay_duration_ms = 2000;
     }
-    if (config->reader2_relay_duration_ms == 0) {
-        config->reader2_relay_duration_ms = 2000;
+    if (config->port2_relay_duration_ms == 0) {
+        config->port2_relay_duration_ms = 2000;
     }
     if (config->input_debounce_ms == 0) {
         config->input_debounce_ms = 100;
@@ -100,10 +100,10 @@ esp_err_t config_save(const config_t *config)
         .rex2_relay_gpio = config->rex2_relay_gpio,
         .rex1_relay_duration_ms = config->rex1_relay_duration_ms,
         .rex2_relay_duration_ms = config->rex2_relay_duration_ms,
-        .reader1_relay_gpio = config->reader1_relay_gpio,
-        .reader2_relay_gpio = config->reader2_relay_gpio,
-        .reader1_relay_duration_ms = config->reader1_relay_duration_ms,
-        .reader2_relay_duration_ms = config->reader2_relay_duration_ms,
+        .port1_relay_gpio = config->port1_relay_gpio,
+        .port2_relay_gpio = config->port2_relay_gpio,
+        .port1_relay_duration_ms = config->port1_relay_duration_ms,
+        .port2_relay_duration_ms = config->port2_relay_duration_ms,
         .input_debounce_ms = config->input_debounce_ms,
         .device_id = config->device_id
     };
@@ -131,11 +131,11 @@ esp_err_t config_save(const config_t *config)
         return err;
     }
 
-    ESP_LOGI(TAG, "Saved Reader config: reader1_relay=%u reader1_ms=%u reader2_relay=%u reader2_ms=%u",
-             stored.reader1_relay_gpio,
-             stored.reader1_relay_duration_ms,
-             stored.reader2_relay_gpio,
-             stored.reader2_relay_duration_ms);
+    ESP_LOGI(TAG, "Saved Port config: port1_relay=%u port1_ms=%u port2_relay=%u port2_ms=%u",
+             stored.port1_relay_gpio,
+             stored.port1_relay_duration_ms,
+             stored.port2_relay_gpio,
+             stored.port2_relay_duration_ms);
 
     ESP_LOGI(TAG, "Saved REX config: rex1_relay=%u rex1_ms=%u rex2_relay=%u rex2_ms=%u",
              stored.rex1_relay_gpio,
@@ -177,10 +177,10 @@ esp_err_t config_load(config_t *config)
     config->rex2_relay_gpio = stored.rex2_relay_gpio;
     config->rex1_relay_duration_ms = stored.rex1_relay_duration_ms;
     config->rex2_relay_duration_ms = stored.rex2_relay_duration_ms;
-    config->reader1_relay_gpio = stored.reader1_relay_gpio;
-    config->reader2_relay_gpio = stored.reader2_relay_gpio;
-    config->reader1_relay_duration_ms = stored.reader1_relay_duration_ms;
-    config->reader2_relay_duration_ms = stored.reader2_relay_duration_ms;
+    config->port1_relay_gpio = stored.port1_relay_gpio;
+    config->port2_relay_gpio = stored.port2_relay_gpio;
+    config->port1_relay_duration_ms = stored.port1_relay_duration_ms;
+    config->port2_relay_duration_ms = stored.port2_relay_duration_ms;
     config->input_debounce_ms = stored.input_debounce_ms;
     config->device_id = stored.device_id;
     strncpy(config->url_n33bec, stored.url_n33bec, sizeof(config->url_n33bec) - 1);
@@ -198,10 +198,10 @@ esp_err_t config_load(config_t *config)
              config->rex2_relay_duration_ms);
 
 
-    ESP_LOGI(TAG, "Loaded READER config: reader1_relay=%u reader1_ms=%u reader2_relay=%u reader2_ms=%u",
-             config->reader1_relay_gpio,
-             config->reader1_relay_duration_ms,
-             config->reader2_relay_gpio,
-             config->reader2_relay_duration_ms);
+    ESP_LOGI(TAG, "Loaded PORT config: port1_relay=%u port1_ms=%u port2_relay=%u port2_ms=%u",
+             config->port1_relay_gpio,
+             config->port1_relay_duration_ms,
+             config->port2_relay_gpio,
+             config->port2_relay_duration_ms);
     return ESP_OK;
 }

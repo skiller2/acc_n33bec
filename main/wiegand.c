@@ -24,7 +24,7 @@ typedef struct
 {
     int d0;
     int d1;
-    int reader_id;
+    int port_id;
     QueueHandle_t packet_queue;
     QueueHandle_t event_queue;
     wiegand_reader_t reader;
@@ -188,7 +188,7 @@ static void wiegand_tsk(void *arg)
 
     while (1)
     {
-        ESP_LOGI(TAG, "Waiting for Wiegand data (reader %d)...", task_args->reader_id);
+        ESP_LOGI(TAG, "Waiting for Wiegand data (reader %d)...", task_args->port_id);
         if (xQueueReceive(task_args->packet_queue, &p, portMAX_DELAY) == pdTRUE)
         {
             // dump received data
@@ -217,7 +217,7 @@ static void wiegand_tsk(void *arg)
             {
                 uint64_t card_value = decode_packet(&p);
                 //uint64_t card_value = decode_wiegand26_auto(&p);
-                evt_t e = {.card = card_value, .reader = task_args->reader_id};
+                evt_t e = {.card = card_value, .port_id = task_args->port_id};
 
                 if (xQueueSendToBack(task_args->event_queue, &e, 0) != pdTRUE)
                 {
@@ -225,16 +225,16 @@ static void wiegand_tsk(void *arg)
                 }
                 else
                 {
-                    ESP_LOGI(TAG, "wiegand_tsk: queued card=%llu from reader %d", card_value, task_args->reader_id);
+                    ESP_LOGI(TAG, "wiegand_tsk: queued card=%llu from reader %d", card_value, task_args->port_id);
                 }
             }
         }
     }
 }
 
-void wiegand_init(int d0, int d1, int reader, int gpio_buzzer, QueueHandle_t qh)
+void wiegand_init(int d0, int d1, int port_id, int gpio_buzzer, QueueHandle_t qh)
 {
-    ESP_LOGI(TAG, "Initializing Wiegand Reader %d input on D0=%d, D1=%d", reader, d0, d1);
+    ESP_LOGI(TAG, "Initializing Wiegand Port %d input on D0=%d, D1=%d", port_id, d0, d1);
 
     gpio_set_direction(d0, GPIO_MODE_INPUT);
     gpio_set_direction(d1, GPIO_MODE_INPUT);
@@ -251,7 +251,7 @@ void wiegand_init(int d0, int d1, int reader, int gpio_buzzer, QueueHandle_t qh)
 
     task_args->d0 = d0;
     task_args->d1 = d1;
-    task_args->reader_id = reader;
+    task_args->port_id = port_id;
     task_args->event_queue = qh;
     task_args->packet_queue = xQueueCreate(5, sizeof(data_packet_t));
     if (!task_args->packet_queue)
