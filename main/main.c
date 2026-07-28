@@ -293,7 +293,7 @@ static void input_task(void *arg)
         {
             ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
 
-            dispatch_log_event(2,1,ali,0);
+            dispatch_log_event(2,0,ali,0);
             
             last_ali = ali;
         }
