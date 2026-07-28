@@ -20,6 +20,14 @@ if not web_bundle_path.is_file():
     print(f"Missing web bundle: {web_bundle_path}")
     sys.exit(1)
 
+
+for old_file in output_path.parent.glob("acc-n33bec-fw-*"):
+    try:
+        old_file.unlink()
+        print(f"Removed: {old_file}")
+    except Exception as e:
+        print(f"Could not remove {old_file}: {e}")
+
 firmware_data = firmware_path.read_bytes()
 web_bundle_data = web_bundle_path.read_bytes()
 

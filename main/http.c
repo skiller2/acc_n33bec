@@ -94,6 +94,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
     {
         int status_code = esp_http_client_get_status_code(client);
         ESP_LOGI(TAG, "HTTP POST Status = %d", status_code);
+        if (status_code != 200)
         err = ESP_FAIL;
     }
     else
