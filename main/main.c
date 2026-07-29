@@ -20,6 +20,8 @@
 #define PROJECT_VERSION "dev"
 #endif
 
+extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value);
+
 static const char *TAG = "main";
 
 tone_t melody_ok[] = {
@@ -391,6 +393,32 @@ void time_sync_task(void *arg)
         }
     }
 }
+static void keep_alive_task(void *arg)
+{
+    const char *TAG = "keep_alive";
+    ESP_LOGI(TAG, "keep alive task started");
+
+    // Wait for network to be up (simple approach: wait a bit and then loop)
+    vTaskDelay(pdMS_TO_TICKS(5000)); // Wait 5 seconds after start
+
+    while (1)
+    {
+        // Read the current keep alive interval from global config
+
+        // If interval is zero, we skip sending (but we set a default of 30, so it should be non-zero)
+        if (g_config.keep_alive_secs > 0)
+        {
+            // Send a keep-alive JSON packet
+            // We'll use event_id 20 for keep-alive, port_id 0 (not associated with a physical port), and value as the device_id
+            esp_err_t err = send_json(20, 0, 1);
+            ESP_LOGI(TAG, "Sent keep-alive JSON, interval: %lu secs", g_config.keep_alive_secs);
+        }
+
+        // Wait for the specified interval (convert seconds to milliseconds for vTaskDelay)
+        vTaskDelay(pdMS_TO_TICKS(g_config.keep_alive_secs * 1000));
+    }
+}
+
 void app_main()
 {
 
@@ -530,5 +558,11 @@ void app_main()
     if (xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create input task");
+    }
+
+    ESP_LOGI(TAG, "Creating keep alive task");
+    if (xTaskCreate(keep_alive_task, "keep_alive_task", 4096, NULL, 5, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
 }

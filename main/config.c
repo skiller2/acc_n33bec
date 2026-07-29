@@ -75,6 +75,10 @@ static void clamp_config(config_t *config)
     if (config->input_debounce_ms == 0) {
         config->input_debounce_ms = 100;
     }
+    if (config->keep_alive_secs == 0) {
+        config->keep_alive_secs = 10; // Use the last byte of the MAC address as the device ID    
+    }
+
     if (config->device_id == 0) {
         config->device_id = mac[5]; // Use the last byte of the MAC address as the device ID    
     }
@@ -185,6 +189,7 @@ esp_err_t config_load(config_t *config)
     config->port2_relay_duration_ms = stored.port2_relay_duration_ms;
     config->input_debounce_ms = stored.input_debounce_ms;
     config->device_id = stored.device_id;
+    config->keep_alive_secs = stored.keep_alive_secs;
     strncpy(config->url_n33bec, stored.url_n33bec, sizeof(config->url_n33bec) - 1);
     config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
     

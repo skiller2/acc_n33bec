@@ -385,6 +385,7 @@ static esp_err_t get_config(httpd_req_t *req)
     cJSON_AddStringToObject(json, "cod_tema", cfg.cod_tema);
     cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);
     cJSON_AddNumberToObject(json, "device_id", cfg.device_id);
+    cJSON_AddNumberToObject(json, "keep_alive_secs", cfg.keep_alive_secs);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
