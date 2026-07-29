@@ -19,6 +19,7 @@
 #include "esp_chip_info.h"
 #include "esp_mac.h"
 #include "esp_flash.h"
+#include "esp_app_desc.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -317,6 +318,10 @@ static esp_err_t post_config(httpd_req_t *req)
         strncpy(cfg.cod_tema, item->valuestring, sizeof(cfg.cod_tema) - 1);
     cfg.cod_tema[sizeof(cfg.cod_tema) - 1] = '\0'; // Ensure null termination
 
+    item = cJSON_GetObjectItemCaseSensitive(json, "keep_alive_secs");
+    if (cJSON_IsNumber(item))
+        cfg.keep_alive_secs = (uint32_t)item->valuedouble;
+
 
     cJSON_Delete(json);
 
@@ -341,10 +346,12 @@ static esp_err_t get_version(httpd_req_t *req)
         free_bytes = total_bytes - used_bytes;
     }
 
+    const esp_app_desc_t *app_desc = esp_app_get_description();
+
     char version_json[256];
     snprintf(version_json, sizeof(version_json),
-             "{\"version\":\"%s\",\"fs_total_bytes\":%u,\"fs_free_bytes\":%u}",
-             PROJECT_VERSION, (unsigned)total_bytes, (unsigned)free_bytes);
+             "{\"version\":\"%s\",\"fs_total_bytes\":%u,\"fs_free_bytes\":%u,\"date\":\"%s\",\"time\":\"%s\",\"version_ota\":\"%s\"}",
+             PROJECT_VERSION, (unsigned)total_bytes, (unsigned)free_bytes, app_desc->date, app_desc->time, app_desc->version);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, version_json);

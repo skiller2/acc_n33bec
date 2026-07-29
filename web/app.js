@@ -127,10 +127,16 @@ function loadFirmwareVersion() {
     })
     .then(data => {
       const versionEl = document.getElementById('firmware-version');
+      const extraVersionEl = document.getElementById('extra-firmware-version');
       const fsEl = document.getElementById('filesystem-info');
 
       if (versionEl) {
         versionEl.innerText = 'Version: ' + data.version;
+      }
+
+      if (extraVersionEl) {
+        extraVersionEl.innerText = 'Date: ' + data.date + ' ' + data.time; 
+        // ' vesion-app-ota: '+data.version_ota;
       }
 
       if (fsEl) {

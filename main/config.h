@@ -23,6 +23,7 @@ typedef struct {
     uint32_t device_id;                     // Unique device ID for this access control unit
     char url_n33bec[256]; // URL for N33-BEC server
     char cod_tema[256]; // URL for N33-BEC server
+    uint32_t keep_alive_secs; // Keep alive interval in seconds
 } config_t;
 
 esp_err_t config_load(config_t *config);

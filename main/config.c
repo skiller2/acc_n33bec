@@ -32,6 +32,7 @@ static void set_defaults(config_t *config)
     config->device_id = 0; // Default device ID, will be set to last byte of MAC if not specified
     config->url_n33bec[0] = '\0'; // Default to empty string
     config->cod_tema[0] = '\0'; // Default to empty string
+    config->keep_alive_secs = 30; // Default keep alive interval to 30 seconds
 }
 
 static bool valid_relay_number(gpio_num_t relay)
@@ -105,7 +106,8 @@ esp_err_t config_save(const config_t *config)
         .port1_relay_duration_ms = config->port1_relay_duration_ms,
         .port2_relay_duration_ms = config->port2_relay_duration_ms,
         .input_debounce_ms = config->input_debounce_ms,
-        .device_id = config->device_id
+        .device_id = config->device_id,
+        .keep_alive_secs = config->keep_alive_secs
     };
     strcpy(stored.url_n33bec, config->url_n33bec);
     strcpy(stored.cod_tema, config->cod_tema);
