@@ -12,6 +12,8 @@ function switchTab(tab) {
     loadConfig();
   } else if (tab === 'firmware') {
     loadFirmwareVersion();
+  } else if (tab === 'device') {
+    loadDeviceInfo();
   }
 }
 

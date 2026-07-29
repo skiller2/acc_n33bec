@@ -15,6 +15,10 @@
 #include "esp_littlefs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_efuse.h"
+#include "esp_chip_info.h"
+#include "esp_mac.h"
+#include "esp_flash.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -610,6 +614,71 @@ static esp_err_t reboot_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t get_device_info(httpd_req_t *req)
+{
+    uint8_t mac[6];
+    esp_efuse_mac_get_default(mac);
+    
+    char mac_str[18];
+    sprintf(mac_str, "%02X:%02X:%02X:%02X:%02X:%02X", 
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    
+    uint32_t free_heap = esp_get_free_heap_size();
+    uint32_t min_free_heap = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
+ // Tamaño de la flash
+
+    uint32_t flash_size = 0;
+    esp_flash_get_size(NULL, &flash_size);
+
+    #if CONFIG_ESPTOOLPY_FLASHFREQ_40M
+        const char *flash_speed_str = "40MHz";
+    #elif CONFIG_ESPTOOLPY_FLASHFREQ_80M
+        const char *flash_speed_str = "80MHz";
+    #elif CONFIG_ESPTOOLPY_FLASHFREQ_120M
+        const char *flash_speed_str = "120MHz";
+    #else
+        const char *flash_speed_str = "unknown";
+    #endif
+
+    #if CONFIG_ESPTOOLPY_FLASHMODE_QIO
+        const char *flash_mode_str = "QIO";
+    #elif CONFIG_ESPTOOLPY_FLASHMODE_QOUT
+        const char *flash_mode_str = "QOUT";
+    #elif CONFIG_ESPTOOLPY_FLASHMODE_DIO
+        const char *flash_mode_str = "DIO";
+    #elif CONFIG_ESPTOOLPY_FLASHMODE_DOUT
+        const char *flash_mode_str = "DOUT";
+    #else
+        const char *flash_mode_str = "unknown";
+    #endif
+
+    char device_info_json[512];
+    snprintf(device_info_json, sizeof(device_info_json),
+             "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\"}",
+             mac_str,
+             (chip_info.model == CHIP_ESP32) ? "ESP32" : 
+             (chip_info.model == CHIP_ESP32S2) ? "ESP32S2" :
+             (chip_info.model == CHIP_ESP32S3) ? "ESP32S3" :
+             (chip_info.model == CHIP_ESP32C3) ? "ESP32C3" :
+             (chip_info.model == CHIP_ESP32C2) ? "ESP32C2" :
+             (chip_info.model == CHIP_ESP32C6) ? "ESP32C6" : "Unknown",
+             chip_info.cores,
+             chip_info.revision,
+             esp_get_idf_version(),
+             (unsigned long)free_heap,
+             (unsigned long)min_free_heap,
+             (unsigned long)flash_size,
+             flash_speed_str,
+             flash_mode_str);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, device_info_json);
+    return ESP_OK;
+}
+
 static esp_err_t ota_handler(httpd_req_t *req)
 {
     size_t content_len = req->content_len;
@@ -835,6 +904,12 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &version_uri);
         httpd_register_uri_handler(s, &ota_uri);
         httpd_register_uri_handler(s, &reboot_uri);
+
+        httpd_uri_t device_info_uri = {
+            .uri = "/device_info",
+            .method = HTTP_GET,
+            .handler = get_device_info};
+        httpd_register_uri_handler(s, &device_info_uri);
         httpd_register_uri_handler(s, &bundle_uri);
         httpd_register_uri_handler(s, &simulate_card_uri);
 
