@@ -144,6 +144,39 @@ function loadFirmwareVersion() {
     });
 }
 
+function loadDeviceInfo() {
+  fetch('/device_info')
+    .then(r => {
+      if (!r.ok) {
+        throw new Error('HTTP ' + r.status);
+      }
+      return r.json();
+    })
+    .then(data => {
+      const infoDiv = document.getElementById('device-info');
+      if (!infoDiv) return;
+
+      let html = '<p><strong>MAC Address:</strong> ' + (data.mac || 'N/A') + '</p>';
+      html += '<p><strong>Chip Model:</strong> ' + (data.chip_model || 'N/A') + '</p>';
+      html += '<p><strong>Chip Cores:</strong> ' + (data.chip_cores || 'N/A') + '</p>';
+      html += '<p><strong>Chip Revision:</strong> ' + (data.chip_revision || 'N/A') + '</p>';
+      html += '<p><strong>SDK Version:</strong> ' + (data.sdk_version || 'N/A') + '</p>';
+      html += '<p><strong>Free Heap:</strong> ' + formatBytes(data.free_heap || 0) + '</p>';
+      html += '<p><strong>Minimum Free Heap:</strong> ' + formatBytes(data.min_free_heap || 0) + '</p>';
+      html += '<p><strong>Flash Size:</strong> ' + formatBytes(data.flash_size || 0) + '</p>';
+      html += '<p><strong>Flash Speed:</strong> ' + (data.flash_speed || 'N/A') + ' Hz</p>';
+      html += '<p><strong>Flash Mode:</strong> ' + (data.flash_mode || 'N/A') + '</p>';
+
+      infoDiv.innerHTML = html;
+    })
+    .catch(e => {
+      const infoDiv = document.getElementById('device-info');
+      if (infoDiv) {
+        infoDiv.innerHTML = '<p>Error loading device info: ' + e.message + '</p>';
+      }
+    });
+}
+
 async function waitForFirmwareApplied() {
   const maxRetries = 60;
 
