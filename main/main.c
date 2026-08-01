@@ -100,8 +100,8 @@ tone_t access_denied[] = {
 #define DOOR2_GPIO GPIO_NUM_17
 
 #define BAT_GPIO GPIO_NUM_34 // VERDE (Salida 12v)
-#define CAR_GPIO GPIO_NUM_15 // AMARILLO (Pulso al morir)
-#define ALI_GPIO GPIO_NUM_38 // ROJO Encendido tiene 220
+#define CAR_GPIO GPIO_NUM_35 // AMARILLO (Pulso al morir)
+#define ALI_GPIO GPIO_NUM_36 // ROJO Encendido tiene 220
 
 #define REX1_GPIO GPIO_NUM_16
 #define REX2_GPIO GPIO_NUM_18
