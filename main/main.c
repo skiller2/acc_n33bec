@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "connect.h"
+#include "wifi.h"
 #include "log_store.h"
 #include "time_sync.h"
 #include "rtc.h"
@@ -172,7 +173,7 @@ void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t t
             .ts = ts,
             .send_retry=0
         };
-        xQueueSendToBack(queue_inputs,&evt,0); 
+//        xQueueSendToBack(queue_inputs,&evt,0); 
     }
 }
 
@@ -474,6 +475,11 @@ void app_main()
     if (rtc_app_init() != ESP_OK)
     {
         ESP_LOGE(TAG,"RTC NOT WORKING");
+    }
+
+    if (wifi_init() != ESP_OK)
+    {
+        ESP_LOGE(TAG, "WiFi/DPP initialization failed");
     }
     //=========================================
 
