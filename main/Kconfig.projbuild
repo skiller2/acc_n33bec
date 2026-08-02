@@ -319,5 +319,36 @@ config SKIP_WAIT_FOR_RTC
     help
         If enabled, the firmware will not wait for RTC.
 
+menu "DPP Enrollee Configuration"
+    depends on CONFIG_ESP_WIFI_DPP_SUPPORT
+
+    config ESP_DPP_LISTEN_CHANNEL_LIST
+        string "DPP Listen channel list"
+        default "6"
+        help
+            Comma-separated list of WiFi channels the DPP enrollee will listen on.
+            Common values: "6", "1,6,11".
+
+    config ESP_DPP_BOOTSTRAPPING_KEY
+        string "DPP bootstrapping private key (64 hex digits)"
+        default ""
+        help
+            Optional 32-byte (64 hex digit) raw private key for DPP bootstrapping.
+            Leave empty to generate a random key automatically.
+
+    config ESP_DPP_DEVICE_INFO
+        string "DPP device info (ancillary info in QR code)"
+        default "N33-BEC-ACC"
+        help
+            Additional device information included in the DPP QR code.
+
+    config ESP_DPP_ENABLE_QRCODE
+        bool "Print DPP QR code to console"
+        default y
+        help
+            Print the DPP QR code to the serial console in addition to
+            exposing the URI via the HTTP API.
+endmenu
+
 
 endmenu

@@ -177,6 +177,13 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.2.2
+  espressif/qrcode:
+    component_hash: 3b493771bc5d6ad30cbf87c25bf784aada8a08c941504355b55d6b75518ed7bc
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.1.0~2
   espressif/w5500:
     component_hash: e6e47022a1f509d1d1197652a554aea84a8cd4d99161061e187ecf4b78a7f6ca
     dependencies:
@@ -205,7 +212,8 @@ direct_dependencies:
 - esp-idf-lib/wiegand
 - espressif/ethernet_init
 - espressif/network_provisioning
+- espressif/qrcode
 - joltwallet/littlefs
-manifest_hash: f73cebbdb85e29492669d58e3e8ed9bf09976e56c2879c5f70cd932d162f2633
+manifest_hash: 25e8ab29ad19fb2b7810733bf63bc930547e8daf369627e4c4d3fa8a021ad9ec
 target: esp32s3
 version: 3.0.0

@@ -14,6 +14,8 @@ function switchTab(tab) {
     loadFirmwareVersion();
   } else if (tab === 'device') {
     loadDeviceInfo();
+  } else if (tab === 'wifi') {
+    loadWifiStatus();
   }
 }
 
@@ -185,6 +187,112 @@ function loadDeviceInfo() {
     });
 }
 
+function renderQrCode(uri) {
+  const canvas = document.createElement('canvas');
+  const qrDiv = document.getElementById('dpp-qrcode');
+  qrDiv.innerHTML = '';
+  qrDiv.appendChild(canvas);
+  QRCode.toCanvas(canvas, uri, {
+    width: 256,
+    margin: 2,
+    color: { dark: '#000', light: '#fff' }
+  }, function (error) {
+    if (error) {
+      qrDiv.innerHTML = '<p>Failed to render QR code: ' + error.message + '</p>';
+    }
+  });
+}
+
+function statusColor(status) {
+  const colors = {
+    connected: 'success',
+    dpp_ready: 'success',
+    dpp_listening: '',
+    connecting: '',
+    disconnected: 'error',
+    dpp_failed: 'error'
+  };
+  return colors[status] || '';
+}
+
+function loadWifiStatus(pollMs) {
+  fetch('/wifi')
+    .then(r => {
+      if (!r.ok) {
+        throw new Error('HTTP ' + r.status);
+      }
+      return r.json();
+    })
+    .then(data => {
+      const statusEl = document.getElementById('wifi-status');
+      const detailsEl = document.getElementById('wifi-details');
+      const qrDiv = document.getElementById('dpp-qrcode');
+      const uriDiv = document.getElementById('dpp-uri');
+      const dppStatusDiv = document.getElementById('dpp-status');
+
+      if (statusEl) {
+        const cls = statusColor(data.status);
+        statusEl.innerHTML = '<strong>Status:</strong> ' + data.status + (data.connected ? ' (connected)' : '');
+        statusEl.className = 'status ' + cls;
+      }
+
+      if (detailsEl) {
+        let html = '';
+        if (data.ssid) {
+          html += '<p><strong>SSID:</strong> ' + data.ssid + '</p>';
+        }
+        if (data.ip) {
+          html += '<p><strong>IP:</strong> ' + data.ip + '</p>';
+        }
+        detailsEl.innerHTML = html;
+      }
+
+      if (qrDiv && uriDiv && dppStatusDiv) {
+        if (data.dpp_uri) {
+          renderQrCode(data.dpp_uri);
+          uriDiv.textContent = data.dpp_uri;
+          dppStatusDiv.innerHTML = '';
+        } else {
+          qrDiv.innerHTML = '<p>No DPP URI available yet. DPP enrollee is ' + (data.status === 'dpp_listening' ? 'listening for bootstrap...' : 'waiting for bootstrap.)</p>';
+          uriDiv.textContent = '';
+          if (data.status === 'dpp_failed') {
+            dppStatusDiv.innerHTML = '<p class="status error">DPP authentication failed.</p>';
+          }
+        }
+      }
+    })
+    .catch(e => {
+      const statusEl = document.getElementById('wifi-status');
+      if (statusEl) {
+        statusEl.innerHTML = 'Error loading WiFi status: ' + e.message;
+        statusEl.className = 'status error';
+      }
+    });
+
+  if (pollMs) {
+    setTimeout(() => loadWifiStatus(pollMs), pollMs);
+  }
+}
+
+function regenerateDppBootstrap() {
+  const dppStatusDiv = document.getElementById('dpp-status');
+  dppStatusDiv.innerHTML = '<p class="status">Regenerating QR code...</p>';
+
+  fetch('/dpp/bootstrap', { method: 'POST' })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        dppStatusDiv.innerHTML = '<p class="status success">QR code regenerated. Scan the new code to provision.</p>';
+        loadWifiStatus();
+      } else {
+        dppStatusDiv.innerHTML = '<p class="status error">Error: ' + txt + '</p>';
+      }
+    })
+    .catch(e => {
+      dppStatusDiv.innerHTML = '<p class="status error">Error: ' + e + '</p>';
+    });
+}
+
 async function waitForFirmwareApplied() {
   const maxRetries = 60;
 
@@ -280,6 +388,7 @@ function rebootDevice() {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadFirmwareVersion();
+  loadWifiStatus(30000);
 });
 
 function setStatus(msg, cls) {

@@ -9,7 +9,8 @@ idf_component_register(SRCS "main.c" "rtc.c" "config.c" "beep.c" "connect.c" "et
                             "eth_connect.c"
                             "connect.c"
                             "time_sync.c"
-                        INCLUDE_DIRS ".")
+                            INCLUDE_DIRS "."
+                            )
 component_compile_options(-DMG_ENABLE_LINES=1)
 component_compile_options(-DMG_ENABLE_PACKED_FS=1)
 component_compile_options(-DUART_API_IMPLEMENTED=1)

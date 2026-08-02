@@ -7,7 +7,22 @@ Features:
 - WebSocket real-time
 - Web dashboard
 - OTA ready
+- Ethernet connectivity
+- WiFi with DPP Enrollee (Wi-Fi Easy Connect) provisioning
 
 Build:
 idf.py build
 idf.py flash monitor
+
+## WiFi DPP Provisioning
+
+The device supports Device Provisioning Protocol (DPP) enrollee mode for
+WiFi provisioning. When powered on, the device starts a DPP enrollee that
+generates a QR code. Scan the QR code with a DPP configurator (e.g. Android
+Wi-Fi Easy Connect) to provision WiFi credentials.
+
+The DPP QR code and WiFi status are accessible via the HTTP API:
+- `GET /wifi` - WiFi status, DPP URI, SSID, and IP
+- `POST /dpp/bootstrap` - Regenerate the DPP bootstrap/QR code
+
+The web dashboard also includes a WiFi/DPP tab that renders the QR code.

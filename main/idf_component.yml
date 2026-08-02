@@ -1,6 +1,8 @@
 dependencies:
   espressif/network_provisioning:
     version: "^1.1.0"
+  espressif/qrcode:
+    version: "^0.1.0"
   joltwallet/littlefs:
     version: "^1.21.1"
   espressif/ethernet_init:
