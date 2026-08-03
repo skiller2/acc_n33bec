@@ -1,4 +1,4 @@
-menu "Application Configuration"
+menu "Application Configuration ACC_N33BEC"
 
     orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
 
@@ -313,14 +313,14 @@ menu "Application Configuration"
     endif
 
 
-config SKIP_WAIT_FOR_RTC
-    bool "Skip wait_for_valid_time()"
-    default n
-    help
-        If enabled, the firmware will not wait for RTC.
+    config SKIP_WAIT_FOR_RTC
+           bool "Skip wait_for_valid_time()"
+           default n
+           help
+               If enabled, the firmware will not wait for RTC.
 
 menu "DPP Enrollee Configuration"
-    depends on CONFIG_ESP_WIFI_DPP_SUPPORT
+    depends on ESP_WIFI_DPP_SUPPORT
 
     config ESP_DPP_LISTEN_CHANNEL_LIST
         string "DPP Listen channel list"
@@ -349,6 +349,8 @@ menu "DPP Enrollee Configuration"
             Print the DPP QR code to the serial console in addition to
             exposing the URI via the HTTP API.
 endmenu
+
+
 
 
 endmenu

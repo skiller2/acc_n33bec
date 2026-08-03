@@ -21,7 +21,7 @@
 #include "connect.h"
 
 #ifdef CONFIG_ESP_DPP_ENABLE_QRCODE
-#include "esp_qrcode.h"
+#include "qrcode.h"
 #endif
 
 #include "wifi.h"

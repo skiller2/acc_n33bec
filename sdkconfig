@@ -975,7 +975,7 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
-# Application Configuration
+# Application Configuration ACC_N33BEC
 #
 # default:
 CONFIG_ENV_GPIO_RANGE_MIN=0
@@ -1047,7 +1047,20 @@ CONFIG_EXAMPLE_CONNECT_IPV6_PREF_LOCAL_LINK=y
 # default:
 # CONFIG_EXAMPLE_CONNECT_IPV6_PREF_UNIQUE_LOCAL is not set
 CONFIG_SKIP_WAIT_FOR_RTC=y
-# end of Application Configuration
+
+#
+# DPP Enrollee Configuration
+#
+# default:
+CONFIG_ESP_DPP_LISTEN_CHANNEL_LIST="6"
+# default:
+CONFIG_ESP_DPP_BOOTSTRAPPING_KEY=""
+# default:
+CONFIG_ESP_DPP_DEVICE_INFO="N33-BEC-ACC"
+# default:
+CONFIG_ESP_DPP_ENABLE_QRCODE=y
+# end of DPP Enrollee Configuration
+# end of Application Configuration ACC_N33BEC
 
 #
 # Ethernet Configuration
