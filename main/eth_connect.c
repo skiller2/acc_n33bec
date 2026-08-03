@@ -16,9 +16,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-
+#include "connect.h"
 
 static const char *TAG = "ethernet_connect";
+
 //static SemaphoreHandle_t s_semph_get_ip_addrs = NULL;
 //#if CONFIG_EXAMPLE_CONNECT_IPV6
 //static SemaphoreHandle_t s_semph_get_ip6_addrs = NULL;
@@ -65,6 +66,8 @@ static void eth_on_got_ip(void *arg,
     if (s_time_sync_task_handle != NULL) {
         xTaskNotifyGive(s_time_sync_task_handle);
     }
+
+    xEventGroupSetBits(s_ip_event_group, HAVE_IP);
 }
 
 

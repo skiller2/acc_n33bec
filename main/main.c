@@ -5,6 +5,7 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "freertos/event_groups.h"
 #include "connect.h"
 #include "wifi.h"
 #include "log_store.h"
@@ -24,6 +25,8 @@
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value);
 
 static const char *TAG = "main";
+
+EventGroupHandle_t s_ip_event_group;
 
 tone_t melody_ok[] = {
     {1200, 120, 30},
@@ -138,6 +141,11 @@ void log_input_task(void *arg)
 
     input_event_t evt;
 
+    ESP_LOGI(TAG, "waiting for network IP...");
+    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
+    ESP_LOGI(TAG, "got IP");
+
+
     while (1)
     {
         if (xQueueReceive(queue_inputs, &evt, portMAX_DELAY) == pdTRUE)
@@ -173,7 +181,7 @@ void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t t
             .ts = ts,
             .send_retry=0
         };
-//        xQueueSendToBack(queue_inputs,&evt,0); 
+        xQueueSendToBack(queue_inputs,&evt,0); 
     }
 }
 
@@ -399,8 +407,9 @@ static void keep_alive_task(void *arg)
     const char *TAG = "keep_alive";
     ESP_LOGI(TAG, "keep alive task started");
 
-    // Wait for network to be up (simple approach: wait a bit and then loop)
-    vTaskDelay(pdMS_TO_TICKS(5000)); // Wait 5 seconds after start
+    ESP_LOGI(TAG, "waiting for network IP...");
+    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
+    ESP_LOGI(TAG, "got IP");
 
     while (1)
     {
@@ -412,7 +421,14 @@ static void keep_alive_task(void *arg)
             // Send a keep-alive JSON packet
             // We'll use event_id 20 for keep-alive, port_id 0 (not associated with a physical port), and value as the device_id
             esp_err_t err = send_json(20, 0, 1);
-            ESP_LOGI(TAG, "Sent keep-alive JSON, interval: %lu secs", g_config.keep_alive_secs);
+            if (err != ESP_OK)
+            {
+                ESP_LOGW(TAG, "keep-alive send failed: %s", esp_err_to_name(err));
+            }
+            else
+            {
+                ESP_LOGI(TAG, "Sent keep-alive JSON, interval: %lu secs", g_config.keep_alive_secs);
+            }
         }
 
         // Wait for the specified interval (convert seconds to milliseconds for vTaskDelay)
@@ -441,6 +457,8 @@ void app_main()
         return;
     }
     
+    s_ip_event_group = xEventGroupCreate();
+
     // =====================================
     // Ethernet Task Handle
     TaskHandle_t time_sync_handle = NULL;

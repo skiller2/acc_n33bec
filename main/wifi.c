@@ -18,6 +18,7 @@
 #include "esp_netif.h"
 #include "esp_dpp.h"
 #include "esp_wifi_types.h"
+#include "connect.h"
 
 #ifdef CONFIG_ESP_DPP_ENABLE_QRCODE
 #include "esp_qrcode.h"
@@ -194,6 +195,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             snprintf(s_ip_str, sizeof(s_ip_str), IPSTR, IP2STR(&event->ip_info.ip));
             xSemaphoreGive(s_wifi_mutex);
         }
+        xEventGroupSetBits(s_ip_event_group, HAVE_IP);
     }
 }
 

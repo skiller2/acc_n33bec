@@ -15,6 +15,10 @@
 extern "C" {
 #endif
 
+
+#define HAVE_IP BIT0
+extern EventGroupHandle_t s_ip_event_group;
+
 #if CONFIG_EXAMPLE_CONNECT_IPV6
 #define MAX_IP6_ADDRS_PER_NETIF (5)
 
