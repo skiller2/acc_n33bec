@@ -22,7 +22,6 @@
 #define PROJECT_VERSION "dev"
 #endif
 
-extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value);
 
 static const char *TAG = "main";
 
@@ -119,7 +118,7 @@ extern void card_store_init();
 extern void log_store_init();
 extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
-extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value);
+extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
 void log_input_task(void *arg);
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts );
@@ -150,7 +149,7 @@ void log_input_task(void *arg)
     {
         if (xQueueReceive(queue_inputs, &evt, portMAX_DELAY) == pdTRUE)
         {
-            esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value);
+            esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value, 1000);
 
             if (err != ESP_OK)
             {
@@ -193,7 +192,7 @@ void worker(void *p)
     gpio_num_t port_buzzer_gpio;
     uint32_t port_relay_duration_ms;
     uint8_t event_id = 0;
-
+    int ok = 0;
     while (1)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
@@ -220,7 +219,14 @@ void worker(void *p)
             uint64_t now;
             now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
 
-            int ok = card_exists(e.card) ? 1 : 0;
+            esp_err_t res = send_json(9,e.port_id,e.card,2000);
+            if (res == ESP_OK)
+            {
+                //Hago el analisis de la tarjeta y determino si es valida o no, para enviar al log el evento correspondiente
+            } else {
+                ok = card_exists(e.card) ? 1 : 0;
+            }
+
             if (ok)
             {
                 // ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
@@ -236,7 +242,9 @@ void worker(void *p)
                 play_melody_async(port_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
                 
             }
-            dispatch_log_event(event_id,e.port_id,e.card,now);
+            log_add(event_id,e.port_id,e.card,now);
+
+            // dispatch_log_event(event_id,e.port_id,e.card,now);
 
             ws_broadcast(e.card, now, ok);
         }
@@ -420,7 +428,7 @@ static void keep_alive_task(void *arg)
         {
             // Send a keep-alive JSON packet
             // We'll use event_id 20 for keep-alive, port_id 0 (not associated with a physical port), and value as the device_id
-            esp_err_t err = send_json(20, 0, 1);
+            esp_err_t err = send_json(20, 0, 1, 1000);
             if (err != ESP_OK)
             {
                 ESP_LOGW(TAG, "keep-alive send failed: %s", esp_err_to_name(err));

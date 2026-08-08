@@ -21,6 +21,7 @@
 #include "esp_mac.h"
 #include "esp_flash.h"
 #include "esp_app_desc.h"
+#include <driver/gpio.h>
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -33,6 +34,14 @@ extern char *card_read_all_json(void);
 static const char *TAG = "http";
 
 static QueueHandle_t event_queue = NULL;
+
+static char response_buffer[512];
+static int response_len = 0;
+static int parsed_rele1 = 0;
+static int parsed_rele2 = 0;
+static int parsed_rele3 = 0;
+static int parsed_buzzer = 0;
+static int parsed_led = 0;
 
 static uint32_t bundle_read_u32_le(const uint8_t *p);
 static bool bundle_is_safe_name(const char *name);
@@ -48,45 +57,106 @@ static const char *get_content_type(const char *uri)
     return "text/plain";
 }
 
-esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
+static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
+    switch (evt->event_id)
+    {
+        case HTTP_EVENT_ON_DATA:
+            if (response_len + evt->data_len < sizeof(response_buffer) - 1)
+            {
+                memcpy(response_buffer + response_len, evt->data, evt->data_len);
+                response_len += evt->data_len;
+            }
+            break;
+
+        case HTTP_EVENT_ON_FINISH:
+            response_buffer[response_len] = '\0';
+
+            cJSON *root = cJSON_Parse(response_buffer);
+            if (root)
+            {
+                cJSON *lector = cJSON_GetObjectItem(root, "lector");
+
+                if (cJSON_IsObject(lector))
+                {
+                    cJSON *rele1 = cJSON_GetObjectItem(lector, "rele1");
+                    cJSON *rele2 = cJSON_GetObjectItem(lector, "rele2");
+                    cJSON *rele3 = cJSON_GetObjectItem(lector, "rele3");
+                    cJSON *buzzer = cJSON_GetObjectItem(lector, "buzzer");
+                    cJSON *led = cJSON_GetObjectItem(lector, "led");
+
+                    parsed_rele1 = rele1 ? atoi(rele1->valuestring) : 0;
+                    parsed_rele2 = rele2 ? atoi(rele2->valuestring) : 0;
+                    parsed_rele3 = rele3 ? atoi(rele3->valuestring) : 0;
+                    parsed_buzzer = buzzer ? atoi(buzzer->valuestring) : 0;
+                    parsed_led = led ? atoi(led->valuestring) : 0;
+
+                    ESP_LOGI(TAG,
+                             "rele1=%d rele2=%d rele3=%d buzzer=%d led=%d",
+                             parsed_rele1, parsed_rele2, parsed_rele3,
+                             parsed_buzzer, parsed_led);
+                }
+
+                cJSON_Delete(root);
+            }
+            else
+            {
+                ESP_LOGE(TAG, "Invalid JSON response");
+            }
+
+            response_len = 0;
+            break;
+
+        default:
+            break;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout)
+{
+    char buffer[512];
+
     config_load(&g_config);
 
     esp_http_client_config_t config = {
-        .url = g_config.url_n33bec, 
-        .timeout_ms = 1000,
-        .skip_cert_common_name_check = true,
+        .url = g_config.url_n33bec,
+        .timeout_ms = timeout,
+        .event_handler = http_event_handler,
+        //        .skip_cert_common_name_check = true,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
     char post_data[512];
     char str_value[32];
 
-    if (event_id == 10 || event_id == 11) 
+    if (event_id == 9 || event_id == 10 || event_id == 11)
     {
         uint32_t raw_wiegand = (uint32_t)value;
 
-        uint8_t facility = (raw_wiegand >> 17) & 0xFF;   // Bits 17 a 24 (8 bits)
-        uint16_t card    = (raw_wiegand >> 1)  & 0xFFFF; // Bits 1 a 16 (16 bits)
+        uint8_t facility = (raw_wiegand >> 17) & 0xFF; // Bits 17 a 24 (8 bits)
+        uint16_t card = (raw_wiegand >> 1) & 0xFFFF;   // Bits 1 a 16 (16 bits)
 
         snprintf(str_value, sizeof(str_value), "%03u-%05u", facility, card);
 
-        ESP_LOGI(TAG, "Tarjeta Wiegand26 -> RAW: %llu, FC: %u, Card: %u, String: %s", 
+        ESP_LOGI(TAG, "Tarjeta Wiegand26 -> RAW: %llu, FC: %u, Card: %u, String: %s",
                  (unsigned long long)value, facility, card, str_value);
     }
-    else 
+    else
     {
         snprintf(str_value, sizeof(str_value), "%llu", (unsigned long long)value);
     }
 
     snprintf(post_data, sizeof(post_data),
-             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\"}",
-             g_config.cod_tema, 
-             (unsigned int)g_config.device_id, 
-             (int)event_id, 
-             (int)port_id, 
-             str_value, 
-             (int)event_id);
+             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\",\"check_card\":\"%d\"}",
+             g_config.cod_tema,
+             (unsigned int)g_config.device_id,
+             (int)event_id,
+             (int)port_id,
+             str_value,
+             (int)event_id,
+             (event_id == 9) ? 1 : 0);
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
 
@@ -94,24 +164,29 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value)
     esp_http_client_set_header(client, "Content-Type", "application/json");
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
+    response_len = 0;
+    parsed_rele1 = parsed_rele2 = parsed_rele3 = parsed_buzzer = parsed_led = 0;
+
     esp_err_t err = esp_http_client_perform(client);
 
     if (err == ESP_OK)
     {
         int status_code = esp_http_client_get_status_code(client);
-        ESP_LOGI(TAG, "HTTP POST Status = %d", status_code);
-        if (status_code != 200)
-        err = ESP_FAIL;
+
+        if (status_code != 200 && status_code != 201)
+            err = ESP_FAIL;
+
+        ESP_LOGI(TAG, "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d buzzer=%d led=%d",
+                 parsed_rele1, parsed_rele2, parsed_rele3, parsed_buzzer, parsed_led);
+
     }
     else
     {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
-
     esp_http_client_cleanup(client);
     return err;
 }
-
 
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
@@ -323,7 +398,6 @@ static esp_err_t post_config(httpd_req_t *req)
     if (cJSON_IsNumber(item))
         cfg.keep_alive_secs = (uint32_t)item->valuedouble;
 
-
     cJSON_Delete(json);
 
     if (config_save(&cfg) != ESP_OK)
@@ -404,14 +478,22 @@ static esp_err_t get_config(httpd_req_t *req)
 
 static const char *wifi_status_to_str(wifi_status_t status)
 {
-    switch (status) {
-    case WIFI_STATUS_DISCONNECTED: return "disconnected";
-    case WIFI_STATUS_DPP_LISTENING:  return "dpp_listening";
-    case WIFI_STATUS_DPP_READY:      return "dpp_ready";
-    case WIFI_STATUS_CONNECTING:     return "connecting";
-    case WIFI_STATUS_CONNECTED:      return "connected";
-    case WIFI_STATUS_DPP_FAILED:     return "dpp_failed";
-    default:                         return "disconnected";
+    switch (status)
+    {
+    case WIFI_STATUS_DISCONNECTED:
+        return "disconnected";
+    case WIFI_STATUS_DPP_LISTENING:
+        return "dpp_listening";
+    case WIFI_STATUS_DPP_READY:
+        return "dpp_ready";
+    case WIFI_STATUS_CONNECTING:
+        return "connecting";
+    case WIFI_STATUS_CONNECTED:
+        return "connected";
+    case WIFI_STATUS_DPP_FAILED:
+        return "dpp_failed";
+    default:
+        return "disconnected";
     }
 }
 
@@ -694,53 +776,53 @@ static esp_err_t get_device_info(httpd_req_t *req)
 {
     uint8_t mac[6];
     esp_efuse_mac_get_default(mac);
-    
+
     char mac_str[18];
-    sprintf(mac_str, "%02X:%02X:%02X:%02X:%02X:%02X", 
+    sprintf(mac_str, "%02X:%02X:%02X:%02X:%02X:%02X",
             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-            
+
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    
+
     uint32_t free_heap = esp_get_free_heap_size();
     uint32_t min_free_heap = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
- // Tamaño de la flash
+    // Tamaño de la flash
 
     uint32_t flash_size = 0;
     esp_flash_get_size(NULL, &flash_size);
 
-    #if CONFIG_ESPTOOLPY_FLASHFREQ_40M
-        const char *flash_speed_str = "40MHz";
-    #elif CONFIG_ESPTOOLPY_FLASHFREQ_80M
-        const char *flash_speed_str = "80MHz";
-    #elif CONFIG_ESPTOOLPY_FLASHFREQ_120M
-        const char *flash_speed_str = "120MHz";
-    #else
-        const char *flash_speed_str = "unknown";
-    #endif
+#if CONFIG_ESPTOOLPY_FLASHFREQ_40M
+    const char *flash_speed_str = "40MHz";
+#elif CONFIG_ESPTOOLPY_FLASHFREQ_80M
+    const char *flash_speed_str = "80MHz";
+#elif CONFIG_ESPTOOLPY_FLASHFREQ_120M
+    const char *flash_speed_str = "120MHz";
+#else
+    const char *flash_speed_str = "unknown";
+#endif
 
-    #if CONFIG_ESPTOOLPY_FLASHMODE_QIO
-        const char *flash_mode_str = "QIO";
-    #elif CONFIG_ESPTOOLPY_FLASHMODE_QOUT
-        const char *flash_mode_str = "QOUT";
-    #elif CONFIG_ESPTOOLPY_FLASHMODE_DIO
-        const char *flash_mode_str = "DIO";
-    #elif CONFIG_ESPTOOLPY_FLASHMODE_DOUT
-        const char *flash_mode_str = "DOUT";
-    #else
-        const char *flash_mode_str = "unknown";
-    #endif
+#if CONFIG_ESPTOOLPY_FLASHMODE_QIO
+    const char *flash_mode_str = "QIO";
+#elif CONFIG_ESPTOOLPY_FLASHMODE_QOUT
+    const char *flash_mode_str = "QOUT";
+#elif CONFIG_ESPTOOLPY_FLASHMODE_DIO
+    const char *flash_mode_str = "DIO";
+#elif CONFIG_ESPTOOLPY_FLASHMODE_DOUT
+    const char *flash_mode_str = "DOUT";
+#else
+    const char *flash_mode_str = "unknown";
+#endif
 
     char device_info_json[512];
     snprintf(device_info_json, sizeof(device_info_json),
              "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\"}",
              mac_str,
-             (chip_info.model == CHIP_ESP32) ? "ESP32" : 
-             (chip_info.model == CHIP_ESP32S2) ? "ESP32S2" :
-             (chip_info.model == CHIP_ESP32S3) ? "ESP32S3" :
-             (chip_info.model == CHIP_ESP32C3) ? "ESP32C3" :
-             (chip_info.model == CHIP_ESP32C2) ? "ESP32C2" :
-             (chip_info.model == CHIP_ESP32C6) ? "ESP32C6" : "Unknown",
+             (chip_info.model == CHIP_ESP32) ? "ESP32" : (chip_info.model == CHIP_ESP32S2) ? "ESP32S2"
+                                                     : (chip_info.model == CHIP_ESP32S3)   ? "ESP32S3"
+                                                     : (chip_info.model == CHIP_ESP32C3)   ? "ESP32C3"
+                                                     : (chip_info.model == CHIP_ESP32C2)   ? "ESP32C2"
+                                                     : (chip_info.model == CHIP_ESP32C6)   ? "ESP32C6"
+                                                                                           : "Unknown",
              chip_info.cores,
              chip_info.revision,
              esp_get_idf_version(),
@@ -992,8 +1074,6 @@ void http_init(QueueHandle_t qh)
 
         httpd_uri_t static_files = {.uri = "/*", .method = HTTP_GET, .handler = static_file_handler};
         httpd_register_uri_handler(s, &static_files);
-
-
 
         ESP_LOGI(TAG, "End Initializing HTTP server");
     }
