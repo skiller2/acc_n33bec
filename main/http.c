@@ -898,6 +898,8 @@ void http_init(QueueHandle_t qh)
     event_queue = qh;
 
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
+    c.uri_match_fn = httpd_uri_match_wildcard;
+
     c.max_open_sockets = 3;
     c.max_uri_handlers = 20;
     c.lru_purge_enable = true;
@@ -964,13 +966,6 @@ void http_init(QueueHandle_t qh)
 
         httpd_uri_t u1 = {.uri = "/", .method = HTTP_GET, .handler = static_file_handler};
         httpd_register_uri_handler(s, &u1);
-
-        httpd_uri_t static_js = {.uri = "/app.js", .method = HTTP_GET, .handler = static_file_handler};
-        httpd_register_uri_handler(s, &static_js);
-
-        httpd_uri_t static_css = {.uri = "/style.css", .method = HTTP_GET, .handler = static_file_handler};
-        httpd_register_uri_handler(s, &static_css);
-
         httpd_register_uri_handler(s, &put_uri);
         httpd_register_uri_handler(s, &del_uri);
         httpd_register_uri_handler(s, &logs_uri);
@@ -994,6 +989,11 @@ void http_init(QueueHandle_t qh)
 
         httpd_uri_t dpp_bs_uri = {.uri = "/dpp/bootstrap", .method = HTTP_POST, .handler = dpp_bootstrap_handler};
         httpd_register_uri_handler(s, &dpp_bs_uri);
+
+        httpd_uri_t static_files = {.uri = "/*", .method = HTTP_GET, .handler = static_file_handler};
+        httpd_register_uri_handler(s, &static_files);
+
+
 
         ESP_LOGI(TAG, "End Initializing HTTP server");
     }

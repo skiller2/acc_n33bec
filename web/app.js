@@ -224,6 +224,7 @@ function loadWifiStatus(pollMs) {
       return r.json();
     })
     .then(data => {
+      console.log('WiFi status:', data);
       const statusEl = document.getElementById('wifi-status');
       const detailsEl = document.getElementById('wifi-details');
       const qrDiv = document.getElementById('dpp-qrcode');
@@ -248,12 +249,13 @@ function loadWifiStatus(pollMs) {
       }
 
       if (qrDiv && uriDiv && dppStatusDiv) {
+        console.log('DPP URI:', data.dpp_uri);
         if (data.dpp_uri) {
           renderQrCode(data.dpp_uri);
           uriDiv.textContent = data.dpp_uri;
           dppStatusDiv.innerHTML = '';
         } else {
-          qrDiv.innerHTML = '<p>No DPP URI available yet. DPP enrollee is ' + (data.status === 'dpp_listening' ? 'listening for bootstrap...' : 'waiting for bootstrap.)</p>';
+          qrDiv.innerHTML = '<p>No DPP URI available yet. DPP enrollee is ' + (data.status === 'dpp_listening') ? 'listening for bootstrap...' : 'waiting for bootstrap.)</p>';
           uriDiv.textContent = '';
           if (data.status === 'dpp_failed') {
             dppStatusDiv.innerHTML = '<p class="status error">DPP authentication failed.</p>';
@@ -409,6 +411,7 @@ function setStorageStatus(msg, cls) {
   st.className = 'status ' + cls;
 }
 
+/*
 const ws = new WebSocket(`ws://${location.host}/ws`);
 ws.onmessage = (e) => {
   const data = JSON.parse(e.data);
@@ -416,6 +419,7 @@ ws.onmessage = (e) => {
   li.innerText = data.card + ' ' + (data.ok ? 'OK' : 'DENIED');
   document.getElementById('live').appendChild(li);
 };
+*/
 
 function loadCards() {
   fetch('/cards')
