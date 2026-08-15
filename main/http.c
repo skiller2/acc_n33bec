@@ -206,33 +206,30 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
 
         handle_send_card = esp_http_client_init(&config);
     }
-    char post_data[512];
-    char str_value[32];
+    char post_data[384];
+    
 
     if (event_id == 9 || event_id == 10 || event_id == 11)
     {
         uint32_t raw_wiegand = (uint32_t)value;
-
+        char str_value[32];
         uint8_t facility = (raw_wiegand >> 17) & 0xFF; // Bits 17 a 24 (8 bits)
         uint16_t card = (raw_wiegand >> 1) & 0xFFFF;   // Bits 1 a 16 (16 bits)
+
 
         snprintf(str_value, sizeof(str_value), "%03u-%05u", facility, card);
 
         ESP_LOGI(TAG, "Tarjeta Wiegand26 -> RAW: %llu, FC: %u, Card: %u, String: %s",
                  (unsigned long long)value, facility, card, str_value);
     }
-    else
-    {
-        snprintf(str_value, sizeof(str_value), "%llu", (unsigned long long)value);
-    }
 
     snprintf(post_data, sizeof(post_data),
-             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\",\"check_card\":\"%d\"}",
+             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%llu\",\"event_id\":\"%d\",\"check_card\":\"%d\"}",
              g_config.cod_tema,
              (unsigned int)g_config.device_id,
              (int)event_id,
              (int)port_id,
-             str_value,
+             value,
              (int)event_id,
              (event_id == 9) ? 1 : 0);
 

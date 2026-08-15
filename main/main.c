@@ -150,7 +150,7 @@ void log_input_task(void *arg)
     {
         if (xQueueReceive(queue_inputs, &evt, portMAX_DELAY) == pdTRUE)
         {
-            esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value, 1000);
+            esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value, 1200);
 
             if (err != ESP_OK)
             {
@@ -163,7 +163,7 @@ void log_input_task(void *arg)
                     ESP_LOGE(TAG, "Failed to requeue event");
                 }
 
-                vTaskDelay(pdMS_TO_TICKS(200));
+                vTaskDelay(pdMS_TO_TICKS(3000));
             }
         }
     }
