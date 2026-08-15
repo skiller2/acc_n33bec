@@ -251,12 +251,14 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
 
         if (status_code != 200 && status_code != 201)
             err = ESP_FAIL;
+        else {
 
         ESP_LOGI(TAG, "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s",
                  parsed_rele1, parsed_rele2, parsed_rele3, parsed_buzzer, parsed_led, parsed_tipo_habilitacion, parsed_ind_rechazo);
 
-        if (parsed_ind_rechazo[0] == 0)
+        if (parsed_ind_rechazo[0] == 79 )
             *ok = true;
+        }
     }
     else
     {
