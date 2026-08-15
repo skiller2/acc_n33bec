@@ -63,64 +63,63 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id)
     {
-        case HTTP_EVENT_ON_DATA:
-            if (response_len + evt->data_len < sizeof(response_buffer) - 1)
+    case HTTP_EVENT_ON_DATA:
+        if (response_len + evt->data_len < sizeof(response_buffer) - 1)
+        {
+            memcpy(response_buffer + response_len, evt->data, evt->data_len);
+            response_len += evt->data_len;
+        }
+        break;
+
+    case HTTP_EVENT_ON_FINISH:
+        response_buffer[response_len] = '\0';
+        parsed_tipo_habilitacion[0] = 0;
+        parsed_ind_rechazo[0] = 0;
+        cJSON *root = cJSON_Parse(response_buffer);
+        if (root)
+        {
+            cJSON *lector = cJSON_GetObjectItem(root, "lector");
+
+            if (cJSON_IsObject(lector))
             {
-                memcpy(response_buffer + response_len, evt->data, evt->data_len);
-                response_len += evt->data_len;
-            }
-            break;
+                cJSON *rele1 = cJSON_GetObjectItem(lector, "rele1");
+                cJSON *rele2 = cJSON_GetObjectItem(lector, "rele2");
+                cJSON *rele3 = cJSON_GetObjectItem(lector, "rele3");
+                cJSON *buzzer = cJSON_GetObjectItem(lector, "buzzer");
+                cJSON *led = cJSON_GetObjectItem(lector, "led");
+                cJSON *tipo_habilitacion = cJSON_GetObjectItem(lector, "tipo_habilitacion");
+                cJSON *ind_rechazo = cJSON_GetObjectItem(lector, "ind_rechazo");
 
-        case HTTP_EVENT_ON_FINISH:
-            response_buffer[response_len] = '\0';
-            parsed_tipo_habilitacion[0]=0;
-            parsed_ind_rechazo[0]=0;
-            cJSON *root = cJSON_Parse(response_buffer);
-            if (root)
-            {
-                cJSON *lector = cJSON_GetObjectItem(root, "lector");
+                parsed_rele1 = rele1 ? atoi(rele1->valuestring) : 0;
+                parsed_rele2 = rele2 ? atoi(rele2->valuestring) : 0;
+                parsed_rele3 = rele3 ? atoi(rele3->valuestring) : 0;
+                parsed_buzzer = buzzer ? atoi(buzzer->valuestring) : 0;
+                parsed_led = led ? atoi(led->valuestring) : 0;
+                strncpy(parsed_tipo_habilitacion, (char *)tipo_habilitacion->valuestring, 1);
+                strncpy(parsed_ind_rechazo, (char *)ind_rechazo->valuestring, 1);
 
-                if (cJSON_IsObject(lector))
-                {
-                    cJSON *rele1 = cJSON_GetObjectItem(lector, "rele1");
-                    cJSON *rele2 = cJSON_GetObjectItem(lector, "rele2");
-                    cJSON *rele3 = cJSON_GetObjectItem(lector, "rele3");
-                    cJSON *buzzer = cJSON_GetObjectItem(lector, "buzzer");
-                    cJSON *led = cJSON_GetObjectItem(lector, "led");
-                    cJSON *tipo_habilitacion = cJSON_GetObjectItem(lector, "tipo_habilitacion");
-                    cJSON *ind_rechazo = cJSON_GetObjectItem(lector, "ind_rechazo");
+                ESP_LOGI(TAG,
+                         "resp: %s ",
+                         response_buffer);
 
-                    parsed_rele1 = rele1 ? atoi(rele1->valuestring) : 0;
-                    parsed_rele2 = rele2 ? atoi(rele2->valuestring) : 0;
-                    parsed_rele3 = rele3 ? atoi(rele3->valuestring) : 0;
-                    parsed_buzzer = buzzer ? atoi(buzzer->valuestring) : 0;
-                    parsed_led = led ? atoi(led->valuestring) : 0;
-                    strncpy(parsed_tipo_habilitacion,(char*)tipo_habilitacion->valuestring,1);
-                    strncpy(parsed_ind_rechazo,(char*)ind_rechazo->valuestring,1);
-
-                    ESP_LOGI(TAG,
-                             "resp: %s ",
-                             response_buffer);
-
-
-                    ESP_LOGI(TAG,
-                             "rele1=%d rele2=%d rele3=%d buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s ",
-                             parsed_rele1, parsed_rele2, parsed_rele3,
-                             parsed_buzzer, parsed_led, parsed_tipo_habilitacion, parsed_ind_rechazo);
-                }
-
-                cJSON_Delete(root);
-            }
-            else
-            {
-                ESP_LOGE(TAG, "Invalid JSON response");
+                ESP_LOGI(TAG,
+                         "rele1=%d rele2=%d rele3=%d buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s ",
+                         parsed_rele1, parsed_rele2, parsed_rele3,
+                         parsed_buzzer, parsed_led, parsed_tipo_habilitacion, parsed_ind_rechazo);
             }
 
-            response_len = 0;
-            break;
+            cJSON_Delete(root);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Invalid JSON response");
+        }
 
-        default:
-            break;
+        response_len = 0;
+        break;
+
+    default:
+        break;
     }
 
     return ESP_OK;
@@ -182,26 +181,31 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
 
         if (status_code != 200 && status_code != 201)
             err = ESP_FAIL;
-    } else {
+    }
+    else
+    {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
     esp_http_client_cleanup(client);
     return err;
 }
 
-
+esp_http_client_handle_t handle_send_card = NULL;
 esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok)
 {
-    config_load(&g_config);
-    *ok=false;
-    esp_http_client_config_t config = {
-        .url = g_config.url_n33bec,
-        .timeout_ms = timeout,
-        .event_handler = http_event_handler,
-        //        .skip_cert_common_name_check = true,
-    };
+    if (handle_send_card == NULL)
+    {
+        config_load(&g_config);
+        *ok = false;
+        esp_http_client_config_t config = {
+            .url = g_config.url_n33bec,
+            .timeout_ms = timeout,
+            .event_handler = http_event_handler,
+            //        .skip_cert_common_name_check = true,
+        };
 
-    esp_http_client_handle_t client = esp_http_client_init(&config);
+        handle_send_card = esp_http_client_init(&config);
+    }
     char post_data[512];
     char str_value[32];
 
@@ -234,19 +238,19 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
 
-    esp_http_client_set_method(client, HTTP_METHOD_POST);
-    esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_post_field(client, post_data, strlen(post_data));
+    esp_http_client_set_method(handle_send_card, HTTP_METHOD_POST);
+    esp_http_client_set_header(handle_send_card, "Content-Type", "application/json");
+    esp_http_client_set_post_field(handle_send_card, post_data, strlen(post_data));
 
     response_len = 0;
     parsed_rele1 = parsed_rele2 = parsed_rele3 = parsed_buzzer = parsed_led = 0;
-    parsed_ind_rechazo[0]=0;
-    parsed_tipo_habilitacion[0]=0;
-    esp_err_t err = esp_http_client_perform(client);
+    parsed_ind_rechazo[0] = 0;
+    parsed_tipo_habilitacion[0] = 0;
+    esp_err_t err = esp_http_client_perform(handle_send_card);
 
     if (err == ESP_OK)
     {
-        int status_code = esp_http_client_get_status_code(client);
+        int status_code = esp_http_client_get_status_code(handle_send_card);
 
         if (status_code != 200 && status_code != 201)
             err = ESP_FAIL;
@@ -254,15 +258,15 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
         ESP_LOGI(TAG, "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s",
                  parsed_rele1, parsed_rele2, parsed_rele3, parsed_buzzer, parsed_led, parsed_tipo_habilitacion, parsed_ind_rechazo);
 
-        if (parsed_ind_rechazo[0]==0)
-            *ok=true;    
-
+        if (parsed_ind_rechazo[0] == 0)
+            *ok = true;
     }
     else
     {
+        esp_http_client_cleanup(handle_send_card);
+        handle_send_card = NULL;
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
-    esp_http_client_cleanup(client);
     return err;
 }
 
