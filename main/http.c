@@ -42,6 +42,8 @@ static int parsed_rele2 = 0;
 static int parsed_rele3 = 0;
 static int parsed_buzzer = 0;
 static int parsed_led = 0;
+static char parsed_tipo_habilitacion[2];
+static char parsed_ind_rechazo[2];
 
 static uint32_t bundle_read_u32_le(const uint8_t *p);
 static bool bundle_is_safe_name(const char *name);
@@ -71,7 +73,8 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
         case HTTP_EVENT_ON_FINISH:
             response_buffer[response_len] = '\0';
-
+            parsed_tipo_habilitacion[0]=0;
+            parsed_ind_rechazo[0]=0;
             cJSON *root = cJSON_Parse(response_buffer);
             if (root)
             {
@@ -84,17 +87,26 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
                     cJSON *rele3 = cJSON_GetObjectItem(lector, "rele3");
                     cJSON *buzzer = cJSON_GetObjectItem(lector, "buzzer");
                     cJSON *led = cJSON_GetObjectItem(lector, "led");
+                    cJSON *tipo_habilitacion = cJSON_GetObjectItem(lector, "tipo_habilitacion");
+                    cJSON *ind_rechazo = cJSON_GetObjectItem(lector, "ind_rechazo");
 
                     parsed_rele1 = rele1 ? atoi(rele1->valuestring) : 0;
                     parsed_rele2 = rele2 ? atoi(rele2->valuestring) : 0;
                     parsed_rele3 = rele3 ? atoi(rele3->valuestring) : 0;
                     parsed_buzzer = buzzer ? atoi(buzzer->valuestring) : 0;
                     parsed_led = led ? atoi(led->valuestring) : 0;
+                    strncpy(parsed_tipo_habilitacion,(char*)tipo_habilitacion->valuestring,1);
+                    strncpy(parsed_ind_rechazo,(char*)ind_rechazo->valuestring,1);
 
                     ESP_LOGI(TAG,
-                             "rele1=%d rele2=%d rele3=%d buzzer=%d led=%d",
+                             "resp: %s ",
+                             response_buffer);
+
+
+                    ESP_LOGI(TAG,
+                             "rele1=%d rele2=%d rele3=%d buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s ",
                              parsed_rele1, parsed_rele2, parsed_rele3,
-                             parsed_buzzer, parsed_led);
+                             parsed_buzzer, parsed_led, parsed_tipo_habilitacion, parsed_ind_rechazo);
                 }
 
                 cJSON_Delete(root);
@@ -116,10 +128,72 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout)
 {
-    char buffer[512];
-
     config_load(&g_config);
 
+    esp_http_client_config_t config = {
+        .url = g_config.url_n33bec,
+        .timeout_ms = timeout,
+        //.event_handler = http_event_handler,
+        //        .skip_cert_common_name_check = true,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    char post_data[512];
+    char str_value[32];
+
+    if (event_id == 9 || event_id == 10 || event_id == 11)
+    {
+        uint32_t raw_wiegand = (uint32_t)value;
+
+        uint8_t facility = (raw_wiegand >> 17) & 0xFF; // Bits 17 a 24 (8 bits)
+        uint16_t card = (raw_wiegand >> 1) & 0xFFFF;   // Bits 1 a 16 (16 bits)
+
+        snprintf(str_value, sizeof(str_value), "%03u-%05u", facility, card);
+
+        ESP_LOGI(TAG, "Tarjeta Wiegand26 -> RAW: %llu, FC: %u, Card: %u, String: %s",
+                 (unsigned long long)value, facility, card, str_value);
+    }
+    else
+    {
+        snprintf(str_value, sizeof(str_value), "%llu", (unsigned long long)value);
+    }
+
+    snprintf(post_data, sizeof(post_data),
+             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\",\"check_card\":\"%d\"}",
+             g_config.cod_tema,
+             (unsigned int)g_config.device_id,
+             (int)event_id,
+             (int)port_id,
+             str_value,
+             (int)event_id,
+             (event_id == 9) ? 1 : 0);
+
+    ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
+
+    esp_http_client_set_method(client, HTTP_METHOD_POST);
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, post_data, strlen(post_data));
+
+    esp_err_t err = esp_http_client_perform(client);
+
+    if (err == ESP_OK)
+    {
+        int status_code = esp_http_client_get_status_code(client);
+
+        if (status_code != 200 && status_code != 201)
+            err = ESP_FAIL;
+    } else {
+        ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
+    }
+    esp_http_client_cleanup(client);
+    return err;
+}
+
+
+esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok)
+{
+    config_load(&g_config);
+    *ok=false;
     esp_http_client_config_t config = {
         .url = g_config.url_n33bec,
         .timeout_ms = timeout,
@@ -166,7 +240,8 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
 
     response_len = 0;
     parsed_rele1 = parsed_rele2 = parsed_rele3 = parsed_buzzer = parsed_led = 0;
-
+    parsed_ind_rechazo[0]=0;
+    parsed_tipo_habilitacion[0]=0;
     esp_err_t err = esp_http_client_perform(client);
 
     if (err == ESP_OK)
@@ -176,8 +251,11 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
         if (status_code != 200 && status_code != 201)
             err = ESP_FAIL;
 
-        ESP_LOGI(TAG, "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d buzzer=%d led=%d",
-                 parsed_rele1, parsed_rele2, parsed_rele3, parsed_buzzer, parsed_led);
+        ESP_LOGI(TAG, "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s",
+                 parsed_rele1, parsed_rele2, parsed_rele3, parsed_buzzer, parsed_led, parsed_tipo_habilitacion, parsed_ind_rechazo);
+
+        if (parsed_ind_rechazo[0]==0)
+            *ok=true;    
 
     }
     else

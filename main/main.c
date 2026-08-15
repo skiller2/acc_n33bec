@@ -119,6 +119,7 @@ extern void log_store_init();
 extern int card_exists(uint64_t);
 extern void ws_broadcast(uint64_t, int64_t, int);
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
+extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
 void log_input_task(void *arg);
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts );
@@ -192,7 +193,7 @@ void worker(void *p)
     gpio_num_t port_buzzer_gpio;
     uint32_t port_relay_duration_ms;
     uint8_t event_id = 0;
-    int ok = 0;
+    bool ok = false;
     while (1)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
@@ -219,7 +220,10 @@ void worker(void *p)
             uint64_t now;
             now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
 
-            esp_err_t res = send_json(9,e.port_id,e.card,2000);
+            esp_err_t res = send_json_card(9,e.port_id,e.card,2000,&ok);
+            ESP_LOGW(TAG, "Respuesta de tarjeta: %d", ok);
+
+
             if (res == ESP_OK)
             {
                 //Hago el analisis de la tarjeta y determino si es valida o no, para enviar al log el evento correspondiente
