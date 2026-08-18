@@ -125,7 +125,7 @@ void play_melody_async(gpio_num_t gpio,
 {
     static TaskHandle_t melody_task_handle = NULL;
     if (melody_task_handle)
-    xTaskNotifyGive(melody_task_handle);
+        xTaskNotifyGive(melody_task_handle);
 
 
     melody_ctx_t *ctx = malloc(sizeof(melody_ctx_t));

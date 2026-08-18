@@ -151,6 +151,7 @@ void log_input_task(void *arg)
         if (xQueueReceive(queue_inputs, &evt, portMAX_DELAY) == pdTRUE)
         {
             esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value, 1200);
+            ESP_LOGW(TAG,"SEND_JSON WORKING");
 
             if (err != ESP_OK)
             {
@@ -198,6 +199,7 @@ void worker(void *p)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
         {
+            ESP_LOGW(TAG,"WORKER RECEIVED CARD FROM QUEUE_CARDS");
             if (e.port_id == 1)
             { // Check which port triggered the event and activate the corresponding relay and buzzer
                 // pulse_output(g_config.port1_relay_gpio, g_config.port1_relay_duration_ms);
@@ -506,11 +508,12 @@ void app_main()
     {
         ESP_LOGE(TAG,"RTC NOT WORKING");
     }
-
+    /*
     if (wifi_init() != ESP_OK)
     {
         ESP_LOGE(TAG, "WiFi/DPP initialization failed");
     }
+    */
     //=========================================
 
     // initialize_sntp();
@@ -595,10 +598,10 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create input task");
     }
-
+    /*
     ESP_LOGI(TAG, "Creating keep alive task");
     if (xTaskCreate(keep_alive_task, "keep_alive_task", 4096, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
-    }
+    }*/
 }

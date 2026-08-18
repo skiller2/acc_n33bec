@@ -29,7 +29,8 @@
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
-extern char *log_read_all_json(void);
+//extern char *log_read_all_json(void);
+extern esp_err_t log_read_all_json(httpd_req_t *req);
 extern char *card_read_all_json(void);
 static const char *TAG = "http";
 
@@ -127,6 +128,7 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout)
 {
+    ESP_LOGW(TAG, ">>> ENTER send_json event=%d", event_id);
     config_load(&g_config);
 
     esp_http_client_config_t config = {
@@ -136,7 +138,19 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
         //        .skip_cert_common_name_check = true,
     };
 
+    ESP_LOGI(TAG,
+         "Before HTTP init: free=%lu largest=%lu",
+         (unsigned long)esp_get_free_heap_size(),
+         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
     esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    ESP_LOGI(TAG,
+         "After HTTP init: free=%lu largest=%lu handle=%p",
+         (unsigned long)esp_get_free_heap_size(),
+         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+         client);
+
     char post_data[512];
     char str_value[32];
 
@@ -173,7 +187,17 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     esp_http_client_set_header(client, "Content-Type", "application/json");
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
+    ESP_LOGI(TAG,
+         "BEFORE PERFORM: free=%lu largest=%lu",
+         (unsigned long)esp_get_free_heap_size(),
+         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
     esp_err_t err = esp_http_client_perform(client);
+
+    ESP_LOGI(TAG,
+            "AFTER PERFORM: free=%lu largest=%lu",
+            (unsigned long)esp_get_free_heap_size(),
+            (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
     if (err == ESP_OK)
     {
@@ -187,12 +211,19 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
     esp_http_client_cleanup(client);
+
+    ESP_LOGI(TAG,
+            "AFTER CLEANUP: free=%lu largest=%lu",
+            (unsigned long)esp_get_free_heap_size(),
+            (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    ESP_LOGW(TAG, "<<< EXIT send_json event=%d", event_id);        
     return err;
 }
 
 esp_http_client_handle_t handle_send_card = NULL;
 esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok)
 {
+    ESP_LOGW(TAG, ">>> ENTER send_json_card event=%d", event_id);
     if (handle_send_card == NULL)
     {
         config_load(&g_config);
@@ -204,7 +235,18 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
             //        .skip_cert_common_name_check = true,
         };
 
+        ESP_LOGI(TAG,
+         "Before HTTP init: free=%lu largest=%lu",
+         (unsigned long)esp_get_free_heap_size(),
+         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
         handle_send_card = esp_http_client_init(&config);
+
+        ESP_LOGI(TAG,
+                "After HTTP init: free=%lu largest=%lu handle=%p",
+                (unsigned long)esp_get_free_heap_size(),
+                (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+                handle_send_card);
     }
     char post_data[384];
     
@@ -243,31 +285,49 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
     parsed_rele1 = parsed_rele2 = parsed_rele3 = parsed_buzzer = parsed_led = 0;
     parsed_ind_rechazo[0] = 0;
     parsed_tipo_habilitacion[0] = 0;
+    ESP_LOGI(TAG,
+         "CARD BEFORE PERFORM: free=%lu largest=%lu",
+         (unsigned long)esp_get_free_heap_size(),
+         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
     esp_err_t err = esp_http_client_perform(handle_send_card);
+
+    ESP_LOGI(TAG,
+         "CARD AFTER PERFORM: free=%lu largest=%lu",
+         (unsigned long)esp_get_free_heap_size(),
+         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
     if (err == ESP_OK)
     {
         int status_code = esp_http_client_get_status_code(handle_send_card);
 
         if (status_code != 200 && status_code != 201)
+        {
             err = ESP_FAIL;
-        else {
+        }
+        else
+        {
+            ESP_LOGI(TAG,
+                    "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d "
+                    "buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s",
+                    parsed_rele1,
+                    parsed_rele2,
+                    parsed_rele3,
+                    parsed_buzzer,
+                    parsed_led,
+                    parsed_tipo_habilitacion,
+                    parsed_ind_rechazo);
 
-        ESP_LOGI(TAG, "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s",
-                 parsed_rele1, parsed_rele2, parsed_rele3, parsed_buzzer, parsed_led, parsed_tipo_habilitacion, parsed_ind_rechazo);
-
-        if (parsed_ind_rechazo[0] == 79 )
-            *ok = true;
+            if (parsed_ind_rechazo[0] == 79)
+                *ok = true;
         }
     }
     else
     {
-        esp_http_client_cleanup(handle_send_card);
-        handle_send_card = NULL;
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
     return err;
-}
+    }
 
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
@@ -318,6 +378,11 @@ static esp_err_t del_card(httpd_req_t *req)
 
 static esp_err_t get_logs(httpd_req_t *req)
 {
+    return log_read_all_json(req);
+}
+/*
+static esp_err_t get_logs(httpd_req_t *req)
+{
 
     char *json = log_read_all_json();
     httpd_resp_set_type(req, "application/json");
@@ -325,7 +390,7 @@ static esp_err_t get_logs(httpd_req_t *req)
     free(json);
 
     return ESP_OK;
-}
+}*/
 
 static esp_err_t get_cards(httpd_req_t *req)
 {

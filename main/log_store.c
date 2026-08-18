@@ -6,6 +6,9 @@
 #include "esp_timer.h"
 #include <sys/time.h>
 #include <esp_log.h>
+#include "esp_heap_caps.h"
+#include "esp_system.h"
+#include "esp_http_server.h"
 
 #define MAX_LOGS 1000
 
@@ -82,35 +85,69 @@ void log_add(uint8_t event_id, int port_id, uint64_t value, int64_t ts)
 }
 
 
-char* log_read_all_json()
+esp_err_t log_read_all_json(httpd_req_t *req)
 {
     FILE *f = fopen("/fs/logs.dat", "rb");
 
-    size_t buf_size = 8192;
-    char *json = malloc(buf_size);
-    strcpy(json, "[");
+    httpd_resp_set_type(req, "application/json");
 
-    log_t e;
-    int first = 1;
-
-    while (fread(&e, sizeof(e), 1, f)) {
-        char temp[128];
-        snprintf(temp, sizeof(temp),
-            "%s{\"event_id\":%d,\"value\":%llu,\"ts\":%llu,\"port_id\":%d}",
-            first ? "" : ",",
-            e.event_id, e.value, e.ts, e.port_id);
-
-        if (strlen(json) + strlen(temp) + 2 > buf_size) {
-            buf_size *= 2;
-            json = realloc(json, buf_size);
-        }
-
-        strcat(json, temp);
-        first = 0;
+    if (!f)
+    {
+        httpd_resp_sendstr(req, "[]");
+        return ESP_OK;
     }
 
-    strcat(json, "]");
+    // Inicio del array
+    esp_err_t err = httpd_resp_send_chunk(req, "[", 1);
+    if (err != ESP_OK)
+    {
+        fclose(f);
+        return err;
+    }
+
+    log_t e;
+    bool first = true;
+    char temp[128];
+
+    while (fread(&e, sizeof(e), 1, f) == 1)
+    {
+        int len = snprintf(
+            temp,
+            sizeof(temp),
+            "%s{\"event_id\":%u,\"value\":%llu,\"ts\":%llu,\"port_id\":%d}",
+            first ? "" : ",",
+            (unsigned int)e.event_id,
+            (unsigned long long)e.value,
+            (unsigned long long)e.ts,
+            e.port_id
+        );
+
+        if (len < 0 || len >= sizeof(temp))
+        {
+            fclose(f);
+            httpd_resp_send_chunk(req, NULL, 0);
+            return ESP_FAIL;
+        }
+
+        err = httpd_resp_send_chunk(req, temp, len);
+
+        if (err != ESP_OK)
+        {
+            fclose(f);
+            return err;
+        }
+
+        first = false;
+    }
+
+    // Cierre del JSON
+    err = httpd_resp_send_chunk(req, "]", 1);
+
     fclose(f);
 
-    return json;
+    if (err != ESP_OK)
+        return err;
+
+    // Fin de chunked response
+    return httpd_resp_send_chunk(req, NULL, 0);
 }
