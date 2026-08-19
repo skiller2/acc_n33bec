@@ -598,10 +598,10 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create input task");
     }
-    /*
+    
     ESP_LOGI(TAG, "Creating keep alive task");
     if (xTaskCreate(keep_alive_task, "keep_alive_task", 4096, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
-    }*/
+    }
 }
