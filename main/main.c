@@ -508,12 +508,13 @@ void app_main()
     {
         ESP_LOGE(TAG,"RTC NOT WORKING");
     }
-    /*
+   
+    
     if (wifi_init() != ESP_OK)
     {
         ESP_LOGE(TAG, "WiFi/DPP initialization failed");
     }
-    */
+    
     //=========================================
 
     // initialize_sntp();

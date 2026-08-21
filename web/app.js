@@ -459,6 +459,13 @@ function formatTimestamp(ts) {
   return `${base}.${String(micros).padStart(6, "0")}`;
 }
 
+function wiegand26ToFcCard(value) {
+  const raw = Number(value);
+  const facility = (raw >>> 17) & 0xFF;
+  const card = (raw >>> 1) & 0xFFFF;
+  return String(facility).padStart(3, '0') + '-' + String(card).padStart(5, '0');
+}
+
 function loadLogs() {
   fetch('/logs')
     .then(r => r.json())
@@ -474,7 +481,7 @@ function loadLogs() {
 
         if (typeof log === 'object') {
           const readableTime = formatTimestamp(log.ts);
-          const  valueDisplay = log.value;
+          let valueDisplay = log.value;
           let eventDisplay = "";
 
           if (log.event_id == 10) {
@@ -492,6 +499,11 @@ function loadLogs() {
           } else {
             eventDisplay = "EVENT" + log.event_id;
           }
+
+          if (log.event_id == 10 || log.event_id == 11) {
+            valueDisplay = wiegand26ToFcCard(log.value);
+          }
+
           div.innerText = `${readableTime} - ${eventDisplay} - Port${log.port_id} - ${valueDisplay}`;
         } else {
           div.innerText = log;
