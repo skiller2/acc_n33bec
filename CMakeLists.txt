@@ -83,7 +83,7 @@ add_custom_command(
             ${OTA_FW}
             ${WEB_BUNDLE}
     DEPENDS
-            ${OTA_FW}
+            app
             ${WEB_BUNDLE}
             ${CMAKE_CURRENT_LIST_DIR}/tools/make_update_bundle.py
     COMMENT "Generating full firmware bundle"
