@@ -17,7 +17,7 @@ typedef struct
 
 void beep_tone(gpio_num_t gpio, int freq_hz, int duration_ms)
 {
-//TODO: check if running before stop
+    // TODO: check if running before stop
 
     // Configure timer EVERY TIME (this is key for your hardware)
     ledc_timer_config_t timer = {
@@ -50,7 +50,7 @@ void beep_tone(gpio_num_t gpio, int freq_hz, int duration_ms)
 
 static void output_off_cb(TimerHandle_t xTimer)
 {
-    gpio_num_t gpio = (gpio_num_t)pvTimerGetTimerID(xTimer); //get the gpio from timer
+    gpio_num_t gpio = (gpio_num_t)pvTimerGetTimerID(xTimer); // get the gpio from timer
 
     gpio_set_level(gpio, 0);
 }
@@ -68,8 +68,8 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
     TimerHandle_t timer = xTimerCreate(
         "pulse_timer",
         pdMS_TO_TICKS(duration_ms),
-        pdFALSE,      // one-shot
-        (void *)gpio, // store gpio in timer
+        pdFALSE,        // one-shot
+        (void *)gpio,   // store gpio in timer
         output_off_cb); //  callback when timer expires
 
     if (timer != NULL)
@@ -93,58 +93,65 @@ static void melody_task(void *arg)
         }
         else
         {
-            ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx->melody[i].duration));
+            ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx->melody[i].pause));
             if (ulNotificationValue > 0)
             {
-                free(ctx);
-                vTaskDelete(NULL); // kill task when done
-                return;
+                //vTaskDelete(NULL); // kill task when done
+                break;
             }
-            //            vTaskDelay(pdMS_TO_TICKS(ctx->melody[i].duration));
-        }
-
-        ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx->melody[i].pause));
-        if (ulNotificationValue > 0)
-        {
-            free(ctx);
-            vTaskDelete(NULL); // kill task when done
-            return;
         }
     }
 
     // cleanup
-    free(ctx);
 
     vTaskDelete(NULL); // kill task when done
 }
+
+melody_ctx_t ctx;
 
 void play_melody_async(gpio_num_t gpio,
                        const tone_t *melody,
                        int length,
                        float incdur)
 {
+return;
+    
     static TaskHandle_t melody_task_handle = NULL;
     if (melody_task_handle)
+    {
         xTaskNotifyGive(melody_task_handle);
 
+        for (int i = 0; i < 500; i++)
+        {
+            if (eTaskGetState(melody_task_handle) == eDeleted)
+            {
+                melody_task_handle = NULL;
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(30));
+        }
+/*
+        if (melody_task_handle)
+        {
+            vTaskDelete(melody_task_handle);
+            melody_task_handle = NULL;
+        }
+            */
+    }
 
-    melody_ctx_t *ctx = malloc(sizeof(melody_ctx_t));
-
-    ctx->gpio = gpio;
-    ctx->melody = melody;
-    ctx->length = length;
-    ctx->incdur = incdur;
+    ctx.gpio = gpio;
+    ctx.melody = melody;
+    ctx.length = length;
+    ctx.incdur = incdur;
 
     gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
-    gpio_set_level(gpio, 0); // ensure off
-
-    // vTaskDelete(melody_task_handle); // kill previous task if still running
+    gpio_set_level(gpio, 0);
 
     xTaskCreate(
         melody_task,
         "melody_task",
         2048,
-        ctx,
+        &ctx,
         5,
         &melody_task_handle);
 }
