@@ -116,6 +116,7 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
             ESP_LOGE(TAG, "Invalid JSON response");
         }
 
+        
         response_len = 0;
         break;
 
@@ -232,6 +233,8 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
             .url = g_config.url_n33bec,
             .timeout_ms = timeout,
             .event_handler = http_event_handler,
+            .keep_alive_enable=true,
+            .keep_alive_interval =5
             //        .skip_cert_common_name_check = true,
         };
 
@@ -247,6 +250,9 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
                 (unsigned long)esp_get_free_heap_size(),
                 (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
                 handle_send_card);
+        esp_http_client_set_method(handle_send_card, HTTP_METHOD_POST);
+        esp_http_client_set_header(handle_send_card, "Content-Type", "application/json");
+
     }
     char post_data[384];
     
@@ -277,8 +283,7 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
 
-    esp_http_client_set_method(handle_send_card, HTTP_METHOD_POST);
-    esp_http_client_set_header(handle_send_card, "Content-Type", "application/json");
+    //esp_http_client_set_post_field(handle_send_card, NULL,0);
     esp_http_client_set_post_field(handle_send_card, post_data, strlen(post_data));
 
     response_len = 0;
@@ -292,14 +297,14 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
 
     esp_err_t err = esp_http_client_perform(handle_send_card);
 
-    ESP_LOGI(TAG,
-         "CARD AFTER PERFORM: free=%lu largest=%lu",
-         (unsigned long)esp_get_free_heap_size(),
-         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
     if (err == ESP_OK)
     {
         int status_code = esp_http_client_get_status_code(handle_send_card);
+
+//204 No Content -> Valid Permanent Card
+//206 Partial Content -> Valid Temporary Card
+//404 Not Found -> Card not valid / does not exist
 
         if (status_code != 200 && status_code != 201)
         {
@@ -326,6 +331,13 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
     {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
+    
+    if (err != ESP_OK) {
+        esp_http_client_cleanup(handle_send_card);
+        handle_send_card=NULL;
+    }
+
+
     return err;
     }
 

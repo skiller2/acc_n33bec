@@ -222,8 +222,17 @@ void worker(void *p)
             uint64_t now;
             now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
 
+
+            ESP_LOGI(TAG, "CARD BEFORE send_json_card: free=%lu largest=%lu", (unsigned long)esp_get_free_heap_size(), (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
+            int64_t t0 = esp_timer_get_time();
             esp_err_t res = send_json_card(9,e.port_id,e.card,2000,&ok);
-            ESP_LOGW(TAG, "Respuesta de tarjeta: %d", ok);
+            int64_t t1 = esp_timer_get_time();
+
+            ESP_LOGI(TAG, "CARD AFTER send_json_card: free=%lu largest=%lu", (unsigned long)esp_get_free_heap_size(), (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
+
+            ESP_LOGW(TAG, "Respuesta de tarjeta: %d en %llu us", ok, t1-t0);
 
 
             if (res == ESP_OK)
