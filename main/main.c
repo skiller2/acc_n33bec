@@ -17,6 +17,7 @@
 #include "config.h"
 #include "nvs_flash.h"
 #include "example_common_private.h"
+#include "esp_http_client.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -227,6 +228,8 @@ void worker(void *p)
 
             int64_t t0 = esp_timer_get_time();
             esp_err_t res = send_json_card(9,e.port_id,e.card,2000,&ok);
+            if (res==ESP_ERR_HTTP_FETCH_HEADER || res==ESP_ERR_HTTP_WRITE_DATA)
+                res = send_json_card(9,e.port_id,e.card,2000,&ok);
             int64_t t1 = esp_timer_get_time();
 
             ESP_LOGI(TAG, "CARD AFTER send_json_card: free=%lu largest=%lu", (unsigned long)esp_get_free_heap_size(), (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));

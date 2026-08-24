@@ -334,6 +334,7 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
     
     if (err != ESP_OK) {
         esp_http_client_cleanup(handle_send_card);
+        vTaskDelay(pdMS_TO_TICKS(10));
         handle_send_card=NULL;
     }
 

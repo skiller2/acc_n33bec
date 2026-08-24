@@ -84,22 +84,16 @@ static void melody_task(void *arg)
     uint32_t ulNotificationValue;
     for (int i = 0; i < ctx->length; i++)
     {
-
         if (ctx->melody[i].freq > 0)
         {
             beep_tone(ctx->gpio,
                       ctx->melody[i].freq,
                       ctx->melody[i].duration * ctx->incdur);
         }
-        else
-        {
-            ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx->melody[i].pause));
-            if (ulNotificationValue > 0)
-            {
-                //vTaskDelete(NULL); // kill task when done
-                break;
-            }
-        }
+        int pause=ctx->melody[i].pause||1;
+        ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(pause));
+        if (ulNotificationValue > 0)
+            break;
     }
 
     // cleanup
@@ -114,29 +108,25 @@ void play_melody_async(gpio_num_t gpio,
                        int length,
                        float incdur)
 {
-return;
-    
+
     static TaskHandle_t melody_task_handle = NULL;
     if (melody_task_handle)
     {
         xTaskNotifyGive(melody_task_handle);
+        vTaskDelay(pdMS_TO_TICKS(50));
 
-        for (int i = 0; i < 500; i++)
+        for (int i = 0; i < 50; i++)
         {
-            if (eTaskGetState(melody_task_handle) == eDeleted)
+
+            if (eTaskGetState(melody_task_handle) == eDeleted || eTaskGetState(melody_task_handle) == eReady)
             {
                 melody_task_handle = NULL;
                 break;
             }
-            vTaskDelay(pdMS_TO_TICKS(30));
+            ESP_LOGI(TAG, "wait for stop: retry %d ms, eTaskGetState: %d", i, eTaskGetState(melody_task_handle));
+
+            vTaskDelay(pdMS_TO_TICKS(50));
         }
-/*
-        if (melody_task_handle)
-        {
-            vTaskDelete(melody_task_handle);
-            melody_task_handle = NULL;
-        }
-            */
     }
 
     ctx.gpio = gpio;
