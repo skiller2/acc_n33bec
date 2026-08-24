@@ -379,7 +379,8 @@ static esp_err_t static_file_handler(httpd_req_t *req)
 static esp_err_t del_card(httpd_req_t *req)
 {
     char buf[64];
-    int len = httpd_req_recv(req, buf, sizeof(buf));
+    int len = httpd_req_recv(req, buf, sizeof(buf)-1);
+    if (len <0) len =0;
     buf[len] = 0;
 
     uint64_t id = strtoull(buf, NULL, 10);
@@ -419,7 +420,9 @@ static esp_err_t get_cards(httpd_req_t *req)
 static esp_err_t add_card(httpd_req_t *req)
 {
     char buf[64];
-    int len = httpd_req_recv(req, buf, 63);
+    int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (len <0) len =0;
+
     buf[len] = 0;
     uint64_t id = strtoull(buf, NULL, 10);
     card_add(id);
@@ -435,7 +438,8 @@ static esp_err_t simulate_card(httpd_req_t *req)
     {
         httpd_resp_sendstr(req, "ERR: recv");
         return ESP_FAIL;
-    }
+    } 
+    if (len <0) len =0;
     buf[len] = 0;
 
     cJSON *json = cJSON_Parse(buf);
@@ -494,6 +498,7 @@ static esp_err_t post_config(httpd_req_t *req)
         httpd_resp_sendstr(req, "ERR: recv");
         return ESP_FAIL;
     }
+    if (r <0) r =0;
     buf[r] = 0;
 
     config_t cfg;
@@ -752,6 +757,7 @@ static esp_err_t read_exact(httpd_req_t *req, uint8_t *buf, size_t len)
             ESP_LOGE(TAG, "Failed to receive %u bytes from request", (unsigned)len);
             return ESP_FAIL;
         }
+        if (recv_len <0) recv_len =0;
         received += (size_t)recv_len;
     }
     return ESP_OK;

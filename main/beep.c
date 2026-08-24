@@ -57,6 +57,8 @@ static void output_off_cb(TimerHandle_t xTimer)
 
 void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
 {
+
+    static TimerHandle_t timer = NULL;
     // configure GPIO
     gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
 
@@ -65,17 +67,22 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
 
     ESP_LOGI(TAG, "pulse_output: GPIO %d ON for %u ms", gpio, duration_ms);
     // create one-shot timer
-    TimerHandle_t timer = xTimerCreate(
-        "pulse_timer",
-        pdMS_TO_TICKS(duration_ms),
-        pdFALSE,        // one-shot
-        (void *)gpio,   // store gpio in timer
-        output_off_cb); //  callback when timer expires
 
     if (timer != NULL)
     {
-        xTimerStart(timer, 0);
+        xTimerDelete(timer, 0);
+        timer = NULL;
     }
+    else
+    {
+        timer = xTimerCreate(
+            "pulse_timer",
+            pdMS_TO_TICKS(duration_ms),
+            pdFALSE,        // one-shot
+            (void *)gpio,   // store gpio in timer
+            output_off_cb); //  callback when timer expires
+    }
+    xTimerStart(timer, 0);
 }
 
 static void melody_task(void *arg)
@@ -86,11 +93,11 @@ static void melody_task(void *arg)
     {
         if (ctx->melody[i].freq > 0)
         {
-            beep_tone(ctx->gpio,
-                      ctx->melody[i].freq,
-                      ctx->melody[i].duration * ctx->incdur);
+            //heap_caps_check_integrity_all(true);
+            beep_tone(ctx->gpio, ctx->melody[i].freq, ctx->melody[i].duration * ctx->incdur);
+            //heap_caps_check_integrity_all(true);
         }
-        int pause=ctx->melody[i].pause||1;
+        int pause = ctx->melody[i].pause ? ctx->melody[i].pause : 1;
         ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(pause));
         if (ulNotificationValue > 0)
             break;
@@ -108,22 +115,23 @@ void play_melody_async(gpio_num_t gpio,
                        int length,
                        float incdur)
 {
-
+    //heap_caps_check_integrity_all(true);
     static TaskHandle_t melody_task_handle = NULL;
     if (melody_task_handle)
     {
-        xTaskNotifyGive(melody_task_handle);
-        vTaskDelay(pdMS_TO_TICKS(50));
-
+        if (eTaskGetState(melody_task_handle) == eRunning)
+        {
+            xTaskNotifyGive(melody_task_handle);
+            vTaskDelay(pdMS_TO_TICKS(50));
+        }
         for (int i = 0; i < 50; i++)
         {
-
             if (eTaskGetState(melody_task_handle) == eDeleted || eTaskGetState(melody_task_handle) == eReady)
             {
                 melody_task_handle = NULL;
                 break;
             }
-            ESP_LOGI(TAG, "wait for stop: retry %d ms, eTaskGetState: %d", i, eTaskGetState(melody_task_handle));
+            ESP_LOGI(TAG, "wait for stop: retry %d, eTaskGetState: %d", i, eTaskGetState(melody_task_handle));
 
             vTaskDelay(pdMS_TO_TICKS(50));
         }
@@ -136,7 +144,7 @@ void play_melody_async(gpio_num_t gpio,
 
     gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
     gpio_set_level(gpio, 0);
-
+    //heap_caps_check_integrity_all(true);
     xTaskCreate(
         melody_task,
         "melody_task",

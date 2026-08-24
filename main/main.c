@@ -257,8 +257,9 @@ void worker(void *p)
                 event_id = 11; //CARD REJECT
 
                 // ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
+                    //heap_caps_check_integrity_all(true);
                 play_melody_async(port_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
-                
+                //heap_caps_check_integrity_all(true);
             }
             log_add(event_id,e.port_id,e.card,now);
 
