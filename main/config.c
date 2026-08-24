@@ -80,7 +80,7 @@ static void clamp_config(config_t *config)
     }
 
     if (config->device_id == 0) {
-        config->device_id = mac[5]; // Use the last byte of the MAC address as the device ID    
+        config->device_id = mac[4]*256+ mac[5]; // Use the last byte of the MAC address as the device ID    
     }
     if (strlen(config->url_n33bec) == 0) {
         strncpy(config->url_n33bec, "https://pepaofi.efaisa.com.ar/api/v1/movieventos/evento", sizeof(config->url_n33bec) - 1);
