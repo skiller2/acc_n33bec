@@ -29,7 +29,7 @@
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
-//extern char *log_read_all_json(void);
+// extern char *log_read_all_json(void);
 extern esp_err_t log_read_all_json(httpd_req_t *req);
 extern char *card_read_all_json(void);
 static const char *TAG = "http";
@@ -116,7 +116,6 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
             ESP_LOGE(TAG, "Invalid JSON response");
         }
 
-        
         response_len = 0;
         break;
 
@@ -129,7 +128,6 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout)
 {
-    ESP_LOGW(TAG, ">>> ENTER send_json event=%d", event_id);
     config_load(&g_config);
 
     esp_http_client_config_t config = {
@@ -139,18 +137,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
         //        .skip_cert_common_name_check = true,
     };
 
-    ESP_LOGI(TAG,
-         "Before HTTP init: free=%lu largest=%lu",
-         (unsigned long)esp_get_free_heap_size(),
-         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-
     esp_http_client_handle_t client = esp_http_client_init(&config);
-
-    ESP_LOGI(TAG,
-         "After HTTP init: free=%lu largest=%lu handle=%p",
-         (unsigned long)esp_get_free_heap_size(),
-         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-         client);
 
     char post_data[512];
     char str_value[32];
@@ -188,17 +175,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     esp_http_client_set_header(client, "Content-Type", "application/json");
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
-    ESP_LOGI(TAG,
-         "BEFORE PERFORM: free=%lu largest=%lu",
-         (unsigned long)esp_get_free_heap_size(),
-         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-
     esp_err_t err = esp_http_client_perform(client);
-
-    ESP_LOGI(TAG,
-            "AFTER PERFORM: free=%lu largest=%lu",
-            (unsigned long)esp_get_free_heap_size(),
-            (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
     if (err == ESP_OK)
     {
@@ -213,18 +190,12 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     }
     esp_http_client_cleanup(client);
 
-    ESP_LOGI(TAG,
-            "AFTER CLEANUP: free=%lu largest=%lu",
-            (unsigned long)esp_get_free_heap_size(),
-            (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-    ESP_LOGW(TAG, "<<< EXIT send_json event=%d", event_id);        
     return err;
 }
 
 esp_http_client_handle_t handle_send_card = NULL;
 esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok)
 {
-    ESP_LOGW(TAG, ">>> ENTER send_json_card event=%d", event_id);
     if (handle_send_card == NULL)
     {
         config_load(&g_config);
@@ -233,29 +204,17 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
             .url = g_config.url_n33bec,
             .timeout_ms = timeout,
             .event_handler = http_event_handler,
-            .keep_alive_enable=true,
-            .keep_alive_interval =5
+            .keep_alive_enable = true,
+            .keep_alive_interval = 5
             //        .skip_cert_common_name_check = true,
         };
 
-        ESP_LOGI(TAG,
-         "Before HTTP init: free=%lu largest=%lu",
-         (unsigned long)esp_get_free_heap_size(),
-         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-
         handle_send_card = esp_http_client_init(&config);
 
-        ESP_LOGI(TAG,
-                "After HTTP init: free=%lu largest=%lu handle=%p",
-                (unsigned long)esp_get_free_heap_size(),
-                (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-                handle_send_card);
         esp_http_client_set_method(handle_send_card, HTTP_METHOD_POST);
         esp_http_client_set_header(handle_send_card, "Content-Type", "application/json");
-
     }
     char post_data[384];
-    
 
     if (event_id == 9 || event_id == 10 || event_id == 11)
     {
@@ -263,7 +222,6 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
         char str_value[32];
         uint8_t facility = (raw_wiegand >> 17) & 0xFF; // Bits 17 a 24 (8 bits)
         uint16_t card = (raw_wiegand >> 1) & 0xFFFF;   // Bits 1 a 16 (16 bits)
-
 
         snprintf(str_value, sizeof(str_value), "%03u-%05u", facility, card);
 
@@ -283,28 +241,23 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
 
-    //esp_http_client_set_post_field(handle_send_card, NULL,0);
+    // esp_http_client_set_post_field(handle_send_card, NULL,0);
     esp_http_client_set_post_field(handle_send_card, post_data, strlen(post_data));
 
     response_len = 0;
     parsed_rele1 = parsed_rele2 = parsed_rele3 = parsed_buzzer = parsed_led = 0;
     parsed_ind_rechazo[0] = 0;
     parsed_tipo_habilitacion[0] = 0;
-    ESP_LOGI(TAG,
-         "CARD BEFORE PERFORM: free=%lu largest=%lu",
-         (unsigned long)esp_get_free_heap_size(),
-         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
     esp_err_t err = esp_http_client_perform(handle_send_card);
-
 
     if (err == ESP_OK)
     {
         int status_code = esp_http_client_get_status_code(handle_send_card);
 
-//204 No Content -> Valid Permanent Card
-//206 Partial Content -> Valid Temporary Card
-//404 Not Found -> Card not valid / does not exist
+        // 204 No Content -> Valid Permanent Card
+        // 206 Partial Content -> Valid Temporary Card
+        // 404 Not Found -> Card not valid / does not exist
 
         if (status_code != 200 && status_code != 201)
         {
@@ -313,34 +266,32 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
         else
         {
             ESP_LOGI(TAG,
-                    "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d "
-                    "buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s",
-                    parsed_rele1,
-                    parsed_rele2,
-                    parsed_rele3,
-                    parsed_buzzer,
-                    parsed_led,
-                    parsed_tipo_habilitacion,
-                    parsed_ind_rechazo);
+                     "HTTP POST Response parsed: rele1=%d rele2=%d rele3=%d "
+                     "buzzer=%d led=%d tipo_habilitacion=%s ind_rechazo=%s",
+                     parsed_rele1,
+                     parsed_rele2,
+                     parsed_rele3,
+                     parsed_buzzer,
+                     parsed_led,
+                     parsed_tipo_habilitacion,
+                     parsed_ind_rechazo);
 
-            if (parsed_ind_rechazo[0] == 79)
-                *ok = true;
+            *ok = (parsed_ind_rechazo[0] == 79);
         }
     }
     else
     {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
-    
-    if (err != ESP_OK) {
+
+    if (err != ESP_OK)
+    {
         esp_http_client_cleanup(handle_send_card);
-        vTaskDelay(pdMS_TO_TICKS(10));
-        handle_send_card=NULL;
+        vTaskDelay(pdMS_TO_TICKS(1));
+        handle_send_card = NULL;
     }
-
-
     return err;
-    }
+}
 
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
@@ -379,8 +330,9 @@ static esp_err_t static_file_handler(httpd_req_t *req)
 static esp_err_t del_card(httpd_req_t *req)
 {
     char buf[64];
-    int len = httpd_req_recv(req, buf, sizeof(buf)-1);
-    if (len <0) len =0;
+    int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (len < 0)
+        len = 0;
     buf[len] = 0;
 
     uint64_t id = strtoull(buf, NULL, 10);
@@ -421,7 +373,8 @@ static esp_err_t add_card(httpd_req_t *req)
 {
     char buf[64];
     int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
-    if (len <0) len =0;
+    if (len < 0)
+        len = 0;
 
     buf[len] = 0;
     uint64_t id = strtoull(buf, NULL, 10);
@@ -438,8 +391,9 @@ static esp_err_t simulate_card(httpd_req_t *req)
     {
         httpd_resp_sendstr(req, "ERR: recv");
         return ESP_FAIL;
-    } 
-    if (len <0) len =0;
+    }
+    if (len < 0)
+        len = 0;
     buf[len] = 0;
 
     cJSON *json = cJSON_Parse(buf);
@@ -498,7 +452,8 @@ static esp_err_t post_config(httpd_req_t *req)
         httpd_resp_sendstr(req, "ERR: recv");
         return ESP_FAIL;
     }
-    if (r <0) r =0;
+    if (r < 0)
+        r = 0;
     buf[r] = 0;
 
     config_t cfg;
@@ -757,7 +712,8 @@ static esp_err_t read_exact(httpd_req_t *req, uint8_t *buf, size_t len)
             ESP_LOGE(TAG, "Failed to receive %u bytes from request", (unsigned)len);
             return ESP_FAIL;
         }
-        if (recv_len <0) recv_len =0;
+        if (recv_len < 0)
+            recv_len = 0;
         received += (size_t)recv_len;
     }
     return ESP_OK;

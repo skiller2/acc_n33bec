@@ -152,7 +152,7 @@ void log_input_task(void *arg)
         if (xQueueReceive(queue_inputs, &evt, portMAX_DELAY) == pdTRUE)
         {
             esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value, 1200);
-            ESP_LOGW(TAG,"SEND_JSON WORKING");
+
 
             if (err != ESP_OK)
             {
@@ -200,7 +200,8 @@ void worker(void *p)
     {
         if (xQueueReceive(queue_cards, &e, portMAX_DELAY))
         {
-            ESP_LOGW(TAG,"WORKER RECEIVED CARD FROM QUEUE_CARDS");
+            int64_t t0 = esp_timer_get_time();
+
             if (e.port_id == 1)
             { // Check which port triggered the event and activate the corresponding relay and buzzer
                 // pulse_output(g_config.port1_relay_gpio, g_config.port1_relay_duration_ms);
@@ -223,17 +224,10 @@ void worker(void *p)
             uint64_t now;
             now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
 
-
-            ESP_LOGI(TAG, "CARD BEFORE send_json_card: free=%lu largest=%lu", (unsigned long)esp_get_free_heap_size(), (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-
-            int64_t t0 = esp_timer_get_time();
             esp_err_t res = send_json_card(9,e.port_id,e.card,2000,&ok);
             if (res==ESP_ERR_HTTP_FETCH_HEADER || res==ESP_ERR_HTTP_WRITE_DATA)
                 res = send_json_card(9,e.port_id,e.card,2000,&ok);
             int64_t t1 = esp_timer_get_time();
-
-            ESP_LOGI(TAG, "CARD AFTER send_json_card: free=%lu largest=%lu", (unsigned long)esp_get_free_heap_size(), (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-
 
             ESP_LOGW(TAG, "Respuesta de tarjeta: %d en %llu us", ok, t1-t0);
 
@@ -247,7 +241,7 @@ void worker(void *p)
 
             if (ok)
             {
-                // ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
+                ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
                 pulse_output(port_relay_gpio, port_relay_duration_ms);
                 play_melody_async(port_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
                 event_id = 10;  //CARD PASS
