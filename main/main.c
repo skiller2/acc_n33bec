@@ -23,7 +23,6 @@
 #define PROJECT_VERSION "dev"
 #endif
 
-
 static const char *TAG = "main";
 
 EventGroupHandle_t s_ip_event_group;
@@ -123,15 +122,16 @@ extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, ui
 extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
 void log_input_task(void *arg);
-void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts );
+void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
 
-typedef struct {
+typedef struct
+{
     uint8_t event_id;
     int port_id;
     uint64_t value;
     int64_t ts;
     uint8_t send_retry;
-}input_event_t;
+} input_event_t;
 
 static QueueHandle_t queue_cards;
 static QueueHandle_t queue_inputs;
@@ -146,19 +146,17 @@ void log_input_task(void *arg)
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
 
-
     while (1)
     {
         if (xQueueReceive(queue_inputs, &evt, portMAX_DELAY) == pdTRUE)
         {
             esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value, 1200);
 
-
             if (err != ESP_OK)
             {
                 evt.send_retry++;
                 ESP_LOGW(TAG, "send_json failed (%s), requeueing event retry %d",
-                         esp_err_to_name(err),evt.send_retry);
+                         esp_err_to_name(err), evt.send_retry);
 
                 if (xQueueSendToBack(queue_inputs, &evt, 0) != pdTRUE)
                 {
@@ -173,7 +171,7 @@ void log_input_task(void *arg)
 
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts)
 {
-    log_add(event_id,port_id,value,ts);
+    log_add(event_id, port_id, value, ts);
     if (queue_inputs != NULL)
     {
         input_event_t evt = {
@@ -181,9 +179,8 @@ void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t t
             .port_id = port_id,
             .value = value,
             .ts = ts,
-            .send_retry=0
-        };
-        xQueueSendToBack(queue_inputs,&evt,0); 
+            .send_retry = 0};
+        xQueueSendToBack(queue_inputs, &evt, 0);
     }
 }
 
@@ -222,40 +219,41 @@ void worker(void *p)
             // ESP_LOGI(TAG, "worker: processing card=%llu from port %d", e.card, e.port);
             // ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
             uint64_t now;
-            now = getTimeStamp();        // Get the current timestamp in microseconds since epoch
+            now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
 
-            esp_err_t res = send_json_card(9,e.port_id,e.card,2000,&ok);
-            if (res==ESP_ERR_HTTP_FETCH_HEADER || res==ESP_ERR_HTTP_WRITE_DATA)
-                res = send_json_card(9,e.port_id,e.card,2000,&ok);
+            esp_err_t res = send_json_card(9, e.port_id, e.card, 2000, &ok);
+            if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
+                res = send_json_card(9, e.port_id, e.card, 2000, &ok);
             int64_t t1 = esp_timer_get_time();
 
-            ESP_LOGW(TAG, "Respuesta de tarjeta: %d en %llu us", ok, t1-t0);
-
+            ESP_LOGW(TAG, "Respuesta de tarjeta: %d en %llu us", ok, t1 - t0);
 
             if (res == ESP_OK)
             {
-                //Hago el analisis de la tarjeta y determino si es valida o no, para enviar al log el evento correspondiente
-            } else {
+                // Hago el analisis de la tarjeta y determino si es valida o no, para enviar al log el evento correspondiente
+            }
+            else
+            {
                 ok = card_exists(e.card) ? 1 : 0;
             }
 
             if (ok)
             {
-                ESP_LOGI(TAG,"worker: card=%llu exists, access granted", e.card);
+                ESP_LOGI(TAG, "worker: card=%llu exists, access granted", e.card);
                 pulse_output(port_relay_gpio, port_relay_duration_ms);
                 play_melody_async(port_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
-                event_id = 10;  //CARD PASS
+                event_id = 10; // CARD PASS
             }
             else
             {
-                event_id = 11; //CARD REJECT
+                event_id = 11; // CARD REJECT
 
                 // ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
-                    //heap_caps_check_integrity_all(true);
+                // heap_caps_check_integrity_all(true);
                 play_melody_async(port_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
-                //heap_caps_check_integrity_all(true);
+                // heap_caps_check_integrity_all(true);
             }
-            log_add(event_id,e.port_id,e.card,now);
+            log_add(event_id, e.port_id, e.card, now);
 
             // dispatch_log_event(event_id,e.port_id,e.card,now);
 
@@ -292,7 +290,6 @@ static void input_task(void *arg)
     int last_car = -1;
     int last_ali = -1;
 
-
     while (1)
     {
         int door1 = gpio_get_level(DOOR1_GPIO);
@@ -307,7 +304,7 @@ static void input_task(void *arg)
         {
             ESP_LOGI(TAG, "Door1: %s", door1 ? "OPEN" : "CLOSED");
 
-            dispatch_log_event(5,1,door1,0);
+            dispatch_log_event(5, 1, door1, 0);
 
             last_door1 = door1;
         }
@@ -315,8 +312,8 @@ static void input_task(void *arg)
         if (door2 != last_door2)
         {
             ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
-            
-            dispatch_log_event(5,2,door2,0);
+
+            dispatch_log_event(5, 2, door2, 0);
 
             last_door2 = door2;
         }
@@ -325,8 +322,8 @@ static void input_task(void *arg)
         {
             ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
 
-            dispatch_log_event(2,0,ali,0);
-            
+            dispatch_log_event(2, 0, ali, 0);
+
             last_ali = ali;
         }
 
@@ -351,7 +348,7 @@ static void input_task(void *arg)
                 ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_gpio);
             }
 
-            dispatch_log_event(6,1,rex1,0);
+            dispatch_log_event(6, 1, rex1, 0);
             last_rex1 = rex1;
         }
 
@@ -363,14 +360,13 @@ static void input_task(void *arg)
                 pulse_output(g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
                 ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_gpio);
             }
-            dispatch_log_event(6,2,rex2,0);
+            dispatch_log_event(6, 2, rex2, 0);
             last_rex2 = rex2;
         }
 
         vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms));
     }
 }
-
 
 void wait_for_valid_time(void)
 {
@@ -411,16 +407,16 @@ void wait_for_valid_time(void)
 
 void time_sync_task(void *arg)
 {
+    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
+    vTaskDelay(pdMS_TO_TICKS(60 * 1000));
     while (1)
     {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        ESP_LOGI(TAG, "Ethernet got IP, syncing time");
 
         if (fetch_and_store_time_in_nvs(NULL) == ESP_OK)
         {
             rtc_set_rtc_time();
         }
+        vTaskDelay(pdMS_TO_TICKS(60 * 60 * 1000));
     }
 }
 static void keep_alive_task(void *arg)
@@ -463,11 +459,11 @@ void app_main()
     // =====================================
     // Queue
 
-    ESP_LOGI(TAG,"Creating input event queue");
-    queue_inputs = xQueueCreate(64,sizeof(input_event_t));
+    ESP_LOGI(TAG, "Creating input event queue");
+    queue_inputs = xQueueCreate(64, sizeof(input_event_t));
     if (!queue_inputs)
     {
-        ESP_LOGE(TAG,"Failed to create input event queue");
+        ESP_LOGE(TAG, "Failed to create input event queue");
     }
 
     ESP_LOGI(TAG, "Creating card event queue");
@@ -477,12 +473,8 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create card event queue");
         return;
     }
-    
-    s_ip_event_group = xEventGroupCreate();
 
-    // =====================================
-    // Ethernet Task Handle
-    TaskHandle_t time_sync_handle = NULL;
+    s_ip_event_group = xEventGroupCreate();
 
     // =====================================
 
@@ -507,29 +499,8 @@ void app_main()
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(ethernet_init());
 
-#if !CONFIG_SKIP_WAIT_FOR_RTC
-    wait_for_valid_time();
-#endif
-
-    if (rtc_app_init() != ESP_OK)
-    {
-        ESP_LOGE(TAG,"RTC NOT WORKING");
-    }
-   
-    
-    if (wifi_init() != ESP_OK)
-    {
-        ESP_LOGE(TAG, "WiFi/DPP initialization failed");
-    }
-    
-    //=========================================
-
-    // initialize_sntp();
-    // rtc_sync_time_from_sntp();
-    // rtc_set_system_time();
-
-    //=========================================
-    // REX and log configuration and initialization
+    http_init(queue_cards);
+    ws_init();
 
     ESP_LOGI(TAG, "Loading REX configuration");
     if (config_load(&g_config) != ESP_OK)
@@ -542,6 +513,35 @@ void app_main()
 
     ESP_LOGI(TAG, "Initializing log store");
     log_store_init();
+
+    ESP_LOGI(TAG, "Creating update time task");
+    if (xTaskCreate(time_sync_task, "time_sync_task", 4096, NULL, 5, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create time_sync_task");
+    }
+
+    if (rtc_app_init() != ESP_OK)
+    {
+        ESP_LOGE(TAG, "RTC NOT WORKING");
+    }
+
+#if !CONFIG_SKIP_WAIT_FOR_RTC
+    wait_for_valid_time();
+#endif
+
+    if (wifi_init() != ESP_OK)
+    {
+        ESP_LOGE(TAG, "WiFi/DPP initialization failed");
+    }
+
+    //=========================================
+
+    // initialize_sntp();
+    // rtc_sync_time_from_sntp();
+    // rtc_set_system_time();
+
+    //=========================================
+    // REX and log configuration and initialization
 
     //=========================================
 
@@ -565,10 +565,6 @@ void app_main()
 
     //=========================================
     // HTTP and WebSocket server initialization
-    http_init(queue_cards);
-
-    ESP_LOGI(TAG, "Initializing WebSocket server");
-    ws_init();
 
     //=========================================
 
@@ -581,18 +577,10 @@ void app_main()
     //=========================================
     // Creating Tasks
 
-    ESP_LOGI(TAG, "Creating update time task");
-    if (xTaskCreate(time_sync_task, "time_sync_task", 4096, NULL, 5, &time_sync_handle) != pdPASS)
+    ESP_LOGI(TAG, "Creating log input task");
+    if (xTaskCreate(log_input_task, "log input task", 8192, NULL, 4, NULL) != pdPASS)
     {
-        ESP_LOGE(TAG, "Failed to create time_sync_task");
-    }
-
-    ethernet_register_time_sync_task(time_sync_handle);
-
-    ESP_LOGI(TAG,"Creating log input task");
-    if (xTaskCreate(log_input_task,"log input task",8192,NULL,4,NULL) != pdPASS)
-    {
-        ESP_LOGE(TAG,"Failed to create log input task");
+        ESP_LOGE(TAG, "Failed to create log input task");
     }
 
     ESP_LOGI(TAG, "Creating worker task");
@@ -606,7 +594,7 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create input task");
     }
-    
+
     ESP_LOGI(TAG, "Creating keep alive task");
     if (xTaskCreate(keep_alive_task, "keep_alive_task", 4096, NULL, 5, NULL) != pdPASS)
     {
