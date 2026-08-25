@@ -372,6 +372,11 @@ void wait_for_valid_time(void)
 {
     while (1)
     {
+        if (isTimeNTP()){
+            ESP_LOGI(TAG, "Time set via NTP");
+            return;
+        } 
+            
         if (rtc_app_init() != ESP_OK)
         {
             ESP_LOGE(TAG, "RTC missing");
@@ -408,7 +413,7 @@ void wait_for_valid_time(void)
 void time_sync_task(void *arg)
 {
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
-    vTaskDelay(pdMS_TO_TICKS(60 * 1000));
+    vTaskDelay(pdMS_TO_TICKS(5 * 1000));
     while (1)
     {
 

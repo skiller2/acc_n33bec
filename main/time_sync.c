@@ -27,7 +27,7 @@
 #include "time_sync.h"
 
 static const char *TAG = "time_sync";
-
+static bool _isTimeNTP=false;
 #define STORAGE_NAMESPACE "storage"
 
 #define KEY_TIMESTAMP "timestamp"
@@ -65,6 +65,11 @@ static esp_err_t obtain_time(void)
 
     return (err == ESP_OK) ? ESP_OK : err;
 }
+
+
+bool isTimeNTP(void){
+  return _isTimeNTP;
+} 
 
 esp_err_t fetch_and_store_time_in_nvs(void *args)
 {
@@ -106,6 +111,7 @@ exit:
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error updating time in nvs");
     } else {
+        _isTimeNTP = true;
         ESP_LOGI(TAG, "Updated time in NVS");
     }
     return err;

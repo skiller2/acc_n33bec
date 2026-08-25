@@ -29,6 +29,8 @@ void initialize_sntp(void);
 bool rtc_is_initialized(void);
 esp_err_t rtc_set_initialized(void);
 
+bool isTimeNTP(void);
+
 #ifdef __cplusplus
 }
 #endif
