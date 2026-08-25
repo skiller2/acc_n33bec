@@ -45,6 +45,23 @@ function simulateCardRead() {
     .catch(e => setStatus('Simulate error: ' + e, 'error'));
 }
 
+function testRelay(target) {
+  fetch('/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target: target })
+  })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt === 'OK') {
+        setStatus('Test ' + target + ' OK', 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Test error: ' + e, 'error'));
+}
+
 function loadConfig() {
   fetch('/config')
     .then(r => r.json())

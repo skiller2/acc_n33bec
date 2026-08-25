@@ -10,6 +10,7 @@
 #include "protocol_examples_common.h"
 #include "cJSON.h"
 #include "wiegand_local.h"
+#include "beep.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
@@ -33,6 +34,7 @@ extern void card_del(uint64_t);
 // extern char *log_read_all_json(void);
 extern esp_err_t log_read_all_json(httpd_req_t *req);
 extern char *card_read_all_json(void);
+extern void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
 static const char *TAG = "http";
 
 static QueueHandle_t event_queue = NULL;
@@ -426,6 +428,79 @@ static esp_err_t simulate_card(httpd_req_t *req)
     else
         ESP_LOGI(TAG, "wiegand_tsk: queued card=%llu from reader %d", card_value, port_id);
 
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
+static esp_err_t test_relay(httpd_req_t *req)
+{
+    char buf[128];
+    int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (len <= 0)
+    {
+        httpd_resp_sendstr(req, "ERR: recv");
+        return ESP_FAIL;
+    }
+    if (len < 0)
+        len = 0;
+    buf[len] = 0;
+
+    cJSON *json = cJSON_Parse(buf);
+    if (!json)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid json");
+        return ESP_FAIL;
+    }
+
+    cJSON *item = cJSON_GetObjectItemCaseSensitive(json, "target");
+    if (!cJSON_IsString(item))
+    {
+        cJSON_Delete(json);
+        httpd_resp_sendstr(req, "ERR: invalid target");
+        return ESP_FAIL;
+    }
+
+    const char *target = item->valuestring;
+    uint8_t event_id = 0;
+    uint8_t port_id = 0;
+    uint64_t value = 0;
+
+    config_load(&g_config);
+
+
+    if (strcmp(target, "rex1") == 0)
+    {
+        pulse_output(relay_number_to_gpio(g_config.rex1_relay_number), g_config.rex1_relay_duration_ms);
+        event_id = 6;
+        port_id = 1;
+    }
+    else if (strcmp(target, "rex2") == 0)
+    {
+        pulse_output(relay_number_to_gpio(g_config.rex2_relay_number), g_config.rex2_relay_duration_ms);
+        event_id = 6;
+        port_id = 2;
+    }
+    else if (strcmp(target, "port1") == 0)
+    {
+        pulse_output(relay_number_to_gpio(g_config.port1_relay_number), g_config.port1_relay_duration_ms);
+        event_id = 10;
+        port_id = 1;
+    }
+    else if (strcmp(target, "port2") == 0)
+    {
+        pulse_output(relay_number_to_gpio(g_config.port2_relay_number), g_config.port2_relay_duration_ms);
+        event_id = 10;
+        port_id = 2;
+    }
+    else
+    {
+        cJSON_Delete(json);
+        httpd_resp_sendstr(req, "ERR: unknown target");
+        return ESP_FAIL;
+    }
+
+    dispatch_log_event(event_id, port_id, value, 0);
+    cJSON_Delete(json);
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
@@ -1254,6 +1329,12 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &device_info_uri);
         httpd_register_uri_handler(s, &bundle_uri);
         httpd_register_uri_handler(s, &simulate_card_uri);
+
+        httpd_uri_t test_relay_uri = {
+            .uri = "/test",
+            .method = HTTP_POST,
+            .handler = test_relay};
+        httpd_register_uri_handler(s, &test_relay_uri);
 
         httpd_uri_t wifi_uri = {.uri = "/wifi", .method = HTTP_GET, .handler = get_wifi_status};
         httpd_register_uri_handler(s, &wifi_uri);

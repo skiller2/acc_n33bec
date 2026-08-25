@@ -29,10 +29,17 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
     // configure GPIO
     gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
 
+    ESP_LOGI(TAG, "pulse_output: GPIO %d ON for %u ms", gpio, duration_ms);
+
+
+    if (duration_ms == 0) {
+        gpio_set_level(gpio, 0);
+        return;
+    }
+
     // set HIGH immediately
     gpio_set_level(gpio, 1);
 
-    ESP_LOGI(TAG, "pulse_output: GPIO %d ON for %u ms", gpio, duration_ms);
     // create one-shot timer
 
     if (timer != NULL)
@@ -44,7 +51,9 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
         pdFALSE,        // one-shot
         (void *)gpio,   // store gpio in timer
         output_off_cb); //  callback when timer expires
-    xTimerStart(timer, 0);
+
+    if (timer != NULL)
+        xTimerStart(timer, 0);
 }
 
 static void melody_task(void *arg)
