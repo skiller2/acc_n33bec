@@ -36,13 +36,6 @@ static esp_eth_handle_t *s_eth_handles = NULL;
 static uint8_t s_eth_count = 0;
 static esp_eth_netif_glue_handle_t s_eth_glue = NULL;
 static esp_netif_t *s_eth_netif = NULL;
-static TaskHandle_t s_time_sync_task_handle = NULL;
-
-void ethernet_register_time_sync_task(TaskHandle_t task_handle)
-{
-    s_time_sync_task_handle = task_handle;
-}
-
 
 /** Event handler for Ethernet events */
 
@@ -62,10 +55,7 @@ static void eth_on_got_ip(void *arg,
              "Got IPv4 event: Interface \"%s\" address: " IPSTR,
              esp_netif_get_desc(event->esp_netif),
              IP2STR(&event->ip_info.ip));
-             
-    if (s_time_sync_task_handle != NULL) {
-        xTaskNotifyGive(s_time_sync_task_handle);
-    }
+     
 
     xEventGroupSetBits(s_ip_event_group, HAVE_IP);
 }
