@@ -121,7 +121,65 @@ function formatBytes(bytes) {
   return value.toFixed(value >= 10 ? 1 : 0) + ' ' + units[unitIndex];
 }
 
-function loadFirmwareVersion() {
+function loadFirmwareVersion(timeoutMs = 5000) {
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  return fetch('/version', {
+    signal: controller.signal
+  })
+    .then(r => {
+      clearTimeout(timeoutId);
+
+      if (!r.ok) {
+        throw new Error('HTTP ' + r.status);
+      }
+
+      return r.json();
+    })
+    .then(data => {
+      const versionEl = document.getElementById('firmware-version');
+      const extraVersionEl = document.getElementById('extra-firmware-version');
+      const fsEl = document.getElementById('filesystem-info');
+
+      if (versionEl) {
+        versionEl.innerText = 'Version: ' + data.version;
+      }
+
+      if (extraVersionEl) {
+        extraVersionEl.innerText =
+          'Date: ' + data.date + ' ' + data.time;
+      }
+
+      if (fsEl) {
+        const total = data.fs_total_bytes || 0;
+        const free = data.fs_free_bytes || 0;
+
+        fsEl.innerText =
+          'Filesystem: ' +
+          formatBytes(total) +
+          ' total, ' +
+          formatBytes(free) +
+          ' free';
+      }
+
+      return data.version;
+    })
+    .catch(err => {
+      clearTimeout(timeoutId);
+
+      if (err.name === 'AbortError') {
+        throw new Error('Request timed out after ' + timeoutMs + ' ms');
+      }
+
+      throw err;
+    });
+}
+
+function loadFirmwareVersionOld() {
   return fetch('/version')
     .then(r => {
       if (!r.ok) {
@@ -151,6 +209,32 @@ function loadFirmwareVersion() {
       }
 
       return data.version;
+    });
+}
+
+function loadInfo() {
+  fetch('/info')
+    .then(r => {
+      if (!r.ok) {
+        throw new Error('HTTP ' + r.status);
+      }
+      return r.json();
+    })
+    .then(data => {
+      const infoContent = document.getElementById('info-content');
+      if (!infoContent) return;
+
+      let html = '<p><strong>Device ID:</strong> ' + (data.device_id !== undefined ? data.device_id : 'N/A') + '</p>';
+      html += '<p><strong>WiFi IP:</strong> ' + (data.wifi_ip || 'N/A') + '</p>';
+      html += '<p><strong>ETH IP:</strong> ' + (data.eth_ip || 'N/A') + '</p>';
+
+      infoContent.innerHTML = html;
+    })
+    .catch(e => {
+      const infoContent = document.getElementById('info-content');
+      if (infoContent) {
+        infoContent.innerHTML = '<p>Error loading info: ' + e.message + '</p>';
+      }
     });
 }
 
@@ -300,7 +384,7 @@ async function waitForFirmwareApplied() {
 
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const version = await loadFirmwareVersion();
+      const version = await loadFirmwareVersion(1500);
 
       setOtaStatus(
         'Firmware applied successfully. Running version: ' + version,
@@ -389,6 +473,7 @@ function rebootDevice() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  loadInfo();
   loadFirmwareVersion();
   loadWifiStatus(30000);
 });

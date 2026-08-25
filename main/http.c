@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "config.h"
 #include "wifi.h"
+#include "protocol_examples_common.h"
 #include "cJSON.h"
 #include "wiegand_local.h"
 #include "esp_http_client.h"
@@ -893,6 +894,55 @@ static esp_err_t reboot_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t get_info(httpd_req_t *req)
+{
+    config_t cfg;
+    if (config_load(&cfg) != ESP_OK)
+    {
+        ESP_LOGW(TAG, "get_info: using defaults");
+    }
+
+    char wifi_ip[16] = {0};
+    wifi_get_ip(wifi_ip, sizeof(wifi_ip));
+
+    char eth_ip[16] = {0};
+#if CONFIG_EXAMPLE_CONNECT_ETHERNET
+    esp_netif_t *eth_netif = get_example_netif_from_desc(EXAMPLE_NETIF_DESC_ETH);
+    if (eth_netif)
+    {
+        esp_netif_ip_info_t ip_info;
+        if (esp_netif_get_ip_info(eth_netif, &ip_info) == ESP_OK)
+        {
+            snprintf(eth_ip, sizeof(eth_ip), IPSTR, IP2STR(&ip_info.ip));
+        }
+    }
+#endif
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json)
+    {
+        httpd_resp_sendstr(req, "ERR: alloc json");
+        return ESP_FAIL;
+    }
+
+    cJSON_AddNumberToObject(json, "device_id", cfg.device_id);
+    cJSON_AddStringToObject(json, "wifi_ip", wifi_ip);
+    cJSON_AddStringToObject(json, "eth_ip", eth_ip);
+
+    char *s = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!s)
+    {
+        httpd_resp_sendstr(req, "ERR: print json");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, s);
+    free(s);
+    return ESP_OK;
+}
+
 static esp_err_t get_device_info(httpd_req_t *req)
 {
     uint8_t mac[6];
@@ -1178,6 +1228,12 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &version_uri);
         httpd_register_uri_handler(s, &ota_uri);
         httpd_register_uri_handler(s, &reboot_uri);
+
+        httpd_uri_t info_uri = {
+            .uri = "/info",
+            .method = HTTP_GET,
+            .handler = get_info};
+        httpd_register_uri_handler(s, &info_uri);
 
         httpd_uri_t device_info_uri = {
             .uri = "/device_info",
