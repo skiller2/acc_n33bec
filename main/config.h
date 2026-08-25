@@ -11,10 +11,10 @@ extern "C" {
 typedef struct {
     uint32_t magic;
     uint8_t version;    
-    gpio_num_t rex1_relay_gpio;        // GPIO number for REX1 relay
-    gpio_num_t rex2_relay_gpio;        // GPIO number for REX2 relay
-    gpio_num_t port1_relay_gpio;     // GPIO number for port 1 relay
-    gpio_num_t port2_relay_gpio;     // GPIO number for port 2 relay
+    uint8_t rex1_relay_number;
+    uint8_t rex2_relay_number;
+    uint8_t port1_relay_number;
+    uint8_t port2_relay_number;
     uint32_t rex1_relay_duration_ms;
     uint32_t rex2_relay_duration_ms;
     uint32_t port1_relay_duration_ms;
@@ -25,6 +25,17 @@ typedef struct {
     char cod_tema[256]; // URL for N33-BEC server
     uint32_t keep_alive_secs; // Keep alive interval in seconds
 } config_t;
+
+static inline gpio_num_t relay_number_to_gpio(uint8_t relay_number)
+{
+    switch (relay_number)
+    {
+        case 1: return GPIO_NUM_45;
+        case 2: return GPIO_NUM_39;
+        case 3: return GPIO_NUM_33;
+        default: return GPIO_NUM_45;
+    }
+}
 
 esp_err_t config_load(config_t *config);
 esp_err_t config_save(const config_t *config);

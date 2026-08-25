@@ -473,17 +473,29 @@ static esp_err_t post_config(httpd_req_t *req)
 
     cJSON *item = NULL;
     item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_gpio");
-    if (cJSON_IsNumber(item))
-        cfg.rex1_relay_gpio = (gpio_num_t)item->valuedouble;
+    if (cJSON_IsNumber(item)) {
+        uint8_t relay_num = (uint8_t)item->valuedouble;
+        if (relay_num >= 1 && relay_num <= 3)
+            cfg.rex1_relay_number = relay_num;
+    }
     item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_gpio");
-    if (cJSON_IsNumber(item))
-        cfg.rex2_relay_gpio = (gpio_num_t)item->valuedouble;
+    if (cJSON_IsNumber(item)) {
+        uint8_t relay_num = (uint8_t)item->valuedouble;
+        if (relay_num >= 1 && relay_num <= 3)
+            cfg.rex2_relay_number = relay_num;
+    }
     item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay_gpio");
-    if (cJSON_IsNumber(item))
-        cfg.port1_relay_gpio = (gpio_num_t)item->valuedouble;
+    if (cJSON_IsNumber(item)) {
+        uint8_t relay_num = (uint8_t)item->valuedouble;
+        if (relay_num >= 1 && relay_num <= 3)
+            cfg.port1_relay_number = relay_num;
+    }
     item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay_gpio");
-    if (cJSON_IsNumber(item))
-        cfg.port2_relay_gpio = (gpio_num_t)item->valuedouble;
+    if (cJSON_IsNumber(item)) {
+        uint8_t relay_num = (uint8_t)item->valuedouble;
+        if (relay_num >= 1 && relay_num <= 3)
+            cfg.port2_relay_number = relay_num;
+    }
     item = cJSON_GetObjectItemCaseSensitive(json, "input_debounce_ms");
     if (cJSON_IsNumber(item))
         cfg.input_debounce_ms = (uint32_t)item->valuedouble;
@@ -568,10 +580,10 @@ static esp_err_t get_config(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    cJSON_AddNumberToObject(json, "rex1_relay_gpio", cfg.rex1_relay_gpio);
-    cJSON_AddNumberToObject(json, "rex2_relay_gpio", cfg.rex2_relay_gpio);
-    cJSON_AddNumberToObject(json, "port1_relay_gpio", cfg.port1_relay_gpio);
-    cJSON_AddNumberToObject(json, "port2_relay_gpio", cfg.port2_relay_gpio);
+    cJSON_AddNumberToObject(json, "rex1_relay_gpio", cfg.rex1_relay_number);
+    cJSON_AddNumberToObject(json, "rex2_relay_gpio", cfg.rex2_relay_number);
+    cJSON_AddNumberToObject(json, "port1_relay_gpio", cfg.port1_relay_number);
+    cJSON_AddNumberToObject(json, "port2_relay_gpio", cfg.port2_relay_number);
     cJSON_AddNumberToObject(json, "rex1_relay_duration_ms", cfg.rex1_relay_duration_ms);
     cJSON_AddNumberToObject(json, "rex2_relay_duration_ms", cfg.rex2_relay_duration_ms);
     cJSON_AddNumberToObject(json, "port1_relay_duration_ms", cfg.port1_relay_duration_ms);

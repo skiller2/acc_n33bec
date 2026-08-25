@@ -94,12 +94,16 @@
       </div>
 
 
-      <h2>Relay Configuration (Rele1=45 Rele2=39 Rele3=33)</h2>
+      <h2>Relay Configuration</h2>
 
       <div class="config-section">
         <h3>REX1</h3>
-        <label>Relay GPIO:
-          <input type="number" id="rex1_relay_gpio" min="0" max="48">
+        <label>Relay Number:
+          <select id="rex1_relay_gpio">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
         </label>
         <label>Duration (ms):
           <input type="number" id="rex1_relay_duration_ms" min="0" max="60000">
@@ -108,8 +112,12 @@
 
       <div class="config-section">
         <h3>REX2</h3>
-        <label>Relay GPIO:
-          <input type="number" id="rex2_relay_gpio" min="0" max="48">
+        <label>Relay Number:
+          <select id="rex2_relay_gpio">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
         </label>
         <label>Duration (ms):
           <input type="number" id="rex2_relay_duration_ms" min="0" max="60000">
@@ -118,8 +126,12 @@
 
       <div class="config-section">
         <h3>Port 1</h3>
-        <label>Relay GPIO:
-          <input type="number" id="port1_relay_gpio" min="0" max="48">
+        <label>Relay Number:
+          <select id="port1_relay_gpio">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
         </label>
         <label>Duration (ms):
           <input type="number" id="port1_relay_duration_ms" min="0" max="60000">
@@ -128,8 +140,12 @@
 
       <div class="config-section">
         <h3>Port 2</h3>
-        <label>Relay GPIO:
-          <input type="number" id="port2_relay_gpio" min="0" max="48">
+        <label>Relay Number:
+          <select id="port2_relay_gpio">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
         </label>
         <label>Duration (ms):
           <input type="number" id="port2_relay_duration_ms" min="0" max="60000">

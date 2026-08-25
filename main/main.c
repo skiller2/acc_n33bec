@@ -203,13 +203,13 @@ void worker(void *p)
             { // Check which port triggered the event and activate the corresponding relay and buzzer
                 // pulse_output(g_config.port1_relay_gpio, g_config.port1_relay_duration_ms);
                 // play_melody_async(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
-                port_relay_gpio = g_config.port1_relay_gpio;
+                port_relay_gpio = relay_number_to_gpio(g_config.port1_relay_number);
                 port_buzzer_gpio = PORT1_BUZZER;
                 port_relay_duration_ms = g_config.port1_relay_duration_ms;
             }
             else
             {
-                port_relay_gpio = g_config.port2_relay_gpio;
+                port_relay_gpio = relay_number_to_gpio(g_config.port2_relay_number);
                 port_buzzer_gpio = PORT2_BUZZER;
                 port_relay_duration_ms = g_config.port2_relay_duration_ms;
                 // pulse_output(g_config.port2_relay_gpio, g_config.port2_relay_duration_ms);
@@ -344,8 +344,8 @@ static void input_task(void *arg)
         {
             if (!rex1)
             { // Active low edge trigger
-                pulse_output(g_config.rex1_relay_gpio, g_config.rex1_relay_duration_ms);
-                ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_gpio);
+                pulse_output(relay_number_to_gpio(g_config.rex1_relay_number), g_config.rex1_relay_duration_ms);
+                ESP_LOGI(TAG, "REX1 activated relay %d", relay_number_to_gpio(g_config.rex1_relay_number));
             }
 
             dispatch_log_event(6, 1, rex1, 0);
@@ -357,8 +357,8 @@ static void input_task(void *arg)
         {
             if (!rex2)
             { // only trigger on transition to ACTIVE (0)
-                pulse_output(g_config.rex2_relay_gpio, g_config.rex2_relay_duration_ms);
-                ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_gpio);
+                pulse_output(relay_number_to_gpio(g_config.rex2_relay_number), g_config.rex2_relay_duration_ms);
+                ESP_LOGI(TAG, "REX2 activated relay %d", relay_number_to_gpio(g_config.rex2_relay_number));
             }
             dispatch_log_event(6, 2, rex2, 0);
             last_rex2 = rex2;

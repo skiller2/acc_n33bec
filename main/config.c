@@ -6,11 +6,6 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 
-#define RELE1_GPIO GPIO_NUM_45  //Reader 1 LED
-#define RELE2_GPIO GPIO_NUM_39  //Reader 2 LED
-#define RELE3_GPIO GPIO_NUM_33  //Reader 3 LED
-
-
 static const char *TAG = "config";
 static const char *NVS_NAMESPACE = "device_config";
 static const char *NVS_KEY = "config";
@@ -20,10 +15,10 @@ static const uint8_t CONFIG_VERSION = 1;
 
 static void set_defaults(config_t *config)
 {
-    config->rex1_relay_gpio = RELE1_GPIO;
-    config->rex2_relay_gpio = RELE2_GPIO;
-    config->port1_relay_gpio = RELE1_GPIO;
-    config->port2_relay_gpio = RELE3_GPIO;
+    config->rex1_relay_number = 1;
+    config->rex2_relay_number = 2;
+    config->port1_relay_number = 1;
+    config->port2_relay_number = 3;
     config->rex1_relay_duration_ms = 2000;
     config->rex2_relay_duration_ms = 2000;
     config->port1_relay_duration_ms = 2000;
@@ -35,12 +30,9 @@ static void set_defaults(config_t *config)
     config->keep_alive_secs = 30; // Default keep alive interval to 30 seconds
 }
 
-static bool valid_relay_number(gpio_num_t relay)
+static bool valid_relay_number(uint8_t relay)
 {
-    if (relay == RELE1_GPIO || relay == RELE2_GPIO || relay == RELE3_GPIO) {
-        return true;
-    }
-    return false;
+    return relay >= 1 && relay <= 3;
 }
 
 static void clamp_config(config_t *config)
@@ -48,17 +40,17 @@ static void clamp_config(config_t *config)
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_ETH);
 
-    if (!valid_relay_number(config->rex1_relay_gpio)) {
-        config->rex1_relay_gpio = RELE1_GPIO;
+    if (!valid_relay_number(config->rex1_relay_number)) {
+        config->rex1_relay_number = 1;
     }
-    if (!valid_relay_number(config->rex2_relay_gpio)) {
-        config->rex2_relay_gpio  = RELE2_GPIO;
+    if (!valid_relay_number(config->rex2_relay_number)) {
+        config->rex2_relay_number  = 2;
     }
-    if (!valid_relay_number(config->port1_relay_gpio)) {
-        config->port1_relay_gpio = RELE1_GPIO;
+    if (!valid_relay_number(config->port1_relay_number)) {
+        config->port1_relay_number = 1;
     }
-    if (!valid_relay_number(config->port2_relay_gpio)) {
-        config->port2_relay_gpio = RELE3_GPIO;
+    if (!valid_relay_number(config->port2_relay_number)) {
+        config->port2_relay_number = 3;
     }
     if (config->rex1_relay_duration_ms == 0) {
         config->rex1_relay_duration_ms = 2000;
@@ -101,12 +93,12 @@ esp_err_t config_save(const config_t *config)
     config_t stored = {
         .magic = CONFIG_MAGIC,
         .version = CONFIG_VERSION,
-        .rex1_relay_gpio = config->rex1_relay_gpio,
-        .rex2_relay_gpio = config->rex2_relay_gpio,
+        .rex1_relay_number = config->rex1_relay_number,
+        .rex2_relay_number = config->rex2_relay_number,
         .rex1_relay_duration_ms = config->rex1_relay_duration_ms,
         .rex2_relay_duration_ms = config->rex2_relay_duration_ms,
-        .port1_relay_gpio = config->port1_relay_gpio,
-        .port2_relay_gpio = config->port2_relay_gpio,
+        .port1_relay_number = config->port1_relay_number,
+        .port2_relay_number = config->port2_relay_number,
         .port1_relay_duration_ms = config->port1_relay_duration_ms,
         .port2_relay_duration_ms = config->port2_relay_duration_ms,
         .input_debounce_ms = config->input_debounce_ms,
@@ -138,15 +130,15 @@ esp_err_t config_save(const config_t *config)
     }
 
     ESP_LOGI(TAG, "Saved Port config: port1_relay=%u port1_ms=%u port2_relay=%u port2_ms=%u",
-             stored.port1_relay_gpio,
+             stored.port1_relay_number,
              stored.port1_relay_duration_ms,
-             stored.port2_relay_gpio,
+             stored.port2_relay_number,
              stored.port2_relay_duration_ms);
 
     ESP_LOGI(TAG, "Saved REX config: rex1_relay=%u rex1_ms=%u rex2_relay=%u rex2_ms=%u",
-             stored.rex1_relay_gpio,
+             stored.rex1_relay_number,
              stored.rex1_relay_duration_ms,
-             stored.rex2_relay_gpio,
+             stored.rex2_relay_number,
              stored.rex2_relay_duration_ms);
 
     config_load(&g_config);
@@ -179,12 +171,12 @@ esp_err_t config_load(config_t *config)
         return config_save(config);
     }
 
-    config->rex1_relay_gpio = stored.rex1_relay_gpio;
-    config->rex2_relay_gpio = stored.rex2_relay_gpio;
+    config->rex1_relay_number = stored.rex1_relay_number;
+    config->rex2_relay_number = stored.rex2_relay_number;
     config->rex1_relay_duration_ms = stored.rex1_relay_duration_ms;
     config->rex2_relay_duration_ms = stored.rex2_relay_duration_ms;
-    config->port1_relay_gpio = stored.port1_relay_gpio;
-    config->port2_relay_gpio = stored.port2_relay_gpio;
+    config->port1_relay_number = stored.port1_relay_number;
+    config->port2_relay_number = stored.port2_relay_number;
     config->port1_relay_duration_ms = stored.port1_relay_duration_ms;
     config->port2_relay_duration_ms = stored.port2_relay_duration_ms;
     config->input_debounce_ms = stored.input_debounce_ms;
@@ -199,16 +191,16 @@ esp_err_t config_load(config_t *config)
     clamp_config(config);
 
     ESP_LOGI(TAG, "Loaded REX config: rex1_relay=%u rex1_ms=%u rex2_relay=%u rex2_ms=%u",
-             config->rex1_relay_gpio,
+             config->rex1_relay_number,
              config->rex1_relay_duration_ms,
-             config->rex2_relay_gpio,
+             config->rex2_relay_number,
              config->rex2_relay_duration_ms);
 
 
     ESP_LOGI(TAG, "Loaded PORT config: port1_relay=%u port1_ms=%u port2_relay=%u port2_ms=%u",
-             config->port1_relay_gpio,
+             config->port1_relay_number,
              config->port1_relay_duration_ms,
-             config->port2_relay_gpio,
+             config->port2_relay_number,
              config->port2_relay_duration_ms);
     return ESP_OK;
 }
