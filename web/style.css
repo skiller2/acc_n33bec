@@ -1,5 +1,29 @@
 body { background:#111; color:#eee; font-family:Arial; margin:0; padding:10px; }
 
+.header-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:15px;
+  margin-bottom:10px;
+}
+
+#info-card {
+  max-width:320px;
+  padding:8px 10px;
+}
+
+#info-card h2 {
+  margin-top:0;
+  margin-bottom:5px;
+  font-size:16px;
+}
+
+#info-content p {
+  margin:2px 0;
+  font-size:13px;
+}
+
 .tabs {
   display:flex;
   gap:5px;
