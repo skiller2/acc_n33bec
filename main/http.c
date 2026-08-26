@@ -25,6 +25,7 @@
 #include "esp_flash.h"
 #include "esp_app_desc.h"
 #include <driver/gpio.h>
+#include "ws.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -36,6 +37,7 @@ extern void card_del(uint64_t);
 extern esp_err_t log_read_all_json(httpd_req_t *req);
 extern char *card_read_all_json(void);
 extern void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
+extern esp_err_t ws_handler(httpd_req_t *req);
 static const char *TAG = "http";
 
 static QueueHandle_t event_queue = NULL;
@@ -198,7 +200,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
 }
 
 esp_http_client_handle_t handle_send_card = NULL;
-esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok)
+esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion)
 {
     if (handle_send_card == NULL)
     {
@@ -287,7 +289,7 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
     {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
-
+    tipo_habilitacion[0]=parsed_tipo_habilitacion[0];
     if (err != ESP_OK)
     {
         esp_http_client_cleanup(handle_send_card);
@@ -1244,8 +1246,8 @@ void http_init(QueueHandle_t qh)
     httpd_config_t c = HTTPD_DEFAULT_CONFIG();
     c.uri_match_fn = httpd_uri_match_wildcard;
 
-    c.max_open_sockets = 3;
-    c.max_uri_handlers = 20;
+    c.max_open_sockets = 7;
+    c.max_uri_handlers = 25;
     c.lru_purge_enable = true;
 
     c.stack_size = 8192;
@@ -1346,8 +1348,18 @@ void http_init(QueueHandle_t qh)
         httpd_uri_t dpp_bs_uri = {.uri = "/dpp/bootstrap", .method = HTTP_POST, .handler = dpp_bootstrap_handler};
         httpd_register_uri_handler(s, &dpp_bs_uri);
 
+        httpd_uri_t ws_uri = {
+            .uri = "/ws",
+            .method = HTTP_GET,
+            .handler = ws_handler,
+            .is_websocket = true
+        };
+        httpd_register_uri_handler(s, &ws_uri);
+
         httpd_uri_t static_files = {.uri = "/*", .method = HTTP_GET, .handler = static_file_handler};
         httpd_register_uri_handler(s, &static_files);
+
+        ws_init(s);
 
         ESP_LOGI(TAG, "End Initializing HTTP server");
     }

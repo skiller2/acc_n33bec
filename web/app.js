@@ -525,15 +525,52 @@ function setStorageStatus(msg, cls) {
   st.className = 'status ' + cls;
 }
 
-/*
 const ws = new WebSocket(`ws://${location.host}/ws`);
-ws.onmessage = (e) => {
-  const data = JSON.parse(e.data);
+
+function appendLiveEntry(card, ts, ok) {
+  const ul = document.getElementById('live');
+  if (!ul) return;
+
   const li = document.createElement('li');
-  li.innerText = data.card + ' ' + (data.ok ? 'OK' : 'DENIED');
-  document.getElementById('live').appendChild(li);
+  const readableTime = formatTimestamp(ts);
+  const eventDisplay = ok ? 'CARD PASSED' : 'CARD DENIED';
+  const valueDisplay = wiegand26ToFcCard(card);
+
+  li.innerText = `${readableTime} - ${eventDisplay} - ${valueDisplay}`;
+  ul.appendChild(li);
+
+  while (ul.children.length > 50) {
+    ul.removeChild(ul.firstChild);
+  }
+}
+
+ws.onopen = () => {
+  console.log('WebSocket connected');
 };
-*/
+
+ws.onmessage = (e) => {
+  try {
+    const data = JSON.parse(e.data);
+    appendLiveEntry(data.card, data.ts, data.ok);
+  } catch (err) {
+    console.error('WebSocket message parse error', err);
+  }
+};
+
+ws.onclose = () => {
+  console.log('WebSocket disconnected, reconnecting in 2s...');
+  setTimeout(() => {
+    const newWs = new WebSocket(`ws://${location.host}/ws`);
+    newWs.onopen = ws.onopen;
+    newWs.onmessage = ws.onmessage;
+    newWs.onclose = ws.onclose;
+    newWs.onerror = ws.onerror;
+  }, 2000);
+};
+
+ws.onerror = (err) => {
+  console.error('WebSocket error', err);
+};
 
 function loadCards() {
   fetch('/cards')

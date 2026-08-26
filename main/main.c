@@ -18,6 +18,7 @@
 #include "nvs_flash.h"
 #include "example_common_private.h"
 #include "esp_http_client.h"
+#include "esp_http_server.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -113,13 +114,13 @@ tone_t access_denied[] = {
 
 extern void fs_init();
 extern void http_init(QueueHandle_t qh);
-extern void ws_init();
+extern void ws_init(httpd_handle_t server);
 extern void card_store_init();
 extern void log_store_init();
 extern int card_exists(uint64_t);
-extern void ws_broadcast(uint64_t, int64_t, int);
+extern void ws_broadcast(uint64_t card, int64_t ts, int ok);
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
-extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok);
+extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
 void log_input_task(void *arg);
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
@@ -192,6 +193,7 @@ void worker(void *p)
     gpio_num_t port_buzzer_gpio;
     uint32_t port_relay_duration_ms;
     uint8_t event_id = 0;
+    char tipo_habilitacion;
     bool ok = false;
     while (1)
     {
@@ -221,12 +223,12 @@ void worker(void *p)
             uint64_t now;
             now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
 
-            esp_err_t res = send_json_card(9, e.port_id, e.card, 2000, &ok);
+            esp_err_t res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
             if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
-                res = send_json_card(9, e.port_id, e.card, 2000, &ok);
+                res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
             int64_t t1 = esp_timer_get_time();
 
-            ESP_LOGW(TAG, "Respuesta de tarjeta: %d en %llu us", ok, t1 - t0);
+            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %llu us", ok, tipo_habilitacion, t1 - t0);
 
             if (res == ESP_OK)
             {
@@ -505,7 +507,6 @@ void app_main()
     ESP_ERROR_CHECK(ethernet_init());
 
     http_init(queue_cards);
-    ws_init();
 
     ESP_LOGI(TAG, "Loading REX configuration");
     if (config_load(&g_config) != ESP_OK)
