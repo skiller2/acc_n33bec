@@ -18,6 +18,7 @@
 #include "esp_littlefs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_timer.h"
 #include "esp_efuse.h"
 #include "esp_chip_info.h"
 #include "esp_mac.h"
@@ -1005,6 +1006,8 @@ static esp_err_t get_info(httpd_req_t *req)
     }
 #endif
 
+    uint32_t uptime_sec = (uint32_t)(esp_timer_get_time() / 1000000);
+
     cJSON *json = cJSON_CreateObject();
     if (!json)
     {
@@ -1015,6 +1018,7 @@ static esp_err_t get_info(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "device_id", cfg.device_id);
     cJSON_AddStringToObject(json, "wifi_ip", wifi_ip);
     cJSON_AddStringToObject(json, "eth_ip", eth_ip);
+    cJSON_AddNumberToObject(json, "uptime_sec", uptime_sec);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);

@@ -229,6 +229,17 @@ function loadFirmwareVersionOld() {
     });
 }
 
+function formatUptime(seconds) {
+  if (typeof seconds !== 'number' || seconds < 0) {
+    return 'N/A';
+  }
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return days + 'd ' + hours + 'h ' + minutes + 'm ' + secs + 's';
+}
+
 function loadInfo() {
   fetch('/info')
     .then(r => {
@@ -244,6 +255,7 @@ function loadInfo() {
       let html = '<p><strong>Device ID:</strong> ' + (data.device_id !== undefined ? data.device_id : 'N/A') + '</p>';
       html += '<p><strong>WiFi IP:</strong> ' + (data.wifi_ip || 'N/A') + '</p>';
       html += '<p><strong>ETH IP:</strong> ' + (data.eth_ip || 'N/A') + '</p>';
+      html += '<p><strong>Uptime:</strong> ' + formatUptime(data.uptime_sec) + '</p>';
 
       infoContent.innerHTML = html;
     })
