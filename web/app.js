@@ -125,16 +125,23 @@ function saveConfig() {
 
 function rebootDevice() {
   setOtaStatus('Rebooting device...', 'success');
+  setStatus('Rebooting device...', 'success');
   fetch('/reboot', { method: 'POST' })
     .then(r => r.text())
     .then(txt => {
       if (txt.startsWith('OK')) {
         setOtaStatus('Reboot command sent.', 'success');
+        setStatus('Reboot command sent.', 'success');
       } else {
         setOtaStatus('Reboot failed: ' + txt, 'error');
+        setStatus('Reboot failed: ' + txt, 'error');
       }
     })
-    .catch(e => setOtaStatus('Reboot error: ' + e, 'error'));
+    .catch(e => {
+      setOtaStatus('Reboot error: ' + e, 'error') 
+      setStatus('Reboot error: ' + e, 'error') 
+
+    });
 }
 
 function formatBytes(bytes) {
