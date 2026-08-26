@@ -89,6 +89,7 @@ esp_err_t wifi_get_ip(char *buf, size_t len);
  * @return ESP_OK on success, error code otherwise.
  */
 esp_err_t dpp_trigger_bootstrap(void);
+void wifi_broadcast_state(void);
 
 #ifdef __cplusplus
 }

@@ -25,6 +25,7 @@
 #endif
 
 #include "wifi.h"
+#include "ws.h"
 
 #ifdef CONFIG_ESP_DPP_LISTEN_CHANNEL_LIST
 #define DPP_LISTEN_CHANNEL_LIST CONFIG_ESP_DPP_LISTEN_CHANNEL_LIST
@@ -56,6 +57,27 @@ static char s_connected_ssid[MAX_SSID_LEN + 1] = {0};
 static char s_ip_str[MAX_IP_LEN] = {0};
 static SemaphoreHandle_t s_wifi_mutex = NULL;
 static bool s_dpp_initialized = false;
+
+void wifi_broadcast_state(void)
+{
+    wifi_status_t status;
+    char ssid[MAX_SSID_LEN + 1] = {0};
+    char ip[MAX_IP_LEN] = {0};
+    char uri[MAX_DPP_URI_LEN] = {0};
+
+    if (!s_wifi_mutex || xSemaphoreTake(s_wifi_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return;
+    }
+
+    status = s_wifi_status;
+    memcpy(ssid, s_connected_ssid, sizeof(ssid));
+    memcpy(ip, s_ip_str, sizeof(ip));
+    memcpy(uri, s_dpp_uri, sizeof(uri));
+
+    xSemaphoreGive(s_wifi_mutex);
+
+    ws_broadcast_wifi_status(status, status == WIFI_STATUS_CONNECTED, ssid, ip, uri);
+}
 
 #define CURVE_SEC256R1_PKEY_HEX_DIGITS 64
 
@@ -124,6 +146,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 memset(s_ip_str, 0, sizeof(s_ip_str));
                 xSemaphoreGive(s_wifi_mutex);
             }
+            wifi_broadcast_state();
             /* Retry connection with stored config (driver retains last config) */
             if (s_connected_ssid[0] != '\0') {
                 esp_wifi_connect();
@@ -139,6 +162,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                     memcpy(s_connected_ssid, evt->ssid, evt->ssid_len);
                     xSemaphoreGive(s_wifi_mutex);
                 }
+                wifi_broadcast_state();
             }
             break;
         }
@@ -153,6 +177,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                     strncpy(s_dpp_uri, uri_data->uri, sizeof(s_dpp_uri) - 1);
                     xSemaphoreGive(s_wifi_mutex);
                 }
+                wifi_broadcast_state();
                 print_qr_code(uri_data->uri);
             }
             break;
@@ -168,6 +193,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 s_wifi_status = WIFI_STATUS_CONNECTING;
                 xSemaphoreGive(s_wifi_mutex);
             }
+            wifi_broadcast_state();
             esp_wifi_connect();
             break;
         }
@@ -196,6 +222,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             xSemaphoreGive(s_wifi_mutex);
         }
         xEventGroupSetBits(s_ip_event_group, HAVE_IP);
+        wifi_broadcast_state();
     }
 }
 
@@ -232,6 +259,8 @@ esp_err_t dpp_trigger_bootstrap(void)
         s_wifi_status = WIFI_STATUS_DPP_LISTENING;
         xSemaphoreGive(s_wifi_mutex);
     }
+
+    wifi_broadcast_state();
 
     return ESP_OK;
 }
@@ -276,6 +305,8 @@ esp_err_t wifi_init(void)
         s_wifi_status = WIFI_STATUS_DPP_LISTENING;
         xSemaphoreGive(s_wifi_mutex);
     }
+
+    wifi_broadcast_state();
 
     ESP_LOGI(TAG, "WiFi with DPP enrollee initialized, listening on channel(s): %s", DPP_LISTEN_CHANNEL_LIST);
     return ESP_OK;

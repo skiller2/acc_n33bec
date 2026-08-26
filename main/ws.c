@@ -2,11 +2,91 @@
 #include "esp_log.h"
 #include "cJSON.h"
 #include "ws.h"
+#include "wifi.h"
 #include <string.h>
 
 static const char *TAG = "ws";
 
+static const char *wifi_status_to_str(wifi_status_t status)
+{
+    switch (status) {
+    case WIFI_STATUS_DISCONNECTED: return "disconnected";
+    case WIFI_STATUS_DPP_LISTENING: return "dpp_listening";
+    case WIFI_STATUS_DPP_READY: return "dpp_ready";
+    case WIFI_STATUS_CONNECTING: return "connecting";
+    case WIFI_STATUS_CONNECTED: return "connected";
+    case WIFI_STATUS_DPP_FAILED: return "dpp_failed";
+    default: return "disconnected";
+    }
+}
+
 static httpd_handle_t g_server = NULL;
+
+
+void ws_broadcast_wifi_status(wifi_status_t status, bool connected, const char *ssid, const char *ip, const char *dpp_uri)
+{
+    if (!g_server) return;
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) return;
+
+    cJSON *wifi = cJSON_CreateObject();
+    if (!wifi) {
+        cJSON_Delete(json);
+        return;
+    }
+
+    cJSON_AddStringToObject(wifi, "type", "wifi");
+    cJSON_AddStringToObject(wifi, "status", wifi_status_to_str(status));
+    cJSON_AddBoolToObject(wifi, "connected", connected);
+    if (ssid && ssid[0]) cJSON_AddStringToObject(wifi, "ssid", ssid);
+    if (ip && ip[0]) cJSON_AddStringToObject(wifi, "ip", ip);
+    if (dpp_uri && dpp_uri[0]) cJSON_AddStringToObject(wifi, "dpp_uri", dpp_uri);
+
+    cJSON_AddItemToObject(json, "wifi", wifi);
+
+    char *s = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+
+    if (!s) return;
+
+    size_t len = strlen(s);
+    if (len == 0 || len >= 512) {
+        free(s);
+        return;
+    }
+
+    static char persist[512];
+    memcpy(persist, s, len + 1);
+    free(s);
+
+    int fds[8];
+    size_t fd_count = sizeof(fds) / sizeof(fds[0]);
+    esp_err_t err = httpd_get_client_list(g_server, &fd_count, fds);
+    if (err != ESP_OK || fd_count == 0) {
+        ESP_LOGW(TAG, "ws broadcast: no clients");
+        return;
+    }
+
+    for (int i = 0; i < fd_count; i++) {
+        int fd = fds[i];
+        if (httpd_ws_get_fd_info(g_server, fd) != HTTPD_WS_CLIENT_WEBSOCKET) {
+            continue;
+        }
+
+        httpd_ws_frame_t frame = {
+            .type = HTTPD_WS_TYPE_TEXT,
+            .payload = (uint8_t *)(uintptr_t)persist,
+            .len = len
+        };
+
+        esp_err_t send_err = httpd_ws_send_frame_async(g_server, fd, &frame);
+        if (send_err != ESP_OK) {
+            ESP_LOGE(TAG, "ws send failed fd=%d err=%s", fd, esp_err_to_name(send_err));
+        }
+    }
+}
+
 
 void ws_broadcast(uint64_t card, int64_t ts, int ok)
 {
@@ -104,6 +184,10 @@ esp_err_t ws_handler(httpd_req_t *req)
                         .len = 4
                     };
                     httpd_ws_send_frame(req, &pong);
+                }
+                else if (strcmp((char *)buf, "wifi") == 0)
+                {
+                    wifi_broadcast_state();
                 }
             }
             free(buf);

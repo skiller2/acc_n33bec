@@ -14,8 +14,6 @@ function switchTab(tab) {
     loadFirmwareVersion();
   } else if (tab === 'device') {
     loadDeviceInfo();
-  } else if (tab === 'wifi') {
-    loadWifiStatus();
   }
 }
 
@@ -350,64 +348,47 @@ function statusColor(status) {
   return colors[status] || '';
 }
 
-function loadWifiStatus(pollMs) {
-  fetch('/wifi')
-    .then(r => {
-      if (!r.ok) {
-        throw new Error('HTTP ' + r.status);
-      }
-      return r.json();
-    })
-    .then(data => {
-      console.log('WiFi status:', data);
-      const statusEl = document.getElementById('wifi-status');
-      const detailsEl = document.getElementById('wifi-details');
-      const qrDiv = document.getElementById('dpp-qrcode');
-      const uriDiv = document.getElementById('dpp-uri');
-      const dppStatusDiv = document.getElementById('dpp-status');
+let lastWifiData = null;
 
-      if (statusEl) {
-        const cls = statusColor(data.status);
-        statusEl.innerHTML = '<strong>Status:</strong> ' + data.status + (data.connected ? ' (connected)' : '');
-        statusEl.className = 'status ' + cls;
-      }
+function handleWifiUpdate(data) {
+  lastWifiData = data;
+  console.log('WiFi status:', data);
+  const statusEl = document.getElementById('wifi-status');
+  const detailsEl = document.getElementById('wifi-details');
+  const qrDiv = document.getElementById('dpp-qrcode');
+  const uriDiv = document.getElementById('dpp-uri');
+  const dppStatusDiv = document.getElementById('dpp-status');
 
-      if (detailsEl) {
-        let html = '';
-        if (data.ssid) {
-          html += '<p><strong>SSID:</strong> ' + data.ssid + '</p>';
-        }
-        if (data.ip) {
-          html += '<p><strong>IP:</strong> ' + data.ip + '</p>';
-        }
-        detailsEl.innerHTML = html;
-      }
+  if (statusEl) {
+    const cls = statusColor(data.status);
+    statusEl.innerHTML = '<strong>Status:</strong> ' + data.status + (data.connected ? ' (connected)' : '');
+    statusEl.className = 'status ' + cls;
+  }
 
-      if (qrDiv && uriDiv && dppStatusDiv) {
-        console.log('DPP URI:', data.dpp_uri);
-        if (data.dpp_uri) {
-          renderQrCode(data.dpp_uri);
-          uriDiv.textContent = data.dpp_uri;
-          dppStatusDiv.innerHTML = '';
-        } else {
-          qrDiv.innerHTML = '<p>No DPP URI available yet. DPP enrollee is ' + (data.status === 'dpp_listening') ? 'listening for bootstrap...' : 'waiting for bootstrap.)</p>';
-          uriDiv.textContent = '';
-          if (data.status === 'dpp_failed') {
-            dppStatusDiv.innerHTML = '<p class="status error">DPP authentication failed.</p>';
-          }
-        }
-      }
-    })
-    .catch(e => {
-      const statusEl = document.getElementById('wifi-status');
-      if (statusEl) {
-        statusEl.innerHTML = 'Error loading WiFi status: ' + e.message;
-        statusEl.className = 'status error';
-      }
-    });
+  if (detailsEl) {
+    let html = '';
+    if (data.ssid) {
+      html += '<p><strong>SSID:</strong> ' + data.ssid + '</p>';
+    }
+    if (data.ip) {
+      html += '<p><strong>IP:</strong> ' + data.ip + '</p>';
+    }
+    detailsEl.innerHTML = html;
+  }
 
-  if (pollMs) {
-    setTimeout(() => loadWifiStatus(pollMs), pollMs);
+  if (qrDiv && uriDiv && dppStatusDiv) {
+    console.log('DPP URI:', data.dpp_uri);
+    if (data.dpp_uri) {
+      renderQrCode(data.dpp_uri);
+      uriDiv.textContent = data.dpp_uri;
+      dppStatusDiv.innerHTML = '';
+    } else {
+      qrDiv.innerHTML = '<p>No DPP URI available yet. DPP enrollee is ' + (data.status === 'dpp_listening') ? 'listening for bootstrap...' : 'waiting for bootstrap.)</p>';
+      uriDiv.textContent = '';
+      if (data.status === 'dpp_failed') {
+        dppStatusDiv.innerHTML = '<p class="status error">DPP authentication failed.</p>';
+      }
+    }
   }
 }
 
@@ -420,7 +401,6 @@ function regenerateDppBootstrap() {
     .then(txt => {
       if (txt.startsWith('OK')) {
         dppStatusDiv.innerHTML = '<p class="status success">QR code regenerated. Scan the new code to provision.</p>';
-        loadWifiStatus();
       } else {
         dppStatusDiv.innerHTML = '<p class="status error">Error: ' + txt + '</p>';
       }
@@ -512,7 +492,6 @@ function uploadStorageImage() {
 document.addEventListener('DOMContentLoaded', () => {
   loadInfo();
   loadFirmwareVersion();
-  loadWifiStatus(30000);
 });
 
 function setStatus(msg, cls) {
@@ -568,15 +547,17 @@ function connectWebSocket() {
 
   ws.onopen = () => {
     console.log('WebSocket connected');
-
-    // Register with ESP32
-    //ws.send('hello');
+    ws.send('wifi');
   };
 
   ws.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data);
-      appendLiveEntry(data.card, data.ts, data.ok);
+      if (data.wifi) {
+        handleWifiUpdate(data.wifi);
+      } else if (data.card) {
+        appendLiveEntry(data.card, data.ts, data.ok);
+      }
     } catch (err) {
       console.error('WebSocket message parse error:', err, e.data);
     }

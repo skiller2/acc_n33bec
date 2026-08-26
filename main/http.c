@@ -710,64 +710,6 @@ static esp_err_t get_config(httpd_req_t *req)
     return ESP_OK;
 }
 
-static const char *wifi_status_to_str(wifi_status_t status)
-{
-    switch (status)
-    {
-    case WIFI_STATUS_DISCONNECTED:
-        return "disconnected";
-    case WIFI_STATUS_DPP_LISTENING:
-        return "dpp_listening";
-    case WIFI_STATUS_DPP_READY:
-        return "dpp_ready";
-    case WIFI_STATUS_CONNECTING:
-        return "connecting";
-    case WIFI_STATUS_CONNECTED:
-        return "connected";
-    case WIFI_STATUS_DPP_FAILED:
-        return "dpp_failed";
-    default:
-        return "disconnected";
-    }
-}
-
-static esp_err_t get_wifi_status(httpd_req_t *req)
-{
-    char uri[512] = {0};
-    char ssid[33] = {0};
-    char ip[16] = {0};
-
-    wifi_get_dpp_uri(uri, sizeof(uri));
-    wifi_get_ssid(ssid, sizeof(ssid));
-    wifi_get_ip(ip, sizeof(ip));
-
-    cJSON *json = cJSON_CreateObject();
-    if (!json)
-    {
-        httpd_resp_sendstr(req, "ERR: alloc json");
-        return ESP_FAIL;
-    }
-
-    cJSON_AddStringToObject(json, "status", wifi_status_to_str(wifi_get_status()));
-    cJSON_AddBoolToObject(json, "connected", wifi_is_connected());
-    cJSON_AddStringToObject(json, "ssid", ssid);
-    cJSON_AddStringToObject(json, "ip", ip);
-    cJSON_AddStringToObject(json, "dpp_uri", uri);
-
-    char *s = cJSON_PrintUnformatted(json);
-    cJSON_Delete(json);
-    if (!s)
-    {
-        httpd_resp_sendstr(req, "ERR: print json");
-        return ESP_FAIL;
-    }
-
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, s);
-    free(s);
-    return ESP_OK;
-}
-
 static esp_err_t dpp_bootstrap_handler(httpd_req_t *req)
 {
     esp_err_t err = dpp_trigger_bootstrap();
@@ -1365,9 +1307,6 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_POST,
             .handler = test_relay};
         httpd_register_uri_handler(s, &test_relay_uri);
-
-        httpd_uri_t wifi_uri = {.uri = "/wifi", .method = HTTP_GET, .handler = get_wifi_status};
-        httpd_register_uri_handler(s, &wifi_uri);
 
         httpd_uri_t dpp_bs_uri = {.uri = "/dpp/bootstrap", .method = HTTP_POST, .handler = dpp_bootstrap_handler};
         httpd_register_uri_handler(s, &dpp_bs_uri);
