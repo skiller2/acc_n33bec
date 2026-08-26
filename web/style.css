@@ -186,3 +186,23 @@ li {
   border-left:3px solid #00ff00;
   border-radius:3px;
 }
+
+.tipo-temporary {
+  color: #ffaa00;
+  font-weight: bold;
+}
+
+.tipo-permanent {
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.tipo-unknown {
+  color: #ff4444;
+  font-weight: bold;
+}
+
+.time-consumed {
+  color: #00ccff;
+  font-weight: bold;
+}

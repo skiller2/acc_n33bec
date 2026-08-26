@@ -88,7 +88,7 @@ void ws_broadcast_wifi_status(wifi_status_t status, bool connected, const char *
 }
 
 
-void ws_broadcast(uint64_t card, int64_t ts, int ok)
+void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion, int64_t time_consuming)
 {
     if (!g_server) return;
 
@@ -98,6 +98,8 @@ void ws_broadcast(uint64_t card, int64_t ts, int ok)
     cJSON_AddNumberToObject(json, "card", (unsigned long long)card);
     cJSON_AddNumberToObject(json, "ts", (long long)ts);
     cJSON_AddBoolToObject(json, "ok", ok);
+    cJSON_AddStringToObject(json, "tipo_habilitacion", tipo_habilitacion == 84 ? "P" : "T");
+    cJSON_AddNumberToObject(json, "time_consuming", (long long)time_consuming);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);

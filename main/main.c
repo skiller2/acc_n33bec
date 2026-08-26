@@ -117,7 +117,7 @@ extern void http_init(QueueHandle_t qh);
 extern void card_store_init();
 extern void log_store_init();
 extern int card_exists(uint64_t);
-extern void ws_broadcast(uint64_t card, int64_t ts, int ok);
+extern void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion, int64_t time_consuming);
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
 extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
@@ -262,7 +262,7 @@ void worker(void *p)
 
             // dispatch_log_event(event_id,e.port_id,e.card,now);
 
-            ws_broadcast(e.card, now, ok);
+            ws_broadcast_card(e.card, now, ok, tipo_habilitacion, t1 - t0);
         }
     }
 }

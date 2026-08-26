@@ -520,7 +520,7 @@ function setStorageStatus(msg, cls) {
 }
 
 
-function appendLiveEntry(card, ts, ok) {
+function appendLiveEntry(card, ts, ok, tipo_habilitacion, time_consuming) {
   const ul = document.getElementById('live');
   if (!ul) return;
 
@@ -528,8 +528,12 @@ function appendLiveEntry(card, ts, ok) {
   const readableTime = formatTimestamp(ts);
   const eventDisplay = ok ? 'CARD PASSED' : 'CARD DENIED';
   const valueDisplay = wiegand26ToFcCard(card);
+  const tipoLabel = tipo_habilitacion === 'P' ? 'Permanent' : tipo_habilitacion === 'T' ? 'Temporary' : 'Unknown';
+  const tipoClass = tipo_habilitacion === 'P' ? 'tipo-permanent' : tipo_habilitacion === 'T' ? 'tipo-temporary' : 'tipo-unknown';
+  const timeMs = typeof time_consuming === 'number' ? time_consuming / 1000 : 0;
+  const timeDisplay = timeMs > 0 ? (timeMs < 1000 ? timeMs.toFixed(0) + ' ms' : (timeMs / 1000).toFixed(2) + ' s') : '';
 
-  li.innerText = `${readableTime} - ${eventDisplay} - ${valueDisplay}`;
+  li.innerHTML = `${readableTime} - ${eventDisplay} - ${valueDisplay} - <span class="${tipoClass}">${tipoLabel}</span> - <span class="time-consumed">${timeDisplay}</span>`;
   ul.appendChild(li);
 
   while (ul.children.length > 50) {
@@ -563,7 +567,7 @@ function connectWebSocket() {
       if (data.wifi) {
         handleWifiUpdate(data.wifi);
       } else if (data.card) {
-        appendLiveEntry(data.card, data.ts, data.ok);
+        appendLiveEntry(data.card, data.ts, data.ok, data.tipo_habilitacion, data.time_consuming);
       }
     } catch (err) {
       console.error('WebSocket message parse error:', err, e.data);
