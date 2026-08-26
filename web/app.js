@@ -562,7 +562,7 @@ function connectWebSocket() {
     console.log('WebSocket connected');
 
     // Register with ESP32
-    ws.send('hello');
+    //ws.send('hello');
   };
 
   ws.onmessage = (e) => {
