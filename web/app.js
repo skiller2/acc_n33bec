@@ -71,11 +71,15 @@ function loadConfig() {
       document.getElementById('rex1_relay_gpio').value = cfg.rex1_relay_gpio;
       document.getElementById('rex2_relay_gpio').value = cfg.rex2_relay_gpio;
       document.getElementById('port1_relay_gpio').value = cfg.port1_relay_gpio;
+      document.getElementById('port1_relay2_gpio').value = cfg.port1_relay2_gpio;
       document.getElementById('port2_relay_gpio').value = cfg.port2_relay_gpio;
+      document.getElementById('port2_relay2_gpio').value = cfg.port2_relay2_gpio;
       document.getElementById('rex1_relay_duration_ms').value = cfg.rex1_relay_duration_ms;
       document.getElementById('rex2_relay_duration_ms').value = cfg.rex2_relay_duration_ms;
       document.getElementById('port1_relay_duration_ms').value = cfg.port1_relay_duration_ms;
+      document.getElementById('port1_relay2_duration_ms').value = cfg.port1_relay2_duration_ms;
       document.getElementById('port2_relay_duration_ms').value = cfg.port2_relay_duration_ms;
+      document.getElementById('port2_relay2_duration_ms').value = cfg.port2_relay2_duration_ms;
       document.getElementById('input_debounce_ms').value = cfg.input_debounce_ms;
       document.getElementById('device_id').value = cfg.device_id;
       document.getElementById('keep_alive_secs').value = cfg.keep_alive_secs;
@@ -91,11 +95,15 @@ function saveConfig() {
     rex1_relay_gpio: parseInt(document.getElementById('rex1_relay_gpio').value),
     rex2_relay_gpio: parseInt(document.getElementById('rex2_relay_gpio').value),
     port1_relay_gpio: parseInt(document.getElementById('port1_relay_gpio').value),
+    port1_relay2_gpio: parseInt(document.getElementById('port1_relay2_gpio').value),
     port2_relay_gpio: parseInt(document.getElementById('port2_relay_gpio').value),
+    port2_relay2_gpio: parseInt(document.getElementById('port2_relay2_gpio').value),
     rex1_relay_duration_ms: parseInt(document.getElementById('rex1_relay_duration_ms').value),
     rex2_relay_duration_ms: parseInt(document.getElementById('rex2_relay_duration_ms').value),
     port1_relay_duration_ms: parseInt(document.getElementById('port1_relay_duration_ms').value),
+    port1_relay2_duration_ms: parseInt(document.getElementById('port1_relay2_duration_ms').value),
     port2_relay_duration_ms: parseInt(document.getElementById('port2_relay_duration_ms').value),
+    port2_relay2_duration_ms: parseInt(document.getElementById('port2_relay2_duration_ms').value),
     input_debounce_ms: parseInt(document.getElementById('input_debounce_ms').value),
     device_id: parseInt(document.getElementById('device_id').value),
     keep_alive_secs: parseInt(document.getElementById('keep_alive_secs').value)

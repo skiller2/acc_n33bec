@@ -473,25 +473,33 @@ static esp_err_t test_relay(httpd_req_t *req)
 
     if (strcmp(target, "rex1") == 0)
     {
-        pulse_output(relay_number_to_gpio(g_config.rex1_relay_number), g_config.rex1_relay_duration_ms);
+        if (relay_is_enabled(g_config.rex1_relay_number))
+            pulse_output(relay_number_to_gpio(g_config.rex1_relay_number), g_config.rex1_relay_duration_ms);
         event_id = 6;
         port_id = 1;
     }
     else if (strcmp(target, "rex2") == 0)
     {
-        pulse_output(relay_number_to_gpio(g_config.rex2_relay_number), g_config.rex2_relay_duration_ms);
+        if (relay_is_enabled(g_config.rex2_relay_number))
+            pulse_output(relay_number_to_gpio(g_config.rex2_relay_number), g_config.rex2_relay_duration_ms);
         event_id = 6;
         port_id = 2;
     }
     else if (strcmp(target, "port1") == 0)
     {
-        pulse_output(relay_number_to_gpio(g_config.port1_relay_number), g_config.port1_relay_duration_ms);
+        if (relay_is_enabled(g_config.port1_relay_number))
+            pulse_output(relay_number_to_gpio(g_config.port1_relay_number), g_config.port1_relay_duration_ms);
+        if (relay_is_enabled(g_config.port1_relay2_number))
+            pulse_output(relay_number_to_gpio(g_config.port1_relay2_number), g_config.port1_relay2_duration_ms);
         event_id = 10;
         port_id = 1;
     }
     else if (strcmp(target, "port2") == 0)
     {
-        pulse_output(relay_number_to_gpio(g_config.port2_relay_number), g_config.port2_relay_duration_ms);
+        if (relay_is_enabled(g_config.port2_relay_number))
+            pulse_output(relay_number_to_gpio(g_config.port2_relay_number), g_config.port2_relay_duration_ms);
+        if (relay_is_enabled(g_config.port2_relay2_number))
+            pulse_output(relay_number_to_gpio(g_config.port2_relay2_number), g_config.port2_relay2_duration_ms);
         event_id = 10;
         port_id = 2;
     }
@@ -553,26 +561,38 @@ static esp_err_t post_config(httpd_req_t *req)
     item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_gpio");
     if (cJSON_IsNumber(item)) {
         uint8_t relay_num = (uint8_t)item->valuedouble;
-        if (relay_num >= 1 && relay_num <= 3)
+        if (relay_num <= 3)
             cfg.rex1_relay_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_gpio");
     if (cJSON_IsNumber(item)) {
         uint8_t relay_num = (uint8_t)item->valuedouble;
-        if (relay_num >= 1 && relay_num <= 3)
+        if (relay_num <= 3)
             cfg.rex2_relay_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay_gpio");
     if (cJSON_IsNumber(item)) {
         uint8_t relay_num = (uint8_t)item->valuedouble;
-        if (relay_num >= 1 && relay_num <= 3)
+        if (relay_num <= 3)
             cfg.port1_relay_number = relay_num;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay2_gpio");
+    if (cJSON_IsNumber(item)) {
+        uint8_t relay_num = (uint8_t)item->valuedouble;
+        if (relay_num <= 3)
+            cfg.port1_relay2_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay_gpio");
     if (cJSON_IsNumber(item)) {
         uint8_t relay_num = (uint8_t)item->valuedouble;
-        if (relay_num >= 1 && relay_num <= 3)
+        if (relay_num <= 3)
             cfg.port2_relay_number = relay_num;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay2_gpio");
+    if (cJSON_IsNumber(item)) {
+        uint8_t relay_num = (uint8_t)item->valuedouble;
+        if (relay_num <= 3)
+            cfg.port2_relay2_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "input_debounce_ms");
     if (cJSON_IsNumber(item))
@@ -590,9 +610,15 @@ static esp_err_t post_config(httpd_req_t *req)
     item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay_duration_ms");
     if (cJSON_IsNumber(item))
         cfg.port1_relay_duration_ms = (uint32_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay2_duration_ms");
+    if (cJSON_IsNumber(item))
+        cfg.port1_relay2_duration_ms = (uint32_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay_duration_ms");
     if (cJSON_IsNumber(item))
         cfg.port2_relay_duration_ms = (uint32_t)item->valuedouble;
+    item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay2_duration_ms");
+    if (cJSON_IsNumber(item))
+        cfg.port2_relay2_duration_ms = (uint32_t)item->valuedouble;
 
     item = cJSON_GetObjectItemCaseSensitive(json, "url_n33bec");
     if (cJSON_IsString(item) && (item->valuestring != NULL))
@@ -661,11 +687,15 @@ static esp_err_t get_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "rex1_relay_gpio", cfg.rex1_relay_number);
     cJSON_AddNumberToObject(json, "rex2_relay_gpio", cfg.rex2_relay_number);
     cJSON_AddNumberToObject(json, "port1_relay_gpio", cfg.port1_relay_number);
+    cJSON_AddNumberToObject(json, "port1_relay2_gpio", cfg.port1_relay2_number);
     cJSON_AddNumberToObject(json, "port2_relay_gpio", cfg.port2_relay_number);
+    cJSON_AddNumberToObject(json, "port2_relay2_gpio", cfg.port2_relay2_number);
     cJSON_AddNumberToObject(json, "rex1_relay_duration_ms", cfg.rex1_relay_duration_ms);
     cJSON_AddNumberToObject(json, "rex2_relay_duration_ms", cfg.rex2_relay_duration_ms);
     cJSON_AddNumberToObject(json, "port1_relay_duration_ms", cfg.port1_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "port1_relay2_duration_ms", cfg.port1_relay2_duration_ms);
     cJSON_AddNumberToObject(json, "port2_relay_duration_ms", cfg.port2_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "port2_relay2_duration_ms", cfg.port2_relay2_duration_ms);
     cJSON_AddStringToObject(json, "url_n33bec", cfg.url_n33bec);
     cJSON_AddStringToObject(json, "cod_tema", cfg.cod_tema);
     cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);

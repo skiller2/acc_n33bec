@@ -10,7 +10,7 @@ static const char *TAG = "config";
 static const char *NVS_NAMESPACE = "device_config";
 static const char *NVS_KEY = "config";
 static const uint32_t CONFIG_MAGIC = 0x434F4E46; // 'CONF'
-static const uint8_t CONFIG_VERSION = 1;
+static const uint8_t CONFIG_VERSION = 2;
 
 
 static void set_defaults(config_t *config)
@@ -18,11 +18,15 @@ static void set_defaults(config_t *config)
     config->rex1_relay_number = 1;
     config->rex2_relay_number = 2;
     config->port1_relay_number = 1;
+    config->port1_relay2_number = 2;
     config->port2_relay_number = 3;
+    config->port2_relay2_number = 2;
     config->rex1_relay_duration_ms = 2000;
     config->rex2_relay_duration_ms = 2000;
     config->port1_relay_duration_ms = 2000;
+    config->port1_relay2_duration_ms = 2000;
     config->port2_relay_duration_ms = 2000;
+    config->port2_relay2_duration_ms = 2000;
     config->input_debounce_ms = 100;
     config->device_id = 0; // Default device ID, will be set to last byte of MAC if not specified
     config->url_n33bec[0] = '\0'; // Default to empty string
@@ -32,7 +36,7 @@ static void set_defaults(config_t *config)
 
 static bool valid_relay_number(uint8_t relay)
 {
-    return relay >= 1 && relay <= 3;
+    return relay <= 3;
 }
 
 static void clamp_config(config_t *config)
@@ -49,8 +53,14 @@ static void clamp_config(config_t *config)
     if (!valid_relay_number(config->port1_relay_number)) {
         config->port1_relay_number = 1;
     }
+    if (!valid_relay_number(config->port1_relay2_number)) {
+        config->port1_relay2_number = 2;
+    }
     if (!valid_relay_number(config->port2_relay_number)) {
         config->port2_relay_number = 3;
+    }
+    if (!valid_relay_number(config->port2_relay2_number)) {
+        config->port2_relay2_number = 2;
     }
     if (config->rex1_relay_duration_ms == 0) {
         config->rex1_relay_duration_ms = 2000;
@@ -61,8 +71,14 @@ static void clamp_config(config_t *config)
     if (config->port1_relay_duration_ms == 0) {
         config->port1_relay_duration_ms = 2000;
     }
+    if (config->port1_relay2_duration_ms == 0) {
+        config->port1_relay2_duration_ms = 2000;
+    }
     if (config->port2_relay_duration_ms == 0) {
         config->port2_relay_duration_ms = 2000;
+    }
+    if (config->port2_relay2_duration_ms == 0) {
+        config->port2_relay2_duration_ms = 2000;
     }
     if (config->input_debounce_ms == 0) {
         config->input_debounce_ms = 100;
@@ -98,9 +114,13 @@ esp_err_t config_save(const config_t *config)
         .rex1_relay_duration_ms = config->rex1_relay_duration_ms,
         .rex2_relay_duration_ms = config->rex2_relay_duration_ms,
         .port1_relay_number = config->port1_relay_number,
+        .port1_relay2_number = config->port1_relay2_number,
         .port2_relay_number = config->port2_relay_number,
+        .port2_relay2_number = config->port2_relay2_number,
         .port1_relay_duration_ms = config->port1_relay_duration_ms,
+        .port1_relay2_duration_ms = config->port1_relay2_duration_ms,
         .port2_relay_duration_ms = config->port2_relay_duration_ms,
+        .port2_relay2_duration_ms = config->port2_relay2_duration_ms,
         .input_debounce_ms = config->input_debounce_ms,
         .device_id = config->device_id,
         .keep_alive_secs = config->keep_alive_secs
@@ -176,9 +196,13 @@ esp_err_t config_load(config_t *config)
     config->rex1_relay_duration_ms = stored.rex1_relay_duration_ms;
     config->rex2_relay_duration_ms = stored.rex2_relay_duration_ms;
     config->port1_relay_number = stored.port1_relay_number;
+    config->port1_relay2_number = stored.port1_relay2_number;
     config->port2_relay_number = stored.port2_relay_number;
+    config->port2_relay2_number = stored.port2_relay2_number;
     config->port1_relay_duration_ms = stored.port1_relay_duration_ms;
+    config->port1_relay2_duration_ms = stored.port1_relay2_duration_ms;
     config->port2_relay_duration_ms = stored.port2_relay_duration_ms;
+    config->port2_relay2_duration_ms = stored.port2_relay2_duration_ms;
     config->input_debounce_ms = stored.input_debounce_ms;
     config->device_id = stored.device_id;
     config->keep_alive_secs = stored.keep_alive_secs;
@@ -196,11 +220,5 @@ esp_err_t config_load(config_t *config)
              config->rex2_relay_number,
              config->rex2_relay_duration_ms);
 
-
-    ESP_LOGI(TAG, "Loaded PORT config: port1_relay=%u port1_ms=%u port2_relay=%u port2_ms=%u",
-             config->port1_relay_number,
-             config->port1_relay_duration_ms,
-             config->port2_relay_number,
-             config->port2_relay_duration_ms);
     return ESP_OK;
 }

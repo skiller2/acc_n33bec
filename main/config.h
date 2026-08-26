@@ -14,11 +14,15 @@ typedef struct {
     uint8_t rex1_relay_number;
     uint8_t rex2_relay_number;
     uint8_t port1_relay_number;
+    uint8_t port1_relay2_number;
     uint8_t port2_relay_number;
+    uint8_t port2_relay2_number;
     uint32_t rex1_relay_duration_ms;
     uint32_t rex2_relay_duration_ms;
     uint32_t port1_relay_duration_ms;
+    uint32_t port1_relay2_duration_ms;
     uint32_t port2_relay_duration_ms;
+    uint32_t port2_relay2_duration_ms;
     uint32_t input_debounce_ms;
     uint32_t device_id;                     // Unique device ID for this access control unit
     char url_n33bec[256]; // URL for N33-BEC server
@@ -35,6 +39,11 @@ static inline gpio_num_t relay_number_to_gpio(uint8_t relay_number)
         case 3: return GPIO_NUM_33;
         default: return GPIO_NUM_45;
     }
+}
+
+static inline bool relay_is_enabled(uint8_t relay_number)
+{
+    return relay_number >= 1 && relay_number <= 3;
 }
 
 esp_err_t config_load(config_t *config);
