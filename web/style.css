@@ -24,6 +24,52 @@ body { background:#111; color:#eee; font-family:Arial; margin:0; padding:10px; }
   font-size:10px;
 }
 
+.io-panel {
+  max-width: 260px;
+  padding: 4px 3px !important;
+}
+
+.io-panel h2 {
+  margin-top: 0;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.io-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.io-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 9px;
+  color: #ccc;
+  line-height: 1.1;
+}
+
+.led {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #444;
+  display: inline-block;
+  margin-bottom: 2px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.led.on {
+  background: #00ff00;
+  box-shadow: 0 0 4px #00ff00;
+}
+
+.led.active {
+  background: #ff4444;
+  box-shadow: 0 0 4px #ff4444;
+}
+
 .tabs {
   display:flex;
   gap:5px;

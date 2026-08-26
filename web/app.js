@@ -402,6 +402,30 @@ function handleWifiUpdate(data) {
   }
 }
 
+function updateIoStatus(io) {
+  const ledMap = {
+    door1: { el: 'led-door1', activeHigh: true },
+    door2: { el: 'led-door2', activeHigh: true },
+    rex1:  { el: 'led-rex1',  activeHigh: false },
+    rex2:  { el: 'led-rex2',  activeHigh: false },
+    rele1: { el: 'led-rele1', activeHigh: true },
+    rele2: { el: 'led-rele2', activeHigh: true },
+    rele3: { el: 'led-rele3', activeHigh: true }
+  };
+
+  for (const [key, cfg] of Object.entries(ledMap)) {
+    const el = document.getElementById(cfg.el);
+    if (!el) continue;
+    const val = io[key] ? 1 : 0;
+    const isActive = cfg.activeHigh ? (val === 1) : (val === 0);
+    if (isActive) {
+      el.classList.add('on');
+    } else {
+      el.classList.remove('on');
+    }
+  }
+}
+
 function regenerateDppBootstrap() {
   const dppStatusDiv = document.getElementById('dpp-status');
   dppStatusDiv.innerHTML = '<p class="status">Regenerating QR code...</p>';
@@ -570,6 +594,8 @@ function connectWebSocket() {
         handleWifiUpdate(data.wifi);
       } else if (data.card) {
         appendLiveEntry(data.card, data.ts, data.ok, data.tipo_habilitacion, data.time_consuming, data.port_id);
+      } else if (data.io) {
+        updateIoStatus(data.io);
       }
     } catch (err) {
       console.error('WebSocket message parse error:', err, e.data);

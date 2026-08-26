@@ -13,6 +13,7 @@ esp_err_t ws_handler(httpd_req_t *req);
 void ws_init(httpd_handle_t server);
 void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion, int64_t time_consuming, int port_id);
 void ws_broadcast_wifi_status(wifi_status_t status, bool connected, const char *ssid, const char *ip, const char *dpp_uri);
+void ws_broadcast_io_status(int door1, int door2, int rex1, int rex2, int rele1, int rele2, int rele3);
 
 #ifdef __cplusplus
 }

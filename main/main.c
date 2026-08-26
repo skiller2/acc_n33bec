@@ -15,6 +15,7 @@
 #include "esp_timer.h"
 #include "beep.h"
 #include "config.h"
+#include "ws.h"
 #include "nvs_flash.h"
 #include "example_common_private.h"
 #include "esp_http_client.h"
@@ -294,6 +295,10 @@ static void input_task(void *arg)
     int last_bat = -1;
     int last_car = -1;
     int last_ali = -1;
+    int last_rele1 = -1;
+    int last_rele2 = -1;
+    int last_rele3 = -1;
+    int ws_io_seq = 0;
 
     while (1)
     {
@@ -304,6 +309,23 @@ static void input_task(void *arg)
         int bat = gpio_get_level(BAT_GPIO);
         int car = gpio_get_level(CAR_GPIO);
         int ali = gpio_get_level(ALI_GPIO);
+        int rele1 = gpio_get_level(GPIO_NUM_45);
+        int rele2 = gpio_get_level(GPIO_NUM_39);
+        int rele3 = gpio_get_level(GPIO_NUM_33);
+
+        if (door1 != last_door1 || door2 != last_door2 || rex1 != last_rex1 || rex2 != last_rex2 ||
+            rele1 != last_rele1 || rele2 != last_rele2 || rele3 != last_rele3)
+        {
+            ws_broadcast_io_status(door1, door2, rex1, rex2, rele1, rele2, rele3);
+        }
+
+        /*
+        if (++ws_io_seq >= 10)
+        {
+            ws_io_seq = 0;
+            ws_broadcast_io_status(door1, door2, rex1, rex2, rele1, rele2, rele3);
+        }
+            */
 
         if (door1 != last_door1)
         {
@@ -368,6 +390,10 @@ static void input_task(void *arg)
             dispatch_log_event(6, 2, rex2, 0);
             last_rex2 = rex2;
         }
+
+        last_rele1 = rele1;
+        last_rele2 = rele2;
+        last_rele3 = rele3;
 
         vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms));
     }
