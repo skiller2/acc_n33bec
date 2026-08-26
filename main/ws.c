@@ -165,32 +165,56 @@ esp_err_t ws_handler(httpd_req_t *req)
     }
 
     httpd_ws_frame_t frame;
+    memset(&frame, 0, sizeof(frame));
     esp_err_t err = httpd_ws_recv_frame(req, &frame, 0);
 
-    if (err == ESP_OK && frame.type == HTTPD_WS_TYPE_TEXT)
+    if (err == ESP_OK)
     {
-        uint8_t *buf = malloc(frame.len + 1);
-        if (buf)
+        if (frame.type == HTTPD_WS_TYPE_PING)
         {
-            err = httpd_ws_recv_frame(req, &frame, frame.len);
-            if (err == ESP_OK)
+            httpd_ws_frame_t pong = {
+                .type = HTTPD_WS_TYPE_PONG,
+                .payload = frame.payload,
+                .len = frame.len
+            };
+            httpd_ws_send_frame(req, &pong);
+            //free(frame.payload);
+            return ESP_OK;
+        }
+
+        if (frame.type == HTTPD_WS_TYPE_CLOSE)
+        {
+            //free(frame.payload);
+            return ESP_OK;
+        }
+        if (frame.type == HTTPD_WS_TYPE_TEXT)
+        {
+            uint8_t *buf = malloc(frame.len + 1);
+            if (buf)
             {
-                buf[frame.len] = 0;
-                if (strcmp((char *)buf, "ping") == 0)
+                frame.payload = buf;
+                err = httpd_ws_recv_frame(req, &frame, frame.len);
+
+                if (err == ESP_OK)
                 {
-                    httpd_ws_frame_t pong = {
-                        .type = HTTPD_WS_TYPE_PONG,
-                        .payload = (uint8_t *)"pong",
-                        .len = 4
-                    };
-                    httpd_ws_send_frame(req, &pong);
+                    buf[frame.len] = 0;
+                    ESP_LOGI(TAG,"read frame: %s",(char *)buf);
+                    if (strcmp((char *)buf, "ping") == 0)
+                    {
+                        httpd_ws_frame_t pong = {
+                            .type = HTTPD_WS_TYPE_PONG,
+                            .payload = (uint8_t *)"pong",
+                            .len = 4
+                        };
+                        httpd_ws_send_frame(req, &pong);
+                    }
+                    else if (strcmp((char *)buf, "wifi") == 0)
+                    {
+                        wifi_broadcast_state();
+                    }
                 }
-                else if (strcmp((char *)buf, "wifi") == 0)
-                {
-                    wifi_broadcast_state();
-                }
+                free(buf);
             }
-            free(buf);
         }
     }
 

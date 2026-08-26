@@ -1217,6 +1217,8 @@ void http_init(QueueHandle_t qh)
     c.lru_purge_enable = true;
 
     c.stack_size = 8192;
+    c.recv_wait_timeout = 10;
+    c.send_wait_timeout = 10;
 
     ESP_LOGI(TAG, "Starting server on port: '%d'", c.server_port);
     if (httpd_start(&s, &c) == ESP_OK)
