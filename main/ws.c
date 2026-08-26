@@ -44,13 +44,21 @@ void ws_broadcast(uint64_t card, int64_t ts, int ok)
         return;
     }
 
-    ESP_LOGI(TAG, "ws broadcast: sending to %d clients", (int)fd_count);
+    int ws_count = 0;
+    for (int i = 0; i < fd_count; i++)
+    {
+        if (httpd_ws_get_fd_info(g_server, fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET)
+        {
+            ws_count++;
+        }
+    }
+
+    ESP_LOGI(TAG, "ws broadcast: %d websocket clients out of %d total", ws_count, (int)fd_count);
 
     for (int i = 0; i < fd_count; i++)
     {
         int fd = fds[i];
-        httpd_ws_client_info_t info = httpd_ws_get_fd_info(g_server, fd);
-        if (info != HTTPD_WS_CLIENT_WEBSOCKET)
+        if (httpd_ws_get_fd_info(g_server, fd) != HTTPD_WS_CLIENT_WEBSOCKET)
         {
             continue;
         }
