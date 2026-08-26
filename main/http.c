@@ -577,7 +577,7 @@ static esp_err_t post_config(httpd_req_t *req)
         cfg.input_debounce_ms = (uint32_t)item->valuedouble;
     item = cJSON_GetObjectItemCaseSensitive(json, "device_id");
     if (cJSON_IsNumber(item))
-        cfg.device_id = (uint8_t)item->valuedouble;
+        cfg.device_id = (uint32_t)item->valuedouble;
 
     item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_duration_ms");
     if (cJSON_IsNumber(item))
