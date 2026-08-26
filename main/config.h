@@ -19,6 +19,9 @@ extern "C" {
 #define PORT1_BUZZER GPIO_NUM_46
 #define PORT2_BUZZER GPIO_NUM_40
 
+#define RELE1_GPIO GPIO_NUM_45
+#define RELE2_GPIO GPIO_NUM_39
+#define RELE3_GPIO GPIO_NUM_33
 
 typedef struct {
     uint32_t magic;
@@ -41,17 +44,6 @@ typedef struct {
     char cod_tema[256]; // URL for N33-BEC server
     uint32_t keep_alive_secs; // Keep alive interval in seconds
 } config_t;
-
-static inline gpio_num_t relay_number_to_gpio(uint8_t relay_number)
-{
-    switch (relay_number)
-    {
-        case 1: return GPIO_NUM_45;
-        case 2: return GPIO_NUM_39;
-        case 3: return GPIO_NUM_33;
-        default: return GPIO_NUM_45;
-    }
-}
 
 esp_err_t config_load(config_t *config);
 esp_err_t config_save(const config_t *config);

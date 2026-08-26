@@ -279,7 +279,7 @@ esp_err_t ws_handler(httpd_req_t *req)
                     else if (strcmp((char *)buf, "init") == 0)
                     {
                         wifi_broadcast_state();
-                        ws_broadcast_io_status(gpio_get_level(DOOR1_GPIO), gpio_get_level(DOOR2_GPIO), gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), gpio_get_level(GPIO_NUM_45), gpio_get_level(GPIO_NUM_39), gpio_get_level(GPIO_NUM_33));
+                        ws_broadcast_io_status(gpio_get_level(DOOR1_GPIO), gpio_get_level(DOOR2_GPIO), gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), gpio_get_level(RELE1_GPIO), gpio_get_level(RELE2_GPIO), gpio_get_level(RELE3_GPIO));
                     }
                 }
                 free(buf);

@@ -169,13 +169,13 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     }
 
     snprintf(post_data, sizeof(post_data),
-             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\",\"check_card\":\"%d\"}",
+             "{\"cod_tema\":\"%s/%lu/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\",\"check_card\":\"%d\"}",
              g_config.cod_tema,
-             (unsigned int)g_config.device_id,
-             (int)event_id,
-             (int)port_id,
+             g_config.device_id,
+             event_id,
+             port_id,
              str_value,
-             (int)event_id,
+             event_id,
              (event_id == 9) ? 1 : 0);
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
@@ -1032,11 +1032,11 @@ static esp_err_t get_device_info(httpd_req_t *req)
     esp_flash_get_size(NULL, &flash_size);
 
 #if CONFIG_ESPTOOLPY_FLASHFREQ_40M
-    const char *flash_speed_str = "40MHz";
+    const char *flash_speed_str = "40";
 #elif CONFIG_ESPTOOLPY_FLASHFREQ_80M
-    const char *flash_speed_str = "80MHz";
+    const char *flash_speed_str = "80";
 #elif CONFIG_ESPTOOLPY_FLASHFREQ_120M
-    const char *flash_speed_str = "120MHz";
+    const char *flash_speed_str = "120";
 #else
     const char *flash_speed_str = "unknown";
 #endif

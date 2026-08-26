@@ -281,7 +281,7 @@ static void input_task(void *arg)
 
 
     gpio_config_t io_out = {
-        .pin_bit_mask = (1ULL << GPIO_NUM_33 ) | (1ULL << GPIO_NUM_39 ) | (1ULL << GPIO_NUM_45 ),
+        .pin_bit_mask = (1ULL << RELE3_GPIO ) | (1ULL << RELE2_GPIO ) | (1ULL << RELE1_GPIO ),
         .mode = GPIO_MODE_INPUT_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -289,9 +289,9 @@ static void input_task(void *arg)
     };
     gpio_config(&io_out);
 
-    gpio_set_level(GPIO_NUM_45,0);
-    gpio_set_level(GPIO_NUM_39,0);
-    gpio_set_level(GPIO_NUM_33,0);
+    gpio_set_level(RELE1_GPIO,0);
+    gpio_set_level(RELE2_GPIO,0);
+    gpio_set_level(RELE3_GPIO,0);
 
     int last_door1 = -1;
     int last_door2 = -1;
@@ -313,9 +313,9 @@ static void input_task(void *arg)
         int bat = gpio_get_level(BAT_GPIO);
         int car = gpio_get_level(CAR_GPIO);
         int ali = gpio_get_level(ALI_GPIO);
-        int rele1 = gpio_get_level(GPIO_NUM_45);
-        int rele2 = gpio_get_level(GPIO_NUM_39);
-        int rele3 = gpio_get_level(GPIO_NUM_33);
+        int rele1 = gpio_get_level(RELE1_GPIO);
+        int rele2 = gpio_get_level(RELE2_GPIO);
+        int rele3 = gpio_get_level(RELE3_GPIO);
 
         if (door1 != last_door1 || door2 != last_door2 || rex1 != last_rex1 || rex2 != last_rex2 ||
             rele1 != last_rele1 || rele2 != last_rele2 || rele3 != last_rele3)
@@ -376,7 +376,7 @@ static void input_task(void *arg)
             if (!rex1)
             { // Active low edge trigger
                 pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
-                ESP_LOGI(TAG, "REX1 activated relay %d", relay_number_to_gpio(g_config.rex1_relay_number));
+                ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_number);
             }
 
             dispatch_log_event(6, 1, rex1, 0);
@@ -389,7 +389,7 @@ static void input_task(void *arg)
             if (!rex2)
             { // only trigger on transition to ACTIVE (0)
                 pulse_output_by_relay(g_config.rex2_relay_number, g_config.rex2_relay_duration_ms);
-                ESP_LOGI(TAG, "REX2 activated relay %d", relay_number_to_gpio(g_config.rex2_relay_number));
+                ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_number);
             }
             dispatch_log_event(6, 2, rex2, 0);
             last_rex2 = rex2;

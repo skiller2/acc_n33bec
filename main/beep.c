@@ -5,6 +5,7 @@
 #include <esp_log.h>
 #include <driver/ledc.h>
 #include <soc/gpio_num.h>
+#include "config.h"
 
 static const char *TAG = "melody";
 
@@ -92,9 +93,9 @@ void pulse_output_by_relay(uint8_t relay_number, uint32_t duration_ms)
     gpio_num_t gpio;
     switch (relay_number)
     {
-        case 1: gpio = GPIO_NUM_45; break;
-        case 2: gpio = GPIO_NUM_39; break;
-        case 3: gpio = GPIO_NUM_33; break;
+        case 1: gpio = RELE1_GPIO; break;
+        case 2: gpio = RELE2_GPIO; break;
+        case 3: gpio = RELE3_GPIO; break;
         default: return;
     }
 
