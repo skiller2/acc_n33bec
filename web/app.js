@@ -584,7 +584,7 @@ function connectWebSocket() {
 
   ws.onopen = () => {
     console.log('WebSocket connected');
-    ws.send('wifi');
+    ws.send('init');
   };
 
   ws.onmessage = (e) => {

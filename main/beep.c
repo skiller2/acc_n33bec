@@ -23,15 +23,40 @@ static void output_off_cb(TimerHandle_t xTimer)
     gpio_set_level(gpio, 0);
 }
 
+#define MAX_GPIO 10
+static TimerHandle_t gpio_timers[MAX_GPIO] = {0};
+
 void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
+{
+    if (duration_ms == 0) {
+        gpio_set_level(gpio, 0);
+        return;
+    }
+
+    gpio_set_level(gpio, 1);
+
+    if (gpio_timers[gpio] == NULL) {
+        gpio_timers[gpio] = xTimerCreate(
+            "pulse",
+            pdMS_TO_TICKS(duration_ms),
+            pdFALSE,
+            (void *)gpio,
+            output_off_cb);
+    }
+
+    if (gpio_timers[gpio]) {
+        xTimerStop(gpio_timers[gpio], 0);
+        xTimerChangePeriod(
+            gpio_timers[gpio],
+            pdMS_TO_TICKS(duration_ms),
+            0);
+    }
+}
+
+void pulse_outputOld(gpio_num_t gpio, uint32_t duration_ms)
 {
 
     static TimerHandle_t timer = NULL;
-    // configure GPIO
-    gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
-
-    ESP_LOGI(TAG, "pulse_output: GPIO %d ON for %u ms", gpio, duration_ms);
-
 
     if (duration_ms == 0) {
         gpio_set_level(gpio, 0);
@@ -40,11 +65,13 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
 
     // set HIGH immediately
     gpio_set_level(gpio, 1);
+    ESP_LOGI(TAG, "pulse_output: GPIO %d SET %d for %u ms", gpio, 1, duration_ms );
 
     // create one-shot timer
 
-    if (timer != NULL)
+    if (timer != NULL) {
         xTimerDelete(timer, 0);
+    }
 
     timer = xTimerCreate(
         "pulse_timer",

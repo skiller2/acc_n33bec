@@ -214,11 +214,6 @@ esp_err_t config_load(config_t *config)
     
     clamp_config(config);
 
-    ESP_LOGI(TAG, "Loaded REX config: rex1_relay=%u rex1_ms=%u rex2_relay=%u rex2_ms=%u",
-             config->rex1_relay_number,
-             config->rex1_relay_duration_ms,
-             config->rex2_relay_number,
-             config->rex2_relay_duration_ms);
 
     return ESP_OK;
 }

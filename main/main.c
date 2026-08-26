@@ -20,6 +20,7 @@
 #include "example_common_private.h"
 #include "esp_http_client.h"
 #include "esp_http_server.h"
+#include "driver/gpio.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -101,17 +102,7 @@ tone_t access_denied[] = {
     {300, 250, 0},
 };
 
-#define DOOR1_GPIO GPIO_NUM_21
-#define DOOR2_GPIO GPIO_NUM_17
 
-#define BAT_GPIO GPIO_NUM_34 // VERDE (Salida 12v)
-#define CAR_GPIO GPIO_NUM_35 // AMARILLO (Pulso al morir)
-#define ALI_GPIO GPIO_NUM_36 // ROJO Encendido tiene 220
-
-#define REX1_GPIO GPIO_NUM_16
-#define REX2_GPIO GPIO_NUM_18
-#define PORT1_BUZZER GPIO_NUM_46
-#define PORT2_BUZZER GPIO_NUM_40
 
 extern void fs_init();
 extern void http_init(QueueHandle_t qh);
@@ -288,6 +279,20 @@ static void input_task(void *arg)
 
     gpio_config(&io);
 
+
+    gpio_config_t io_out = {
+        .pin_bit_mask = (1ULL << GPIO_NUM_33 ) | (1ULL << GPIO_NUM_39 ) | (1ULL << GPIO_NUM_45 ),
+        .mode = GPIO_MODE_INPUT_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_out);
+
+    gpio_set_level(GPIO_NUM_45,0);
+    gpio_set_level(GPIO_NUM_39,0);
+    gpio_set_level(GPIO_NUM_33,0);
+
     int last_door1 = -1;
     int last_door2 = -1;
     int last_rex1 = -1;
@@ -298,7 +303,6 @@ static void input_task(void *arg)
     int last_rele1 = -1;
     int last_rele2 = -1;
     int last_rele3 = -1;
-    int ws_io_seq = 0;
 
     while (1)
     {

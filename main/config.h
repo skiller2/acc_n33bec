@@ -8,6 +8,18 @@
 extern "C" {
 #endif
 
+#define DOOR1_GPIO GPIO_NUM_21
+#define DOOR2_GPIO GPIO_NUM_17
+#define REX1_GPIO GPIO_NUM_16
+#define REX2_GPIO GPIO_NUM_18
+#define BAT_GPIO GPIO_NUM_34 // VERDE (Salida 12v)
+#define CAR_GPIO GPIO_NUM_35 // AMARILLO (Pulso al morir)
+#define ALI_GPIO GPIO_NUM_36 // ROJO Encendido tiene 220
+
+#define PORT1_BUZZER GPIO_NUM_46
+#define PORT2_BUZZER GPIO_NUM_40
+
+
 typedef struct {
     uint32_t magic;
     uint8_t version;    
