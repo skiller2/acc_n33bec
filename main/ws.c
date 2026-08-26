@@ -200,7 +200,6 @@ esp_err_t ws_handler(httpd_req_t *req)
                 if (err == ESP_OK)
                 {
                     buf[frame.len] = 0;
-                    ESP_LOGI(TAG,"read frame: %s",(char *)buf);
                     if (strcmp((char *)buf, "ping") == 0)
                     {
                         httpd_ws_frame_t pong = {
