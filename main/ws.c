@@ -64,7 +64,7 @@ void ws_broadcast_wifi_status(wifi_status_t status, bool connected, const char *
     size_t fd_count = sizeof(fds) / sizeof(fds[0]);
     esp_err_t err = httpd_get_client_list(g_server, &fd_count, fds);
     if (err != ESP_OK || fd_count == 0) {
-        ESP_LOGW(TAG, "ws broadcast: no clients");
+        //ESP_LOGW(TAG, "ws broadcast: no clients");
         return;
     }
 
@@ -94,7 +94,6 @@ void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion
 
     cJSON *json = cJSON_CreateObject();
     if (!json) return;
-    ESP_LOGI(TAG,"broadcast card %llu",card);
     cJSON_AddNumberToObject(json, "card", (unsigned long long)card);
     cJSON_AddNumberToObject(json, "ts", (long long)ts);
     cJSON_AddBoolToObject(json, "ok", ok);
@@ -123,7 +122,7 @@ void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion
     esp_err_t err = httpd_get_client_list(g_server, &fd_count, fds);
     if (err != ESP_OK || fd_count == 0)
     {
-        ESP_LOGW(TAG, "ws broadcast: no clients");
+        //ESP_LOGW(TAG, "ws broadcast: no clients");
         return;
     }
 
@@ -136,7 +135,7 @@ void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion
         }
     }
 
-    ESP_LOGI(TAG, "ws broadcast: %d websocket clients out of %d total", ws_count, (int)fd_count);
+    //ESP_LOGI(TAG, "ws broadcast: %d websocket clients out of %d total", ws_count, (int)fd_count);
 
     for (int i = 0; i < fd_count; i++)
     {
