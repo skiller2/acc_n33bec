@@ -6,75 +6,12 @@
 
 static const char *TAG = "ws";
 
-#define MAX_WS_CLIENTS 3
-
-static int client_fds[MAX_WS_CLIENTS] = {0};
 static httpd_handle_t g_server = NULL;
-
-static int ws_add_client(int sockfd)
-{
-    for (int i = 0; i < MAX_WS_CLIENTS; i++)
-    {
-        if (client_fds[i] == sockfd)
-        {
-            return 0;
-        }
-    }
-
-    for (int i = 0; i < MAX_WS_CLIENTS; i++)
-    {
-        if (client_fds[i] == 0)
-        {
-            client_fds[i] = sockfd;
-            ESP_LOGI(TAG, "WS client connected, fd=%d", sockfd);
-            return 0;
-        }
-    }
-    return -1;
-}
-
-static void ws_remove_client(int sockfd)
-{
-    for (int i = 0; i < MAX_WS_CLIENTS; i++)
-    {
-        if (client_fds[i] == sockfd)
-        {
-            client_fds[i] = 0;
-            ESP_LOGI(TAG, "WS client disconnected, fd=%d", sockfd);
-            break;
-        }
-    }
-}
-
-static void ws_send_to_all(const char *msg, size_t len)
-{
-    if (!g_server) return;
-    ESP_LOGI(TAG,"ws_send_to_all %s",msg);
-
-    for (int i = 0; i < MAX_WS_CLIENTS; i++)
-    {
-        int fd = client_fds[i];
-        if (fd > 0)
-        {
-            httpd_ws_frame_t frame = {
-                .type = HTTPD_WS_TYPE_TEXT,
-                .payload = (uint8_t *)(uintptr_t)msg,
-                .len = len
-            };
-            ESP_LOGI(TAG,"httpd_ws_send_frame_async %s",msg);
-
-            esp_err_t err = httpd_ws_send_frame_async(g_server, fd, &frame);
-            if (err != ESP_OK)
-            {
-                ESP_LOGE(TAG, "ws send failed fd=%d err=%s", fd, esp_err_to_name(err));
-                ws_remove_client(fd);
-            }
-        }
-    }
-}
 
 void ws_broadcast(uint64_t card, int64_t ts, int ok)
 {
+    if (!g_server) return;
+
     cJSON *json = cJSON_CreateObject();
     if (!json) return;
     ESP_LOGI(TAG,"broadcast card %llu",card);
@@ -85,34 +22,57 @@ void ws_broadcast(uint64_t card, int64_t ts, int ok)
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
 
-    if (s)
+    if (!s) return;
+
+    size_t len = strlen(s);
+    if (len == 0 || len >= 512)
     {
-        size_t len = strlen(s);
-        if (len > 0 && len < 512)
-        {
-            static char persist[512];
-            memcpy(persist, s, len + 1);
-            ws_send_to_all(persist, len);
-        }
         free(s);
+        return;
+    }
+
+    static char persist[512];
+    memcpy(persist, s, len + 1);
+    free(s);
+
+    int fds[8];
+    size_t fd_count = sizeof(fds) / sizeof(fds[0]);
+    esp_err_t err = httpd_get_client_list(g_server, &fd_count, fds);
+    if (err != ESP_OK || fd_count == 0)
+    {
+        ESP_LOGW(TAG, "ws broadcast: no clients");
+        return;
+    }
+
+    ESP_LOGI(TAG, "ws broadcast: sending to %d clients", (int)fd_count);
+
+    for (int i = 0; i < fd_count; i++)
+    {
+        int fd = fds[i];
+        httpd_ws_client_info_t info = httpd_ws_get_fd_info(g_server, fd);
+        if (info != HTTPD_WS_CLIENT_WEBSOCKET)
+        {
+            continue;
+        }
+
+        httpd_ws_frame_t frame = {
+            .type = HTTPD_WS_TYPE_TEXT,
+            .payload = (uint8_t *)(uintptr_t)persist,
+            .len = len
+        };
+
+        esp_err_t send_err = httpd_ws_send_frame_async(g_server, fd, &frame);
+        if (send_err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "ws send failed fd=%d err=%s", fd, esp_err_to_name(send_err));
+        }
     }
 }
 
 esp_err_t ws_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG,"ws_handler");
-    int sockfd = httpd_req_to_sockfd(req);
-
-    if (sockfd < 0)
-    {
-        return ESP_FAIL;
-    }
-
     if (req->method == HTTP_GET)
     {
-        ESP_LOGI(TAG,"ws_add_client");
-
-        ws_add_client(sockfd);
         return ESP_OK;
     }
 

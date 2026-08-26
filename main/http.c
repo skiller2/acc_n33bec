@@ -37,7 +37,7 @@ extern void card_del(uint64_t);
 extern esp_err_t log_read_all_json(httpd_req_t *req);
 extern char *card_read_all_json(void);
 extern void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
-extern esp_err_t ws_handler(httpd_req_t *req);
+
 static const char *TAG = "http";
 
 static QueueHandle_t event_queue = NULL;
@@ -1354,7 +1354,7 @@ void http_init(QueueHandle_t qh)
             .handler = ws_handler,
             .is_websocket = true
         };
-        httpd_register_uri_handler(s, &ws_uri);
+        ESP_ERROR_CHECK(httpd_register_uri_handler(s, &ws_uri));
 
         httpd_uri_t static_files = {.uri = "/*", .method = HTTP_GET, .handler = static_file_handler};
         httpd_register_uri_handler(s, &static_files);

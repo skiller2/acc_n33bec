@@ -525,7 +525,6 @@ function setStorageStatus(msg, cls) {
   st.className = 'status ' + cls;
 }
 
-const ws = new WebSocket(`ws://${location.host}/ws`);
 
 function appendLiveEntry(card, ts, ok) {
   const ul = document.getElementById('live');
@@ -544,33 +543,55 @@ function appendLiveEntry(card, ts, ok) {
   }
 }
 
-ws.onopen = () => {
-  console.log('WebSocket connected');
-};
+let ws = null;
+let reconnectTimer = null;
 
-ws.onmessage = (e) => {
-  try {
-    const data = JSON.parse(e.data);
-    appendLiveEntry(data.card, data.ts, data.ok);
-  } catch (err) {
-    console.error('WebSocket message parse error', err);
+function connectWebSocket() {
+  if (ws && (
+    ws.readyState === WebSocket.OPEN ||
+    ws.readyState === WebSocket.CONNECTING
+  )) {
+    return;
   }
-};
 
-ws.onclose = () => {
-  console.log('WebSocket disconnected, reconnecting in 2s...');
-  setTimeout(() => {
-    const newWs = new WebSocket(`ws://${location.host}/ws`);
-    newWs.onopen = ws.onopen;
-    newWs.onmessage = ws.onmessage;
-    newWs.onclose = ws.onclose;
-    newWs.onerror = ws.onerror;
-  }, 2000);
-};
+  console.log('Connecting WebSocket...');
 
-ws.onerror = (err) => {
-  console.error('WebSocket error', err);
-};
+  ws = new WebSocket(`ws://${location.host}/ws`);
+
+  ws.onopen = () => {
+    console.log('WebSocket connected');
+
+    // Register with ESP32
+    ws.send('hello');
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      appendLiveEntry(data.card, data.ts, data.ok);
+    } catch (err) {
+      console.error('WebSocket message parse error:', err, e.data);
+    }
+  };
+
+  ws.onclose = (event) => {
+    console.log(
+      `WebSocket disconnected (code=${event.code}), reconnecting in 2s...`
+    );
+
+    ws = null;
+
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connectWebSocket, 2000);
+  };
+
+  ws.onerror = (err) => {
+    console.error('WebSocket error:', err);
+  };
+}
+
+// Start connection
+connectWebSocket();
 
 function loadCards() {
   fetch('/cards')

@@ -114,7 +114,6 @@ tone_t access_denied[] = {
 
 extern void fs_init();
 extern void http_init(QueueHandle_t qh);
-extern void ws_init(httpd_handle_t server);
 extern void card_store_init();
 extern void log_store_init();
 extern int card_exists(uint64_t);
