@@ -316,6 +316,9 @@ function loadDeviceInfo() {
       html += '<p><strong>Flash Size:</strong> ' + formatBytes(data.flash_size || 0) + '</p>';
       html += '<p><strong>Flash Speed:</strong> ' + (data.flash_speed || 'N/A') + ' Hz</p>';
       html += '<p><strong>Flash Mode:</strong> ' + (data.flash_mode || 'N/A') + '</p>';
+      html += '<p><strong>RTC Time:</strong> ' + (data.rtc_time_ts ? new Date(data.rtc_time_ts * 1000).toLocaleString() : 'Error') + '</p>';
+      //html += '<p><strong>SNTP Time:</strong> ' + (data.sntp_time_ts ? new Date(data.sntp_time_ts * 1000).toLocaleString() : 'Timeout') + '</p>';
+      html += '<p><strong>System Time:</strong> ' + (data.system_time_ts ? new Date(data.system_time_ts * 1000).toLocaleString() : 'N/A') + '</p>';
 
       infoDiv.innerHTML = html;
     })

@@ -153,8 +153,9 @@ esp_err_t rtc_app_init(void)
 esp_err_t rtc_read_time(time_t *time)
 {
     if (dev_handle == NULL) {
-        ESP_LOGE(TAG, "RTC not initialized");
-        return ESP_ERR_INVALID_STATE;
+        esp_err_t res = rtc_app_init();
+        if (res!= ESP_OK)
+        return res;
     }
 
     if (time == NULL) {
