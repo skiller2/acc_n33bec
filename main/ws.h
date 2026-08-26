@@ -11,7 +11,7 @@ extern "C" {
 
 esp_err_t ws_handler(httpd_req_t *req);
 void ws_init(httpd_handle_t server);
-void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion, int64_t time_consuming);
+void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion, int64_t time_consuming, int port_id);
 void ws_broadcast_wifi_status(wifi_status_t status, bool connected, const char *ssid, const char *ip, const char *dpp_uri);
 
 #ifdef __cplusplus

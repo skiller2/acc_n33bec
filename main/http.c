@@ -289,7 +289,9 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
     {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
-    tipo_habilitacion[0]=parsed_tipo_habilitacion[0];
+    if (parsed_tipo_habilitacion[0] == 0)
+        parsed_tipo_habilitacion[0] = 'U';
+    tipo_habilitacion[0] = parsed_tipo_habilitacion[0];
     if (err != ESP_OK)
     {
         esp_http_client_cleanup(handle_send_card);
@@ -470,7 +472,6 @@ static esp_err_t test_relay(httpd_req_t *req)
 
     config_load(&g_config);
 
-
     if (strcmp(target, "rex1") == 0)
     {
         pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
@@ -553,37 +554,43 @@ static esp_err_t post_config(httpd_req_t *req)
 
     cJSON *item = NULL;
     item = cJSON_GetObjectItemCaseSensitive(json, "rex1_relay_gpio");
-    if (cJSON_IsNumber(item)) {
+    if (cJSON_IsNumber(item))
+    {
         uint8_t relay_num = (uint8_t)item->valuedouble;
         if (relay_num <= 3)
             cfg.rex1_relay_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "rex2_relay_gpio");
-    if (cJSON_IsNumber(item)) {
+    if (cJSON_IsNumber(item))
+    {
         uint8_t relay_num = (uint8_t)item->valuedouble;
         if (relay_num <= 3)
             cfg.rex2_relay_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay_gpio");
-    if (cJSON_IsNumber(item)) {
+    if (cJSON_IsNumber(item))
+    {
         uint8_t relay_num = (uint8_t)item->valuedouble;
         if (relay_num <= 3)
             cfg.port1_relay_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "port1_relay2_gpio");
-    if (cJSON_IsNumber(item)) {
+    if (cJSON_IsNumber(item))
+    {
         uint8_t relay_num = (uint8_t)item->valuedouble;
         if (relay_num <= 3)
             cfg.port1_relay2_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay_gpio");
-    if (cJSON_IsNumber(item)) {
+    if (cJSON_IsNumber(item))
+    {
         uint8_t relay_num = (uint8_t)item->valuedouble;
         if (relay_num <= 3)
             cfg.port2_relay_number = relay_num;
     }
     item = cJSON_GetObjectItemCaseSensitive(json, "port2_relay2_gpio");
-    if (cJSON_IsNumber(item)) {
+    if (cJSON_IsNumber(item))
+    {
         uint8_t relay_num = (uint8_t)item->valuedouble;
         if (relay_num <= 3)
             cfg.port2_relay2_number = relay_num;
@@ -1317,8 +1324,7 @@ void http_init(QueueHandle_t qh)
             .uri = "/ws",
             .method = HTTP_GET,
             .handler = ws_handler,
-            .is_websocket = true
-        };
+            .is_websocket = true};
         ESP_ERROR_CHECK(httpd_register_uri_handler(s, &ws_uri));
 
         httpd_uri_t static_files = {.uri = "/*", .method = HTTP_GET, .handler = static_file_handler};

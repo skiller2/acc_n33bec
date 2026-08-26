@@ -520,7 +520,7 @@ function setStorageStatus(msg, cls) {
 }
 
 
-function appendLiveEntry(card, ts, ok, tipo_habilitacion, time_consuming) {
+function appendLiveEntry(card, ts, ok, tipo_habilitacion, time_consuming, port_id) {
   const ul = document.getElementById('live');
   if (!ul) return;
 
@@ -533,11 +533,10 @@ function appendLiveEntry(card, ts, ok, tipo_habilitacion, time_consuming) {
   const timeMs = typeof time_consuming === 'number' ? time_consuming / 1000 : 0;
   const timeDisplay = timeMs > 0 ? (timeMs < 1000 ? timeMs.toFixed(0) + ' ms' : (timeMs / 1000).toFixed(2) + ' s') : '';
 
-  li.innerHTML = `${readableTime} - ${eventDisplay} - ${valueDisplay} - <span class="${tipoClass}">${tipoLabel}</span> - <span class="time-consumed">${timeDisplay}</span>`;
-  ul.appendChild(li);
-
+  li.innerHTML = `${readableTime} - ${eventDisplay} - Port${port_id} - ${valueDisplay} - <span class="${tipoClass}">${tipoLabel}</span> - <span class="time-consumed">${timeDisplay}</span>`;
+  ul.insertBefore(li, ul.firstChild);
   while (ul.children.length > 50) {
-    ul.removeChild(ul.firstChild);
+    ul.removeChild(ul.lastChild);
   }
 }
 
@@ -567,7 +566,7 @@ function connectWebSocket() {
       if (data.wifi) {
         handleWifiUpdate(data.wifi);
       } else if (data.card) {
-        appendLiveEntry(data.card, data.ts, data.ok, data.tipo_habilitacion, data.time_consuming);
+        appendLiveEntry(data.card, data.ts, data.ok, data.tipo_habilitacion, data.time_consuming, data.port_id);
       }
     } catch (err) {
       console.error('WebSocket message parse error:', err, e.data);

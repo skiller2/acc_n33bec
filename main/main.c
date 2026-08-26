@@ -117,7 +117,7 @@ extern void http_init(QueueHandle_t qh);
 extern void card_store_init();
 extern void log_store_init();
 extern int card_exists(uint64_t);
-extern void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion, int64_t time_consuming);
+extern void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion, int64_t time_consuming, int port_id);
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
 extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
@@ -209,7 +209,7 @@ void worker(void *p)
 
             uint64_t now;
             now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
-
+            tipo_habilitacion='X';
             esp_err_t res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
             if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
                 res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
@@ -262,7 +262,7 @@ void worker(void *p)
 
             // dispatch_log_event(event_id,e.port_id,e.card,now);
 
-            ws_broadcast_card(e.card, now, ok, tipo_habilitacion, t1 - t0);
+            ws_broadcast_card(e.card, now, ok, tipo_habilitacion, t1 - t0, e.port_id);
         }
     }
 }
