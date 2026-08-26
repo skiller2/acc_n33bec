@@ -473,33 +473,27 @@ static esp_err_t test_relay(httpd_req_t *req)
 
     if (strcmp(target, "rex1") == 0)
     {
-        if (relay_is_enabled(g_config.rex1_relay_number))
-            pulse_output(relay_number_to_gpio(g_config.rex1_relay_number), g_config.rex1_relay_duration_ms);
+        pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
         event_id = 6;
         port_id = 1;
     }
     else if (strcmp(target, "rex2") == 0)
     {
-        if (relay_is_enabled(g_config.rex2_relay_number))
-            pulse_output(relay_number_to_gpio(g_config.rex2_relay_number), g_config.rex2_relay_duration_ms);
+        pulse_output_by_relay(g_config.rex2_relay_number, g_config.rex2_relay_duration_ms);
         event_id = 6;
         port_id = 2;
     }
     else if (strcmp(target, "port1") == 0)
     {
-        if (relay_is_enabled(g_config.port1_relay_number))
-            pulse_output(relay_number_to_gpio(g_config.port1_relay_number), g_config.port1_relay_duration_ms);
-        if (relay_is_enabled(g_config.port1_relay2_number))
-            pulse_output(relay_number_to_gpio(g_config.port1_relay2_number), g_config.port1_relay2_duration_ms);
+        pulse_output_by_relay(g_config.port1_relay_number, g_config.port1_relay_duration_ms);
+        pulse_output_by_relay(g_config.port1_relay2_number, g_config.port1_relay2_duration_ms);
         event_id = 10;
         port_id = 1;
     }
     else if (strcmp(target, "port2") == 0)
     {
-        if (relay_is_enabled(g_config.port2_relay_number))
-            pulse_output(relay_number_to_gpio(g_config.port2_relay_number), g_config.port2_relay_duration_ms);
-        if (relay_is_enabled(g_config.port2_relay2_number))
-            pulse_output(relay_number_to_gpio(g_config.port2_relay2_number), g_config.port2_relay2_duration_ms);
+        pulse_output_by_relay(g_config.port2_relay_number, g_config.port2_relay_duration_ms);
+        pulse_output_by_relay(g_config.port2_relay2_number, g_config.port2_relay2_duration_ms);
         event_id = 10;
         port_id = 2;
     }

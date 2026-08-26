@@ -199,20 +199,14 @@ void worker(void *p)
             int64_t t0 = esp_timer_get_time();
 
             if (e.port_id == 1)
-            { // Check which port triggered the event and activate the corresponding relay and buzzer
-                // pulse_output(g_config.port1_relay_gpio, g_config.port1_relay_duration_ms);
-                // play_melody_async(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+            {
                 port_buzzer_gpio = PORT1_BUZZER;
             }
             else
             {
                 port_buzzer_gpio = PORT2_BUZZER;
-                // pulse_output(g_config.port2_relay_gpio, g_config.port2_relay_duration_ms);
-                // play_melody_async(PORT2_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
             }
 
-            // ESP_LOGI(TAG, "worker: processing card=%llu from port %d", e.card, e.port);
-            // ESP_LOGW(TAG, "Evaluando tarjeta %llu", e.card);
             uint64_t now;
             now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
 
@@ -237,23 +231,19 @@ void worker(void *p)
                 ESP_LOGI(TAG, "worker: card=%llu exists, access granted", e.card);
                 if (e.port_id == 1)
                 {
-                    if (relay_is_enabled(g_config.port1_relay_number))
-                        pulse_output(relay_number_to_gpio(g_config.port1_relay_number), g_config.port1_relay_duration_ms);
+                    pulse_output_by_relay(g_config.port1_relay_number, g_config.port1_relay_duration_ms);
 
                     if (tipo_habilitacion == 84)
                     {
-                        if (relay_is_enabled(g_config.port1_relay2_number))
-                            pulse_output(relay_number_to_gpio(g_config.port1_relay2_number), g_config.port1_relay2_duration_ms);
+                        pulse_output_by_relay(g_config.port1_relay2_number, g_config.port1_relay2_duration_ms);
                     }
                 }
                 else
                 {
-                    if (relay_is_enabled(g_config.port2_relay_number))
-                        pulse_output(relay_number_to_gpio(g_config.port2_relay_number), g_config.port2_relay_duration_ms);
+                    pulse_output_by_relay(g_config.port2_relay_number, g_config.port2_relay_duration_ms);
                     if (tipo_habilitacion == 84)
                     {
-                        if (relay_is_enabled(g_config.port2_relay2_number))
-                            pulse_output(relay_number_to_gpio(g_config.port2_relay2_number), g_config.port2_relay2_duration_ms);
+                        pulse_output_by_relay(g_config.port2_relay2_number, g_config.port2_relay2_duration_ms);
                     }
                 }
                 play_melody_async(port_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
@@ -359,8 +349,7 @@ static void input_task(void *arg)
         {
             if (!rex1)
             { // Active low edge trigger
-                if (relay_is_enabled(g_config.rex1_relay_number))
-                    pulse_output(relay_number_to_gpio(g_config.rex1_relay_number), g_config.rex1_relay_duration_ms);
+                pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
                 ESP_LOGI(TAG, "REX1 activated relay %d", relay_number_to_gpio(g_config.rex1_relay_number));
             }
 
@@ -373,8 +362,7 @@ static void input_task(void *arg)
         {
             if (!rex2)
             { // only trigger on transition to ACTIVE (0)
-                if (relay_is_enabled(g_config.rex2_relay_number))
-                    pulse_output(relay_number_to_gpio(g_config.rex2_relay_number), g_config.rex2_relay_duration_ms);
+                pulse_output_by_relay(g_config.rex2_relay_number, g_config.rex2_relay_duration_ms);
                 ESP_LOGI(TAG, "REX2 activated relay %d", relay_number_to_gpio(g_config.rex2_relay_number));
             }
             dispatch_log_event(6, 2, rex2, 0);

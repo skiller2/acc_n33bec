@@ -23,6 +23,7 @@ typedef struct {
 
 void play_melody(gpio_num_t gpio, const tone_t *melody, int length, float incdur);
 void pulse_output(gpio_num_t gpio, uint32_t duration_ms);
+void pulse_output_by_relay(uint8_t relay_number, uint32_t duration_ms);
 
 void play_melody_async(gpio_num_t gpio,const tone_t *melody, int length, float incdur);
 

@@ -41,11 +41,6 @@ static inline gpio_num_t relay_number_to_gpio(uint8_t relay_number)
     }
 }
 
-static inline bool relay_is_enabled(uint8_t relay_number)
-{
-    return relay_number >= 1 && relay_number <= 3;
-}
-
 esp_err_t config_load(config_t *config);
 esp_err_t config_save(const config_t *config);
 static config_t g_config = {0};

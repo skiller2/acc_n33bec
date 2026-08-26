@@ -4,6 +4,7 @@
 #include <freertos/task.h>
 #include <esp_log.h>
 #include <driver/ledc.h>
+#include <soc/gpio_num.h>
 
 static const char *TAG = "melody";
 
@@ -54,6 +55,23 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
 
     if (timer != NULL)
         xTimerStart(timer, 0);
+}
+
+void pulse_output_by_relay(uint8_t relay_number, uint32_t duration_ms)
+{
+    if (relay_number < 1 || relay_number > 3)
+        return;
+
+    gpio_num_t gpio;
+    switch (relay_number)
+    {
+        case 1: gpio = GPIO_NUM_45; break;
+        case 2: gpio = GPIO_NUM_39; break;
+        case 3: gpio = GPIO_NUM_33; break;
+        default: return;
+    }
+
+    pulse_output(gpio, duration_ms);
 }
 
 static void melody_task(void *arg)
