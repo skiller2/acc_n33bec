@@ -611,7 +611,7 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
 
-    if (true)
+    if (false)
     {
         ESP_LOGI(TAG, "Creating barrier task");
         if (xTaskCreate(barrier_task, "barrier_task", 4096, NULL, 5, NULL) != pdPASS)

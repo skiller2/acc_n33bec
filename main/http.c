@@ -548,13 +548,11 @@ static esp_err_t simulate_barrier(httpd_req_t *req)
 
     if (strcmp(target, "rex1") == 0)
     {
-        pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
         barrier_trigger_open();
         dispatch_log_event(6, 1, 0, 0);
     }
     else if (strcmp(target, "rex2") == 0)
     {
-        pulse_output_by_relay(g_config.rex2_relay_number, g_config.rex2_relay_duration_ms);
         barrier_trigger_open();
         dispatch_log_event(6, 2, 0, 0);
     }

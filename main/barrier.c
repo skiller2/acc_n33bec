@@ -35,9 +35,6 @@ static int64_t s_move_start_time = 0;
 static uint8_t s_position_percent = 0;
 static uint8_t s_last_broadcast_position = 0;
 
-static bool s_sim_loop = false;
-static bool s_sim_finish_up = false;
-static bool s_sim_finish_down = false;
 
 #define BARRIER_SWITCH_DELAY_MS 50
 
@@ -282,9 +279,9 @@ static int barrier_calculate_position(void)
 
 void barrier_set_simulated(bool loop, bool finish_up, bool finish_down)
 {
-    s_sim_loop = loop;
-    s_sim_finish_up = finish_up;
-    s_sim_finish_down = finish_down;
+    gpio_set_level(LOOP_GPIO,loop);
+    gpio_set_level(FINISH_UP_GPIO,finish_up);
+    gpio_set_level(FINISH_DOWN_GPIO,finish_down);
 }
 
 void barrier_task(void *arg)
@@ -333,9 +330,9 @@ void barrier_task(void *arg)
     while (1) {
         int rex1 = gpio_get_level(REX1_GPIO);
         int rex2 = gpio_get_level(REX2_GPIO);
-        int loop = s_sim_loop ? 0 : gpio_get_level(LOOP_GPIO);
-        int finish_up = s_sim_finish_up ? 0 : gpio_get_level(FINISH_UP_GPIO);
-        int finish_down = s_sim_finish_down ? 0 : gpio_get_level(FINISH_DOWN_GPIO);
+        int loop = gpio_get_level(LOOP_GPIO);
+        int finish_up = gpio_get_level(FINISH_UP_GPIO);
+        int finish_down = gpio_get_level(FINISH_DOWN_GPIO);
         int rele1 = gpio_get_level(RELE1_GPIO);
         int rele2 = gpio_get_level(RELE2_GPIO);
         int rele3 = gpio_get_level(RELE3_GPIO);
@@ -344,7 +341,6 @@ void barrier_task(void *arg)
 
         if (rex1 != last_rex1) {
             if (!rex1) {
-                pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
                 barrier_trigger_open();
                 ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_number);
             }
@@ -355,7 +351,6 @@ void barrier_task(void *arg)
 
         if (rex2 != last_rex2) {
             if (!rex2) {
-                pulse_output_by_relay(g_config.rex2_relay_number, g_config.rex2_relay_duration_ms);
                 barrier_trigger_open();
                 ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_number);
             }
