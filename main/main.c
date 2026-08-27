@@ -614,11 +614,13 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
 
+    /*
     ESP_LOGI(TAG, "Creating barrier task");
     if (xTaskCreate(barrier_task, "barrier_task", 4096, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create barrier task");
     }
+    */
 
     ESP_LOGI(TAG, "Creating door reader task");
     if (xTaskCreate(door_reader_task, "door_reader_task", 4096, NULL, 5, NULL) != pdPASS)
