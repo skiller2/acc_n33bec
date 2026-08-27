@@ -37,7 +37,7 @@ body { background:#111; color:#eee; font-family:Arial; margin:0; padding:10px; }
 
 .io-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 3px;
 }
 
@@ -163,6 +163,37 @@ label {
   display:block;
   margin:8px 0;
   color:#ccc;
+}
+
+.sim-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sim-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ccc;
+  font-size: 13px;
+}
+
+.sim-row input,
+.sim-row select {
+  background:#333;
+  color:#0f0;
+  border:1px solid #555;
+  padding:8px;
+  border-radius:3px;
+  width:120px;
+}
+
+.sim-row input:focus,
+.sim-row select:focus {
+  outline:none;
+  border-color:#007bff;
 }
 
 input[type="number"] {

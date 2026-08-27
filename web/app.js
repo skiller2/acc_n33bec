@@ -23,8 +23,31 @@ function addCard() {
 }
 
 function simulateCardRead() {
-  const cardId = Number(document.getElementById('simulateCardId').value);
+  const formattedInput = document.getElementById('simulateCardFormatted');
+  const rawInput = document.getElementById('simulateCardId');
   const reader = Number(document.getElementById('simulateReader').value);
+
+  let cardId = null;
+
+  if (formattedInput && formattedInput.value.trim()) {
+    const parts = formattedInput.value.trim().split('-');
+    if (parts.length === 2) {
+      const facility = parseInt(parts[0], 10);
+      const card = parseInt(parts[1], 10);
+      if (!isNaN(facility) && !isNaN(card)) {
+        cardId = (facility << 17) | (card << 1);
+      }
+    }
+  }
+
+  if (cardId === null && rawInput && rawInput.value.trim()) {
+    cardId = Number(rawInput.value.trim());
+  }
+
+  if (cardId === null) {
+    setStatus('Enter a card ID (raw or FC-CARD)', 'error');
+    return;
+  }
 
   fetch('/simulate', {
     method: 'POST',
@@ -35,7 +58,8 @@ function simulateCardRead() {
     .then(txt => {
       if (txt === 'OK') {
         setStatus('Card simulated!', 'success');
-        document.getElementById('simulateCardId').value = '';
+        if (rawInput) rawInput.value = '';
+        if (formattedInput) formattedInput.value = '';
       } else {
         setStatus('Error: ' + txt, 'error');
       }
