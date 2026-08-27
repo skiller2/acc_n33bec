@@ -25,12 +25,8 @@ static barrier_state_t s_state = BARRIER_IDLE;
 static TimerHandle_t s_timer = NULL;
 static SemaphoreHandle_t s_mutex = NULL;
 
-#define BARRIER_OPENING_MS 3000
-#define BARRIER_OPEN_MS    5000
-#define BARRIER_CLOSING_MS 3000
-
-static uint32_t s_time_up_ms = BARRIER_OPENING_MS;
-static uint32_t s_time_down_ms = BARRIER_CLOSING_MS;
+static uint32_t s_time_up_ms = 0;
+static uint32_t s_time_down_ms = 0;
 static int64_t s_move_start_time = 0;
 static uint8_t s_position_percent = 0;
 static uint8_t s_last_broadcast_position = 0;
@@ -78,7 +74,7 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
     if (s_state == BARRIER_OPENING) {
         s_state = BARRIER_OPEN;
         barrier_set_relays(false, false);
-        xTimerChangePeriod(s_timer, pdMS_TO_TICKS(BARRIER_OPEN_MS), 0);
+        xTimerChangePeriod(s_timer, pdMS_TO_TICKS(g_barrier_config.barrier_open_ms), 0);
         xTimerStart(s_timer, 0);
         ESP_LOGI(TAG, "Barrier opened");
     } else if (s_state == BARRIER_OPEN) {
@@ -87,7 +83,7 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
             barrier_set_relays(false, true);
             s_move_start_time = esp_timer_get_time();
             s_position_percent = 100;
-            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(BARRIER_CLOSING_MS), 0);
+            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(g_barrier_config.barrier_closing_ms), 0);
             xTimerStart(s_timer, 0);
             ESP_LOGI(TAG, "Barrier closing");
         } else {
@@ -112,9 +108,12 @@ void barrier_init(void)
         return;
     }
 
+    s_time_up_ms = g_barrier_config.barrier_opening_ms;
+    s_time_down_ms = g_barrier_config.barrier_closing_ms;
+
     s_timer = xTimerCreate(
         "barrier_timer",
-        pdMS_TO_TICKS(BARRIER_OPENING_MS),
+        pdMS_TO_TICKS(g_barrier_config.barrier_opening_ms),
         pdFALSE,
         NULL,
         barrier_timer_cb
@@ -153,7 +152,7 @@ void barrier_trigger_open(void)
             barrier_set_relays(true, false);
             s_move_start_time = esp_timer_get_time();
             s_position_percent = 0;
-            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(BARRIER_OPENING_MS), 0);
+            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(g_barrier_config.barrier_opening_ms), 0);
             xTimerStart(s_timer, 0);
             ESP_LOGI(TAG, "Barrier opening from IDLE");
             break;
@@ -175,7 +174,7 @@ void barrier_trigger_open(void)
             barrier_set_relays(true, false);
             s_move_start_time = esp_timer_get_time();
             s_position_percent = 0;
-            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(BARRIER_OPENING_MS), 0);
+            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(g_barrier_config.barrier_opening_ms), 0);
             xTimerStart(s_timer, 0);
             ESP_LOGI(TAG, "Barrier closing cancelled, opening");
             break;
@@ -206,7 +205,7 @@ void barrier_position_reached_up(void)
         s_position_percent = 100;
         barrier_set_relays(false, false);
         if (s_timer) {
-            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(BARRIER_OPEN_MS), 0);
+            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(g_barrier_config.barrier_open_ms), 0);
             xTimerStart(s_timer, 0);
         }
         ESP_LOGI(TAG, "Barrier fully opened by finish up switch, time_up_ms=%u", s_time_up_ms);
@@ -413,9 +412,9 @@ void barrier_task(void *arg)
         }
 
         if (changed) {
-            ws_broadcast_barrier(rex1, rex2, loop, finish_up, finish_down, rele1, rele2, rele3, time_up_ms, time_down_ms, BARRIER_OPEN_MS, position);
+            ws_broadcast_barrier(rex1, rex2, loop, finish_up, finish_down, rele1, rele2, rele3, time_up_ms, time_down_ms, g_barrier_config.barrier_open_ms, position);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }

@@ -731,6 +731,105 @@ static esp_err_t post_config(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t get_barrier_config(httpd_req_t *req)
+{
+    barrier_config_t cfg;
+    if (barrier_config_load(&cfg) != ESP_OK)
+    {
+        ESP_LOGW(TAG, "get_barrier_config: using defaults");
+    }
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json)
+    {
+        httpd_resp_sendstr(req, "ERR: alloc json");
+        return ESP_FAIL;
+    }
+
+    cJSON_AddNumberToObject(json, "barrier_opening_ms", cfg.barrier_opening_ms);
+    cJSON_AddNumberToObject(json, "barrier_closing_ms", cfg.barrier_closing_ms);
+    cJSON_AddNumberToObject(json, "barrier_open_ms", cfg.barrier_open_ms);
+
+    char *s = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!s)
+    {
+        httpd_resp_sendstr(req, "ERR: print json");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, s);
+    free(s);
+    return ESP_OK;
+}
+
+static esp_err_t post_barrier_config(httpd_req_t *req)
+{
+    size_t len = req->content_len;
+    if (len == 0 || len > 256)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid content length");
+        return ESP_FAIL;
+    }
+
+    char *buf = malloc(len + 1);
+    if (!buf)
+    {
+        httpd_resp_sendstr(req, "ERR: alloc");
+        return ESP_FAIL;
+    }
+
+    int r = httpd_req_recv(req, buf, len);
+    if (r <= 0)
+    {
+        free(buf);
+        httpd_resp_sendstr(req, "ERR: recv");
+        return ESP_FAIL;
+    }
+    buf[r] = 0;
+
+    barrier_config_t cfg;
+    if (barrier_config_load(&cfg) != ESP_OK)
+    {
+        ESP_LOGW(TAG, "post_barrier_config: using defaults");
+    }
+
+    cJSON *json = cJSON_Parse(buf);
+    free(buf);
+    if (!json)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid json");
+        return ESP_FAIL;
+    }
+
+    cJSON *item = NULL;
+    item = cJSON_GetObjectItemCaseSensitive(json, "barrier_opening_ms");
+    if (cJSON_IsNumber(item))
+        cfg.barrier_opening_ms = (uint32_t)item->valuedouble;
+
+    item = cJSON_GetObjectItemCaseSensitive(json, "barrier_closing_ms");
+    if (cJSON_IsNumber(item))
+        cfg.barrier_closing_ms = (uint32_t)item->valuedouble;
+
+    item = cJSON_GetObjectItemCaseSensitive(json, "barrier_open_ms");
+    if (cJSON_IsNumber(item))
+        cfg.barrier_open_ms = (uint32_t)item->valuedouble;
+
+    cJSON_Delete(json);
+
+    if (barrier_config_save(&cfg) != ESP_OK)
+    {
+        httpd_resp_sendstr(req, "ERR: save failed");
+        return ESP_FAIL;
+    }
+
+    g_barrier_config = cfg;
+
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
 static esp_err_t get_version(httpd_req_t *req)
 {
     size_t total_bytes = 0;
@@ -1419,6 +1518,18 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_POST,
             .handler = simulate_barrier};
         httpd_register_uri_handler(s, &barrier_uri);
+
+        httpd_uri_t get_barrier_cfg_uri = {
+            .uri = "/barrier_config",
+            .method = HTTP_GET,
+            .handler = get_barrier_config};
+        httpd_register_uri_handler(s, &get_barrier_cfg_uri);
+
+        httpd_uri_t post_barrier_cfg_uri = {
+            .uri = "/barrier_config",
+            .method = HTTP_POST,
+            .handler = post_barrier_config};
+        httpd_register_uri_handler(s, &post_barrier_cfg_uri);
 
         httpd_uri_t dpp_bs_uri = {.uri = "/dpp/bootstrap", .method = HTTP_POST, .handler = dpp_bootstrap_handler};
         httpd_register_uri_handler(s, &dpp_bs_uri);

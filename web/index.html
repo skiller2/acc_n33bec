@@ -241,6 +241,65 @@
     <div id="config-status"></div>
   </div>
 
+  <div id="barrier-tab" class="tab-content">
+    <div class="card">
+      <h2>Barrier Control</h2>
+      <div class="barrier-layout">
+        <div class="barrier-visual">
+          <div class="barrier-track">
+            <div class="barrier-pivot"></div>
+            <div class="barrier-arm" id="barrier-arm"></div>
+          </div>
+          <div class="barrier-position" id="barrier-position">0%</div>
+        </div>
+        <div class="barrier-panel">
+          <div class="barrier-leds">
+            <div class="io-item"><span class="led" id="bar-led-rex1"></span><span>REX1</span></div>
+            <div class="io-item"><span class="led" id="bar-led-rex2"></span><span>REX2</span></div>
+            <div class="io-item"><span class="led" id="bar-led-loop"></span><span>LOOP</span></div>
+            <div class="io-item"><span class="led" id="bar-led-finish-up"></span><span>FINISH UP</span></div>
+            <div class="io-item"><span class="led" id="bar-led-finish-down"></span><span>FINISH DOWN</span></div>
+            <div class="io-item"><span class="led" id="bar-led-rele1"></span><span>RELE1</span></div>
+            <div class="io-item"><span class="led" id="bar-led-rele2"></span><span>RELE2</span></div>
+            <div class="io-item"><span class="led" id="bar-led-rele3"></span><span>RELE3</span></div>
+          </div>
+          <div class="barrier-buttons">
+            <button onclick="triggerBarrier('rex1')">Trigger REX1</button>
+            <button onclick="triggerBarrier('rex2')">Trigger REX2</button>
+            <button id="btn-loop" onclick="toggleBarrier('loop')">Simulate LOOP</button>
+            <button id="btn-finish-up" onclick="toggleBarrier('finish_up')">Simulate FINISH UP</button>
+            <button id="btn-finish-down" onclick="toggleBarrier('finish_down')">Simulate FINISH DOWN</button>
+          </div>
+          <div class="barrier-info">
+            <p>Time Up: <span id="barrier-time-up">0</span> ms</p>
+            <p>Time Down: <span id="barrier-time-down">0</span> ms</p>
+            <p>Open Hold: <span id="barrier-open-hold">0</span> ms</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Barrier Configuration</h2>
+      <div class="config-section">
+        <h3>Motor Timing</h3>
+        <label>Opening (ms):
+          <input type="number" id="barrier_opening_ms" min="0" max="60000">
+        </label>
+        <label>Closing (ms):
+          <input type="number" id="barrier_closing_ms" min="0" max="60000">
+        </label>
+        <label>Keep Open (ms):
+          <input type="number" id="barrier_open_ms" min="0" max="60000">
+        </label>
+      </div>
+      <div class="config-buttons">
+        <button onclick="loadBarrierConfig()">Reload</button>
+        <button onclick="saveBarrierConfig()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div id="firmware-tab" class="tab-content">
     <div class="card">
       <h2>Firmware Update</h2>
@@ -287,44 +346,6 @@
       <div id="dpp-uri" style="margin-top: 10px; word-break: break-all; font-family: monospace; font-size: 12px;"></div>
       <button onclick="regenerateDppBootstrap()">Regenerate QR Code</button>
       <div id="dpp-status"></div>
-    </div>
-  </div>
-
-  <div id="barrier-tab" class="tab-content">
-    <div class="card">
-      <h2>Barrier Control</h2>
-      <div class="barrier-layout">
-        <div class="barrier-visual">
-          <div class="barrier-track">
-            <div class="barrier-arm" id="barrier-arm"></div>
-          </div>
-          <div class="barrier-position" id="barrier-position">0%</div>
-        </div>
-        <div class="barrier-panel">
-          <div class="barrier-leds">
-            <div class="io-item"><span class="led" id="bar-led-rex1"></span><span>REX1</span></div>
-            <div class="io-item"><span class="led" id="bar-led-rex2"></span><span>REX2</span></div>
-            <div class="io-item"><span class="led" id="bar-led-loop"></span><span>LOOP</span></div>
-            <div class="io-item"><span class="led" id="bar-led-finish-up"></span><span>FINISH UP</span></div>
-            <div class="io-item"><span class="led" id="bar-led-finish-down"></span><span>FINISH DOWN</span></div>
-            <div class="io-item"><span class="led" id="bar-led-rele1"></span><span>RELE1</span></div>
-            <div class="io-item"><span class="led" id="bar-led-rele2"></span><span>RELE2</span></div>
-            <div class="io-item"><span class="led" id="bar-led-rele3"></span><span>RELE3</span></div>
-          </div>
-          <div class="barrier-buttons">
-            <button onclick="triggerBarrier('rex1')">Trigger REX1</button>
-            <button onclick="triggerBarrier('rex2')">Trigger REX2</button>
-            <button id="btn-loop" onclick="toggleBarrier('loop')">Simulate LOOP</button>
-            <button id="btn-finish-up" onclick="toggleBarrier('finish_up')">Simulate FINISH UP</button>
-            <button id="btn-finish-down" onclick="toggleBarrier('finish_down')">Simulate FINISH DOWN</button>
-          </div>
-          <div class="barrier-info">
-            <p>Time Up: <span id="barrier-time-up">0</span> ms</p>
-            <p>Time Down: <span id="barrier-time-down">0</span> ms</p>
-            <p>Open Hold: <span id="barrier-open-hold">0</span> ms</p>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 

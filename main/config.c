@@ -217,3 +217,90 @@ esp_err_t config_load(config_t *config)
 
     return ESP_OK;
 }
+
+static const char *BARRIER_NVS_NAMESPACE = "barrier_config";
+static const char *BARRIER_NVS_KEY = "config";
+static const uint32_t BARRIER_CONFIG_MAGIC = 0x4241524E; // 'BARN'
+static const uint8_t BARRIER_CONFIG_VERSION = 1;
+
+static void barrier_set_defaults(barrier_config_t *cfg)
+{
+    cfg->barrier_opening_ms = 3000;
+    cfg->barrier_closing_ms = 3000;
+    cfg->barrier_open_ms = 5000;
+}
+
+esp_err_t barrier_config_load(barrier_config_t *cfg)
+{
+    if (!cfg) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    barrier_set_defaults(cfg);
+
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(BARRIER_NVS_NAMESPACE, NVS_READONLY, &nvs);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Barrier config not found in NVS, using defaults");
+        return barrier_config_save(cfg);
+    }
+
+    barrier_config_t stored;
+    size_t len = sizeof(stored);
+    err = nvs_get_blob(nvs, BARRIER_NVS_KEY, &stored, &len);
+    nvs_close(nvs);
+
+    if (err != ESP_OK || len != sizeof(stored) || stored.magic != BARRIER_CONFIG_MAGIC || stored.version != BARRIER_CONFIG_VERSION) {
+        ESP_LOGW(TAG, "Invalid barrier config in NVS, using defaults");
+        return barrier_config_save(cfg);
+    }
+
+    cfg->barrier_opening_ms = stored.barrier_opening_ms;
+    cfg->barrier_closing_ms = stored.barrier_closing_ms;
+    cfg->barrier_open_ms = stored.barrier_open_ms;
+
+    return ESP_OK;
+}
+
+esp_err_t barrier_config_save(const barrier_config_t *cfg)
+{
+    if (!cfg) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    barrier_config_t stored = {
+        .magic = BARRIER_CONFIG_MAGIC,
+        .version = BARRIER_CONFIG_VERSION,
+        .barrier_opening_ms = cfg->barrier_opening_ms,
+        .barrier_closing_ms = cfg->barrier_closing_ms,
+        .barrier_open_ms = cfg->barrier_open_ms
+    };
+
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(BARRIER_NVS_NAMESPACE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS namespace for barrier config: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = nvs_set_blob(nvs, BARRIER_NVS_KEY, &stored, sizeof(stored));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to save barrier config to NVS: %s", esp_err_to_name(err));
+        nvs_close(nvs);
+        return err;
+    }
+
+    err = nvs_commit(nvs);
+    nvs_close(nvs);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to commit barrier config to NVS: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    ESP_LOGI(TAG, "Saved barrier config: opening=%u closing=%u open=%u",
+             stored.barrier_opening_ms, stored.barrier_closing_ms, stored.barrier_open_ms);
+
+    return ESP_OK;
+}
+
+barrier_config_t g_barrier_config;

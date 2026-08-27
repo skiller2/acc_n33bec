@@ -530,6 +530,12 @@ void app_main()
         ESP_LOGW(TAG, "Failed to load REX config, using defaults");
     }
 
+    ESP_LOGI(TAG, "Loading barrier configuration");
+    if (barrier_config_load(&g_barrier_config) != ESP_OK)
+    {
+        ESP_LOGW(TAG, "Failed to load barrier config, using defaults");
+    }
+
     ESP_LOGI(TAG, "Initializing card store");
     card_store_init();
 
@@ -611,7 +617,7 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
 
-    if (false)
+    if (true)
     {
         ESP_LOGI(TAG, "Creating barrier task");
         if (xTaskCreate(barrier_task, "barrier_task", 4096, NULL, 5, NULL) != pdPASS)

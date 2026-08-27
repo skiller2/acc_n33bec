@@ -20,12 +20,12 @@ function switchTab(tab, btn) {
     loadLogs();
   } else if (tab === 'config') {
     loadConfig();
+  } else if (tab === 'barrier') {
+    loadBarrierConfig();
   } else if (tab === 'firmware') {
     loadFirmwareVersion();
   } else if (tab === 'device') {
     loadDeviceInfo();
-  } else if (tab === 'barrier') {
-    updateBarrierStatus();
   }
 }
 
@@ -271,6 +271,41 @@ function rebootDevice() {
       setStatus('Reboot error: ' + e, 'error')
 
     });
+}
+
+function loadBarrierConfig() {
+  fetch('/barrier_config')
+    .then(r => r.json())
+    .then(cfg => {
+      document.getElementById('barrier_opening_ms').value = cfg.barrier_opening_ms;
+      document.getElementById('barrier_closing_ms').value = cfg.barrier_closing_ms;
+      document.getElementById('barrier_open_ms').value = cfg.barrier_open_ms;
+      setStatus('Barrier config loaded', 'success');
+    })
+    .catch(e => setStatus('Load barrier error: ' + e, 'error'));
+}
+
+function saveBarrierConfig() {
+  const cfg = {
+    barrier_opening_ms: parseInt(document.getElementById('barrier_opening_ms').value),
+    barrier_closing_ms: parseInt(document.getElementById('barrier_closing_ms').value),
+    barrier_open_ms: parseInt(document.getElementById('barrier_open_ms').value)
+  };
+
+  fetch('/barrier_config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg)
+  })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt === 'OK') {
+        setStatus('Barrier config saved!', 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Save barrier error: ' + e, 'error'));
 }
 
 function formatBytes(bytes) {
@@ -585,12 +620,8 @@ function updateBarrierStatus(io) {
     const arm = document.getElementById('barrier-arm');
     const posLabel = document.getElementById('barrier-position');
     if (arm) {
-      const track = arm.parentElement;
-      const trackHeight = track ? track.clientHeight : 300;
-      const armHeight = arm.offsetHeight || 12;
-      const maxTop = trackHeight - armHeight;
-      const top = maxTop - (io.position / 100) * maxTop;
-      arm.style.top = top + 'px';
+      const angle = -(io.position / 100) * 90;
+      arm.style.transform = `translateY(-50%) rotate(${angle}deg)`;
     }
     if (posLabel) {
       posLabel.textContent = io.position + '%';
