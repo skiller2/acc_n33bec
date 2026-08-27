@@ -616,6 +616,18 @@ function updateBarrierStatus(io) {
     }
   }
 
+  const semRed = document.getElementById('sem-red');
+  const semGreen = document.getElementById('sem-green');
+  if (semRed && semGreen) {
+    if (io.rele3) {
+      semRed.classList.add('on');
+      semGreen.classList.remove('on');
+    } else {
+      semRed.classList.remove('on');
+      semGreen.classList.add('on');
+    }
+  }
+
   if (typeof io.position === 'number') {
     const arm = document.getElementById('barrier-arm');
     const posLabel = document.getElementById('barrier-position');
