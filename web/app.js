@@ -18,8 +18,43 @@ function switchTab(tab) {
 }
 
 function addCard() {
-  const id = document.getElementById('cardId').value;
-  fetch('/card', { method: 'PUT', body: id });
+  const formattedInput = document.getElementById('cardIdFormatted');
+  const rawInput = document.getElementById('cardIdRaw');
+
+  let id = null;
+
+  if (formattedInput && formattedInput.value.trim()) {
+    const parts = formattedInput.value.trim().split('-');
+    if (parts.length === 2) {
+      const facility = parseInt(parts[0], 10);
+      const card = parseInt(parts[1], 10);
+      if (!isNaN(facility) && !isNaN(card)) {
+        id = (facility << 17) | (card << 1);
+      }
+    }
+  }
+
+  if (id === null && rawInput && rawInput.value.trim()) {
+    id = rawInput.value.trim();
+  }
+
+  if (id === null) {
+    setStatus('Enter a card ID (raw or FC-CARD)', 'error');
+    return;
+  }
+
+  fetch('/card', { method: 'PUT', body: id })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt === 'OK') {
+        setStatus('Card added!', 'success');
+        if (rawInput) rawInput.value = '';
+        if (formattedInput) formattedInput.value = '';
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Add card error: ' + e, 'error'));
 }
 
 function simulateCardRead() {
@@ -672,7 +707,7 @@ function loadCards() {
         cards.forEach(row => {
           const div = document.createElement('div');
           div.className = 'card';
-          div.innerText = row.card;
+          div.innerText = wiegand26ToFcCard(row.card);
           container.appendChild(div);
         });
       } else {

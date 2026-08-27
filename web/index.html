@@ -42,18 +42,25 @@
   <!-- Cards Tab -->
   <div id="cards-tab" class="tab-content active">
     <div class="card">
-      <h2>Add Card</h2>
-      <input id="cardId" placeholder="Card ID">
+      <h2>Card Storage</h2>
+      <div class="sim-row">
+        <label>RAW:
+          <input type="number" id="cardIdRaw" placeholder="Enter raw card">
+        </label>
+        <label>FC-CARD:
+          <input type="text" id="cardIdFormatted" placeholder="123-12345">
+        </label>
+      </div>
       <button onclick="addCard()">Add</button>
     </div>
 
     <div class="card">
       <h2>Simulate Card Read</h2>
       <div class="sim-row">
-        <label>Raw Card ID:
-          <input type="number" id="simulateCardId" placeholder="Enter card ID">
+        <label>RAW:
+          <input type="number" id="simulateCardId" placeholder="Enter raw card">
         </label>
-        <label>Card (FC-CARD):
+        <label>FC-CARD:
           <input type="text" id="simulateCardFormatted" placeholder="123-12345">
         </label>
       </div>

@@ -388,6 +388,7 @@ static esp_err_t add_card(httpd_req_t *req)
         len = 0;
 
     buf[len] = 0;
+    
     uint64_t id = strtoull(buf, NULL, 10);
     card_add(id);
     httpd_resp_sendstr(req, "OK");
