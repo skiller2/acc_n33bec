@@ -309,3 +309,79 @@ li {
   color: #00ccff;
   font-weight: bold;
 }
+
+.barrier-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.barrier-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.barrier-track {
+  width: 40px;
+  height: 300px;
+  background: #333;
+  border: 2px solid #555;
+  border-radius: 4px;
+  position: relative;
+}
+
+.barrier-arm {
+  width: 80px;
+  height: 12px;
+  background: #00ccff;
+  border-radius: 2px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: top 0.3s ease;
+  box-shadow: 0 0 8px #00ccff;
+}
+
+.barrier-position {
+  font-size: 18px;
+  font-weight: bold;
+  color: #00ccff;
+}
+
+.barrier-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.barrier-leds {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.barrier-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.barrier-info p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: #ccc;
+}
+
+.barrier-info span {
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.barrier-buttons button.on {
+  background: #00aa00;
+  border-color: #00ff00;
+  box-shadow: 0 0 8px #00ff00;
+}

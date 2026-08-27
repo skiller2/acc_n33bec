@@ -13,6 +13,7 @@ void barrier_trigger_open(void);
 void barrier_position_reached_up(void);
 void barrier_position_reached_down(void);
 void barrier_task(void *arg);
+void barrier_set_simulated(bool loop, bool finish_up, bool finish_down);
 
 #ifdef __cplusplus
 }

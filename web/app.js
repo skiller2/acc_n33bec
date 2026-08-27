@@ -24,6 +24,8 @@ function switchTab(tab, btn) {
     loadFirmwareVersion();
   } else if (tab === 'device') {
     loadDeviceInfo();
+  } else if (tab === 'barrier') {
+    updateBarrierStatus();
   }
 }
 
@@ -129,6 +131,64 @@ function testRelay(target) {
     .catch(e => setStatus('Test error: ' + e, 'error'));
 }
 
+function triggerBarrier(target) {
+  fetch('/barrier', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target: target })
+  })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt === 'OK') {
+        setStatus('Barrier ' + target + ' triggered', 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Barrier error: ' + e, 'error'));
+}
+
+const barrierSimState = {
+  loop: false,
+  finish_up: false,
+  finish_down: false
+};
+
+function toggleBarrier(target) {
+  barrierSimState[target] = !barrierSimState[target];
+  const state = barrierSimState[target];
+
+  fetch('/barrier', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target: target, state: state })
+  })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt === 'OK') {
+        updateBarrierButton(target, state);
+        setStatus('Barrier ' + target + ' ' + (state ? 'ON' : 'OFF'), 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Barrier error: ' + e, 'error'));
+}
+
+function updateBarrierButton(target, state) {
+  const btnId = target === 'loop' ? 'btn-loop' :
+    target === 'finish_up' ? 'btn-finish-up' :
+      target === 'finish_down' ? 'btn-finish-down' : null;
+  const btn = document.getElementById(btnId);
+  if (btn) {
+    if (state) {
+      btn.classList.add('on');
+    } else {
+      btn.classList.remove('on');
+    }
+  }
+}
+
 function loadConfig() {
   fetch('/config')
     .then(r => r.json())
@@ -207,8 +267,8 @@ function rebootDevice() {
       }
     })
     .catch(e => {
-      setOtaStatus('Reboot error: ' + e, 'error') 
-      setStatus('Reboot error: ' + e, 'error') 
+      setOtaStatus('Reboot error: ' + e, 'error')
+      setStatus('Reboot error: ' + e, 'error')
 
     });
 }
@@ -310,7 +370,7 @@ function loadFirmwareVersionOld() {
       }
 
       if (extraVersionEl) {
-        extraVersionEl.innerText = 'Date: ' + data.date + ' ' + data.time; 
+        extraVersionEl.innerText = 'Date: ' + data.date + ' ' + data.time;
         // ' vesion-app-ota: '+data.version_ota;
       }
 
@@ -475,8 +535,8 @@ function updateIoStatus(io) {
   const ledMap = {
     door1: { el: 'led-door1', activeHigh: true },
     door2: { el: 'led-door2', activeHigh: true },
-    rex1:  { el: 'led-rex1',  activeHigh: false },
-    rex2:  { el: 'led-rex2',  activeHigh: false },
+    rex1: { el: 'led-rex1', activeHigh: false },
+    rex2: { el: 'led-rex2', activeHigh: false },
     rele1: { el: 'led-rele1', activeHigh: true },
     rele2: { el: 'led-rele2', activeHigh: true },
     rele3: { el: 'led-rele3', activeHigh: true }
@@ -492,6 +552,72 @@ function updateIoStatus(io) {
     } else {
       el.classList.remove('on');
     }
+  }
+}
+
+function updateBarrierStatus(io) {
+  if (!io) return;
+
+  const ledMap = {
+    rex1: { el: 'bar-led-rex1', activeHigh: false },
+    rex2: { el: 'bar-led-rex2', activeHigh: false },
+    loop: { el: 'bar-led-loop', activeHigh: false },
+    finish_up: { el: 'bar-led-finish-up', activeHigh: false },
+    finish_down: { el: 'bar-led-finish-down', activeHigh: false },
+    rele1: { el: 'bar-led-rele1', activeHigh: true },
+    rele2: { el: 'bar-led-rele2', activeHigh: true },
+    rele3: { el: 'bar-led-rele3', activeHigh: true }
+  };
+
+  for (const [key, cfg] of Object.entries(ledMap)) {
+    const el = document.getElementById(cfg.el);
+    if (!el) continue;
+    const val = io[key] ? 1 : 0;
+    const isActive = cfg.activeHigh ? (val === 1) : (val === 0);
+    if (isActive) {
+      el.classList.add('on');
+    } else {
+      el.classList.remove('on');
+    }
+  }
+
+  if (typeof io.position === 'number') {
+    const arm = document.getElementById('barrier-arm');
+    const posLabel = document.getElementById('barrier-position');
+    if (arm) {
+      const track = arm.parentElement;
+      const trackHeight = track ? track.clientHeight : 300;
+      const armHeight = arm.offsetHeight || 12;
+      const maxTop = trackHeight - armHeight;
+      const top = maxTop - (io.position / 100) * maxTop;
+      arm.style.top = top + 'px';
+    }
+    if (posLabel) {
+      posLabel.textContent = io.position + '%';
+    }
+  }
+
+  if (typeof io.time_up_ms === 'number') {
+    const el = document.getElementById('barrier-time-up');
+    if (el) el.textContent = io.time_up_ms;
+  }
+  if (typeof io.time_down_ms === 'number') {
+    const el = document.getElementById('barrier-time-down');
+    if (el) el.textContent = io.time_down_ms;
+  }
+  if (typeof io.open_hold_ms === 'number') {
+    const el = document.getElementById('barrier-open-hold');
+    if (el) el.textContent = io.open_hold_ms;
+  }
+
+  if (typeof io.loop === 'number') {
+    updateBarrierButton('loop', io.loop === 0);
+  }
+  if (typeof io.finish_up === 'number') {
+    updateBarrierButton('finish_up', io.finish_up === 0);
+  }
+  if (typeof io.finish_down === 'number') {
+    updateBarrierButton('finish_down', io.finish_down === 0);
   }
 }
 
@@ -684,6 +810,8 @@ function connectWebSocket() {
         appendLiveEntry(data.card, data.ts, data.ok, data.tipo_habilitacion, data.time_consuming, data.port_id);
       } else if (data.io) {
         updateIoStatus(data.io);
+      } else if (data.barrier) {
+        updateBarrierStatus(data.barrier);
       }
     } catch (err) {
       console.error('WebSocket message parse error:', err, e.data);
@@ -762,43 +890,43 @@ function loadLogs() {
       container.innerHTML = '';
 
       logs
-      .sort((a, b) => b.ts - a.ts) // Mayor fecha primero
-      .forEach(log => {
-        const div = document.createElement('div');
-        div.className = 'card';
+        .sort((a, b) => b.ts - a.ts) // Mayor fecha primero
+        .forEach(log => {
+          const div = document.createElement('div');
+          div.className = 'card';
 
-        if (typeof log === 'object') {
-          const readableTime = formatTimestamp(log.ts);
-          let valueDisplay = log.value;
-          let eventDisplay = "";
+          if (typeof log === 'object') {
+            const readableTime = formatTimestamp(log.ts);
+            let valueDisplay = log.value;
+            let eventDisplay = "";
 
-          if (log.event_id == 10) {
-            eventDisplay = "CARD PASSED";
-          } else if (log.event_id == 11) {
-            eventDisplay = "CARD DENIED";
-          } else if (log.event_id == 6) {
-            eventDisplay = "REX";
-          } else if (log.event_id == 5) {
-            eventDisplay = "DOOR";
-          } else if (log.event_id == 2) {
-            eventDisplay = "POWER";
-          } else if (log.event_id == 1) {
-            eventDisplay = "SYSTEM START";
+            if (log.event_id == 10) {
+              eventDisplay = "CARD PASSED";
+            } else if (log.event_id == 11) {
+              eventDisplay = "CARD DENIED";
+            } else if (log.event_id == 6) {
+              eventDisplay = "REX";
+            } else if (log.event_id == 5) {
+              eventDisplay = "DOOR";
+            } else if (log.event_id == 2) {
+              eventDisplay = "POWER";
+            } else if (log.event_id == 1) {
+              eventDisplay = "SYSTEM START";
+            } else {
+              eventDisplay = "EVENT" + log.event_id;
+            }
+
+            if (log.event_id == 10 || log.event_id == 11) {
+              valueDisplay = wiegand26ToFcCard(log.value);
+            }
+
+            div.innerText = `${readableTime} - ${eventDisplay} - Port${log.port_id} - ${valueDisplay}`;
           } else {
-            eventDisplay = "EVENT" + log.event_id;
+            div.innerText = log;
           }
 
-          if (log.event_id == 10 || log.event_id == 11) {
-            valueDisplay = wiegand26ToFcCard(log.value);
-          }
-
-          div.innerText = `${readableTime} - ${eventDisplay} - Port${log.port_id} - ${valueDisplay}`;
-        } else {
-          div.innerText = log;
-        }
-
-        container.appendChild(div);
-      });
+          container.appendChild(div);
+        });
     })
     .catch(e => {
       document.getElementById('logs-list').innerText = 'Error loading logs: ' + e;

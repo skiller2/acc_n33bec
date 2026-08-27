@@ -29,6 +29,7 @@
 #include "ws.h"
 #include "rtc.h"
 #include "time_sync.h"
+#include "barrier.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -510,6 +511,87 @@ static esp_err_t test_relay(httpd_req_t *req)
     }
 
     dispatch_log_event(event_id, port_id, value, 0);
+    cJSON_Delete(json);
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
+static esp_err_t simulate_barrier(httpd_req_t *req)
+{
+    char buf[128];
+    int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (len <= 0)
+    {
+        httpd_resp_sendstr(req, "ERR: recv");
+        return ESP_FAIL;
+    }
+    if (len < 0)
+        len = 0;
+    buf[len] = 0;
+
+    cJSON *json = cJSON_Parse(buf);
+    if (!json)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid json");
+        return ESP_FAIL;
+    }
+
+    cJSON *item = cJSON_GetObjectItemCaseSensitive(json, "target");
+    if (!cJSON_IsString(item))
+    {
+        cJSON_Delete(json);
+        httpd_resp_sendstr(req, "ERR: invalid target");
+        return ESP_FAIL;
+    }
+
+    const char *target = item->valuestring;
+
+    if (strcmp(target, "rex1") == 0)
+    {
+        pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
+        barrier_trigger_open();
+        dispatch_log_event(6, 1, 0, 0);
+    }
+    else if (strcmp(target, "rex2") == 0)
+    {
+        pulse_output_by_relay(g_config.rex2_relay_number, g_config.rex2_relay_duration_ms);
+        barrier_trigger_open();
+        dispatch_log_event(6, 2, 0, 0);
+    }
+    else if (strcmp(target, "loop") == 0)
+    {
+        cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        barrier_set_simulated(on, false, false);
+        if (on) {
+            barrier_trigger_open();
+        }
+    }
+    else if (strcmp(target, "finish_up") == 0)
+    {
+        cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        barrier_set_simulated(false, on, false);
+        if (on) {
+            barrier_position_reached_up();
+        }
+    }
+    else if (strcmp(target, "finish_down") == 0)
+    {
+        cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        barrier_set_simulated(false, false, on);
+        if (on) {
+            barrier_position_reached_down();
+        }
+    }
+    else
+    {
+        cJSON_Delete(json);
+        httpd_resp_sendstr(req, "ERR: unknown target");
+        return ESP_FAIL;
+    }
+
     cJSON_Delete(json);
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
@@ -1333,6 +1415,12 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_POST,
             .handler = test_relay};
         httpd_register_uri_handler(s, &test_relay_uri);
+
+        httpd_uri_t barrier_uri = {
+            .uri = "/barrier",
+            .method = HTTP_POST,
+            .handler = simulate_barrier};
+        httpd_register_uri_handler(s, &barrier_uri);
 
         httpd_uri_t dpp_bs_uri = {.uri = "/dpp/bootstrap", .method = HTTP_POST, .handler = dpp_bootstrap_handler};
         httpd_register_uri_handler(s, &dpp_bs_uri);

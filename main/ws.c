@@ -103,7 +103,6 @@ void ws_broadcast_io_status(int door1, int door2, int rex1, int rex2, int ali, i
         return;
     }
 
-    cJSON_AddStringToObject(io, "type", "io");
     cJSON_AddNumberToObject(io, "door1", door1);
     cJSON_AddNumberToObject(io, "door2", door2);
     cJSON_AddNumberToObject(io, "rex1", rex1);
@@ -156,7 +155,7 @@ void ws_broadcast_io_status(int door1, int door2, int rex1, int rex2, int ali, i
     }
 }
 
-void ws_broadcast_barrier(int rex1, int rex2, int loop, int finish_up, int finish_down, int rele1, int rele2, int rele3, uint32_t time_up_ms, uint32_t time_down_ms, int position)
+void ws_broadcast_barrier(int rex1, int rex2, int loop, int finish_up, int finish_down, int rele1, int rele2, int rele3, uint32_t time_up_ms, uint32_t time_down_ms, uint32_t open_hold_ms, int position)
 {
     if (!g_server) return;
 
@@ -169,7 +168,6 @@ void ws_broadcast_barrier(int rex1, int rex2, int loop, int finish_up, int finis
         return;
     }
 
-    cJSON_AddStringToObject(io, "type", "barrier");
     cJSON_AddNumberToObject(io, "rex1", rex1);
     cJSON_AddNumberToObject(io, "rex2", rex2);
     cJSON_AddNumberToObject(io, "loop", loop);
@@ -180,9 +178,10 @@ void ws_broadcast_barrier(int rex1, int rex2, int loop, int finish_up, int finis
     cJSON_AddNumberToObject(io, "rele3", rele3);
     cJSON_AddNumberToObject(io, "time_up_ms", time_up_ms);
     cJSON_AddNumberToObject(io, "time_down_ms", time_down_ms);
+    cJSON_AddNumberToObject(io, "open_hold_ms", open_hold_ms);
     cJSON_AddNumberToObject(io, "position", position);
 
-    cJSON_AddItemToObject(json, "io", io);
+    cJSON_AddItemToObject(json, "barrier", io);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);

@@ -103,8 +103,6 @@ tone_t access_denied[] = {
     {300, 250, 0},
 };
 
-
-
 extern void fs_init();
 extern void http_init(QueueHandle_t qh);
 extern void card_store_init();
@@ -203,7 +201,7 @@ void worker(void *p)
 
             uint64_t now;
             now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
-            tipo_habilitacion='X';
+            tipo_habilitacion = 'X';
             esp_err_t res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
             if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
                 res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
@@ -282,17 +280,16 @@ static void door_reader_task(void *arg)
     gpio_config(&io);
 
     gpio_config_t io_out = {
-        .pin_bit_mask = (1ULL << RELE3_GPIO ) | (1ULL << RELE2_GPIO ) | (1ULL << RELE1_GPIO ),
+        .pin_bit_mask = (1ULL << RELE3_GPIO) | (1ULL << RELE2_GPIO) | (1ULL << RELE1_GPIO),
         .mode = GPIO_MODE_INPUT_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
+        .intr_type = GPIO_INTR_DISABLE};
     gpio_config(&io_out);
 
-    gpio_set_level(RELE1_GPIO,0);
-    gpio_set_level(RELE2_GPIO,0);
-    gpio_set_level(RELE3_GPIO,0);
+    gpio_set_level(RELE1_GPIO, 0);
+    gpio_set_level(RELE2_GPIO, 0);
+    gpio_set_level(RELE3_GPIO, 0);
 
     int last_door1 = -1;
     int last_door2 = -1;
@@ -365,7 +362,7 @@ static void door_reader_task(void *arg)
                 pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
                 ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_number);
             }
-            dispatch_log_event(6, 1, rex1, 0);            
+            dispatch_log_event(6, 1, rex1, 0);
             last_rex1 = rex1;
         }
 
@@ -376,7 +373,7 @@ static void door_reader_task(void *arg)
                 pulse_output_by_relay(g_config.rex2_relay_number, g_config.rex2_relay_duration_ms);
                 ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_number);
             }
-            dispatch_log_event(6, 2, rex2, 0);            
+            dispatch_log_event(6, 2, rex2, 0);
             last_rex2 = rex2;
         }
 
@@ -614,18 +611,22 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
 
-    /*
-    ESP_LOGI(TAG, "Creating barrier task");
-    if (xTaskCreate(barrier_task, "barrier_task", 4096, NULL, 5, NULL) != pdPASS)
+    if (true)
     {
-        ESP_LOGE(TAG, "Failed to create barrier task");
+        ESP_LOGI(TAG, "Creating barrier task");
+        if (xTaskCreate(barrier_task, "barrier_task", 4096, NULL, 5, NULL) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to create barrier task");
+        }
     }
-    */
-
-    ESP_LOGI(TAG, "Creating door reader task");
-    if (xTaskCreate(door_reader_task, "door_reader_task", 4096, NULL, 5, NULL) != pdPASS)
+    else
     {
-        ESP_LOGE(TAG, "Failed to create door reader task");
+
+        ESP_LOGI(TAG, "Creating door reader task");
+        if (xTaskCreate(door_reader_task, "door_reader_task", 4096, NULL, 5, NULL) != pdPASS)
+        {
+            ESP_LOGE(TAG, "Failed to create door reader task");
+        }
     }
 
     ESP_LOGI(TAG, "Creating keep alive task");
