@@ -82,13 +82,19 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
         xTimerStart(s_timer, 0);
         ESP_LOGI(TAG, "Barrier opened");
     } else if (s_state == BARRIER_OPEN) {
-        s_state = BARRIER_CLOSING;
-        barrier_set_relays(false, true);
-        s_move_start_time = esp_timer_get_time();
-        s_position_percent = 100;
-        xTimerChangePeriod(s_timer, pdMS_TO_TICKS(BARRIER_CLOSING_MS), 0);
-        xTimerStart(s_timer, 0);
-        ESP_LOGI(TAG, "Barrier closing");
+        if (gpio_get_level(LOOP_GPIO)==0){
+            s_state = BARRIER_CLOSING;
+            barrier_set_relays(false, true);
+            s_move_start_time = esp_timer_get_time();
+            s_position_percent = 100;
+            xTimerChangePeriod(s_timer, pdMS_TO_TICKS(BARRIER_CLOSING_MS), 0);
+            xTimerStart(s_timer, 0);
+            ESP_LOGI(TAG, "Barrier closing");
+        } else {
+            xTimerStart(s_timer, 0);
+            ESP_LOGI(TAG, "Unable to close");
+        }
+        
     } else if (s_state == BARRIER_CLOSING) {
         s_state = BARRIER_IDLE;
         barrier_set_relays(false, false);
