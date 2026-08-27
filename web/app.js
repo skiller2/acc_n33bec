@@ -1,8 +1,18 @@
-function switchTab(tab) {
+function switchTab(tab, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(tab + '-tab').classList.add('active');
-  event.target.classList.add('active');
+  if (btn) {
+    btn.classList.add('active');
+  } else {
+    const buttons = document.querySelectorAll('.tab-btn');
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i].getAttribute('onclick') && buttons[i].getAttribute('onclick').indexOf("'" + tab + "'") !== -1) {
+        buttons[i].classList.add('active');
+        break;
+      }
+    }
+  }
 
   if (tab === 'cards') {
     loadCards();
@@ -585,6 +595,9 @@ function uploadStorageImage() {
 document.addEventListener('DOMContentLoaded', () => {
   loadInfo();
   loadFirmwareVersion();
+  const activeBtn = document.querySelector('.tab-btn.active');
+  const tab = activeBtn ? (activeBtn.getAttribute('onclick') || '').replace("switchTab('", "").replace("', this)", "") : 'cards';
+  switchTab(tab, activeBtn);
 });
 
 function setStatus(msg, cls) {
