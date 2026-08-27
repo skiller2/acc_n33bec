@@ -16,6 +16,7 @@
 #include "beep.h"
 #include "config.h"
 #include "ws.h"
+#include "barrier.h"
 #include "nvs_flash.h"
 #include "example_common_private.h"
 #include "esp_http_client.h"
@@ -113,6 +114,7 @@ extern void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habil
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
 extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
+void barrier_task(void *arg);
 void log_input_task(void *arg);
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
 
@@ -259,9 +261,9 @@ void worker(void *p)
     }
 }
 
-static void input_task(void *arg)
+static void door_reader_task(void *arg)
 {
-    static const char *TAG = "inputs";
+    static const char *TAG = "door_reader";
 
     gpio_config_t io = {
         .pin_bit_mask =
@@ -273,12 +275,11 @@ static void input_task(void *arg)
             (1ULL << CAR_GPIO) |
             (1ULL << ALI_GPIO),
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE, // typical for switches
+        .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE};
 
     gpio_config(&io);
-
 
     gpio_config_t io_out = {
         .pin_bit_mask = (1ULL << RELE3_GPIO ) | (1ULL << RELE2_GPIO ) | (1ULL << RELE1_GPIO ),
@@ -318,43 +319,30 @@ static void input_task(void *arg)
         int rele3 = gpio_get_level(RELE3_GPIO);
 
         if (door1 != last_door1 || door2 != last_door2 || rex1 != last_rex1 || rex2 != last_rex2 ||
+            ali != last_ali ||
             rele1 != last_rele1 || rele2 != last_rele2 || rele3 != last_rele3)
         {
-            ws_broadcast_io_status(door1, door2, rex1, rex2, rele1, rele2, rele3);
+            ws_broadcast_io_status(door1, door2, rex1, rex2, ali, rele1, rele2, rele3);
         }
-
-        /*
-        if (++ws_io_seq >= 10)
-        {
-            ws_io_seq = 0;
-            ws_broadcast_io_status(door1, door2, rex1, rex2, rele1, rele2, rele3);
-        }
-            */
 
         if (door1 != last_door1)
         {
             ESP_LOGI(TAG, "Door1: %s", door1 ? "OPEN" : "CLOSED");
-
             dispatch_log_event(5, 1, door1, 0);
-
             last_door1 = door1;
         }
 
         if (door2 != last_door2)
         {
             ESP_LOGI(TAG, "Door2: %s", door2 ? "OPEN" : "CLOSED");
-
             dispatch_log_event(5, 2, door2, 0);
-
             last_door2 = door2;
         }
 
         if (ali != last_ali)
         {
             ESP_LOGI(TAG, "Alimentacion: %s (%d)", ali ? "FALLA" : "OK", ali);
-
             dispatch_log_event(2, 0, ali, 0);
-
             last_ali = ali;
         }
 
@@ -370,20 +358,17 @@ static void input_task(void *arg)
             last_car = car;
         }
 
-        // REQUEST TO EXIT 1 (REX1) & RELAY 1 (Virtual ID: 999100)
         if (rex1 != last_rex1)
         {
             if (!rex1)
-            { // Active low edge trigger
+            { // only trigger on transition to ACTIVE (0)
                 pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
                 ESP_LOGI(TAG, "REX1 activated relay %d", g_config.rex1_relay_number);
             }
-
-            dispatch_log_event(6, 1, rex1, 0);
+            dispatch_log_event(6, 1, rex1, 0);            
             last_rex1 = rex1;
         }
 
-        // REQUEST TO EXIT 2 (REX2) & RELAY 2 (Virtual ID: 999200)
         if (rex2 != last_rex2)
         {
             if (!rex2)
@@ -391,7 +376,7 @@ static void input_task(void *arg)
                 pulse_output_by_relay(g_config.rex2_relay_number, g_config.rex2_relay_duration_ms);
                 ESP_LOGI(TAG, "REX2 activated relay %d", g_config.rex2_relay_number);
             }
-            dispatch_log_event(6, 2, rex2, 0);
+            dispatch_log_event(6, 2, rex2, 0);            
             last_rex2 = rex2;
         }
 
@@ -629,10 +614,16 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
 
-    ESP_LOGI(TAG, "Creating input task");
-    if (xTaskCreate(input_task, "input_task", 4096, NULL, 5, NULL) != pdPASS)
+    ESP_LOGI(TAG, "Creating barrier task");
+    if (xTaskCreate(barrier_task, "barrier_task", 4096, NULL, 5, NULL) != pdPASS)
     {
-        ESP_LOGE(TAG, "Failed to create input task");
+        ESP_LOGE(TAG, "Failed to create barrier task");
+    }
+
+    ESP_LOGI(TAG, "Creating door reader task");
+    if (xTaskCreate(door_reader_task, "door_reader_task", 4096, NULL, 5, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create door reader task");
     }
 
     ESP_LOGI(TAG, "Creating keep alive task");

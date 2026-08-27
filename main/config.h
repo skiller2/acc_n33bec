@@ -16,6 +16,10 @@ extern "C" {
 #define CAR_GPIO GPIO_NUM_35 // AMARILLO (Pulso al morir)
 #define ALI_GPIO GPIO_NUM_36 // ROJO Encendido tiene 220
 
+#define LOOP_GPIO GPIO_NUM_19 // Espira / loop detector
+#define FINISH_UP_GPIO GPIO_NUM_21 // Mechanical finish up switch
+#define FINISH_DOWN_GPIO GPIO_NUM_17 // Mechanical finish down switch
+
 #define PORT1_BUZZER GPIO_NUM_46
 #define PORT2_BUZZER GPIO_NUM_40
 

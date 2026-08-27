@@ -90,7 +90,7 @@ void ws_broadcast_wifi_status(wifi_status_t status, bool connected, const char *
 }
 
 
-void ws_broadcast_io_status(int door1, int door2, int rex1, int rex2, int rele1, int rele2, int rele3)
+void ws_broadcast_io_status(int door1, int door2, int rex1, int rex2, int ali, int rele1, int rele2, int rele3)
 {
     if (!g_server) return;
 
@@ -108,6 +108,7 @@ void ws_broadcast_io_status(int door1, int door2, int rex1, int rex2, int rele1,
     cJSON_AddNumberToObject(io, "door2", door2);
     cJSON_AddNumberToObject(io, "rex1", rex1);
     cJSON_AddNumberToObject(io, "rex2", rex2);
+    cJSON_AddNumberToObject(io, "ali", ali);
     cJSON_AddNumberToObject(io, "rele1", rele1);
     cJSON_AddNumberToObject(io, "rele2", rele2);
     cJSON_AddNumberToObject(io, "rele3", rele3);
@@ -279,7 +280,7 @@ esp_err_t ws_handler(httpd_req_t *req)
                     else if (strcmp((char *)buf, "init") == 0)
                     {
                         wifi_broadcast_state();
-                        ws_broadcast_io_status(gpio_get_level(DOOR1_GPIO), gpio_get_level(DOOR2_GPIO), gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), gpio_get_level(RELE1_GPIO), gpio_get_level(RELE2_GPIO), gpio_get_level(RELE3_GPIO));
+                        ws_broadcast_io_status(gpio_get_level(DOOR1_GPIO), gpio_get_level(DOOR2_GPIO), gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), gpio_get_level(ALI_GPIO), gpio_get_level(RELE1_GPIO), gpio_get_level(RELE2_GPIO), gpio_get_level(RELE3_GPIO));
                     }
                 }
                 free(buf);
