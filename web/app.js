@@ -565,6 +565,22 @@ function appendLiveEntry(card, ts, ok, tipo_habilitacion, time_consuming, port_i
   while (ul.children.length > 50) {
     ul.removeChild(ul.lastChild);
   }
+
+  updateLastCardRead(port_id, card, ok, ts);
+}
+
+function updateLastCardRead(port_id, card, ok, ts) {
+  const elId = port_id === 1 ? 'card-port1' : 'card-port2';
+  const el = document.getElementById(elId);
+  if (!el) return;
+
+  const valueDisplay = wiegand26ToFcCard(card);
+  el.textContent = valueDisplay;
+
+  el.classList.remove('pass', 'deny');
+  if (typeof ok === 'boolean') {
+    el.classList.add(ok ? 'pass' : 'deny');
+  }
 }
 
 let ws = null;

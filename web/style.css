@@ -25,49 +25,75 @@ body { background:#111; color:#eee; font-family:Arial; margin:0; padding:10px; }
 }
 
 .io-panel {
-  max-width: 260px;
-  padding: 4px 3px !important;
+  max-width: 220px;
+  padding: 3px 2px !important;
 }
 
 .io-panel h2 {
   margin-top: 0;
-  margin-bottom: 4px;
-  font-size: 12px;
+  margin-bottom: 2px;
+  font-size: 11px;
 }
 
 .io-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  gap: 3px;
 }
 
 .io-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 9px;
+  font-size: 8px;
   color: #ccc;
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .led {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #444;
   display: inline-block;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   transition: background 0.15s, box-shadow 0.15s;
 }
 
 .led.on {
   background: #00ff00;
-  box-shadow: 0 0 4px #00ff00;
+  box-shadow: 0 0 3px #00ff00;
 }
 
 .led.active {
   background: #ff4444;
-  box-shadow: 0 0 4px #ff4444;
+  box-shadow: 0 0 3px #ff4444;
+}
+
+.card-indicator {
+  width: auto;
+  height: auto;
+  padding: 1px 2px;
+  border-radius: 2px;
+  background: #444;
+  color: #ccc;
+  display: inline-block;
+  font-size: 8px;
+  font-weight: bold;
+  transition: background 0.15s, color 0.15s;
+  min-width: 41px;
+  min-height: 8px;
+  text-align: center;
+}
+
+.card-indicator.pass {
+  background: #00ff00;
+  color: #000;
+}
+
+.card-indicator.deny {
+  background: #ff4444;
+  color: #000;
 }
 
 .tabs {
