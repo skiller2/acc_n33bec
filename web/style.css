@@ -337,7 +337,7 @@ li {
 .barrier-pivot {
   position: absolute;
   left: 10px;
-  top: 50%;
+  top: 70%;
   width: 12px;
   height: 12px;
   background: #666;
@@ -346,18 +346,30 @@ li {
   z-index: 2;
 }
 
+.barrier-base {
+    position: absolute;
+    left: 10px;
+    top: 74%;
+    width: 12px;
+    height: 36px;
+    background: #666666;
+    border-radius: 3px 3px 0 0;
+    /* transform: translateY(-50%); */
+    z-index: 2;
+}
+
 .barrier-arm {
   position: absolute;
   left: 16px;
-  top: 50%;
+  top: 70%;
   width: 90px;
   height: 8px;
-  background: #00ccff;
+  background: #ffaa00;
   border-radius: 2px;
   transform-origin: left center;
   transform: translateY(-50%) rotate(0deg);
   transition: transform 0.3s ease;
-  box-shadow: 0 0 8px #00ccff;
+  box-shadow: 0 0 8px #ffaa00;
 }
 
 .barrier-position {
