@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 void barrier_init(void);
+void force_broadcast_barrier(void);
 void barrier_trigger_open(void);
 void barrier_position_reached_up(void);
 void barrier_position_reached_down(void);

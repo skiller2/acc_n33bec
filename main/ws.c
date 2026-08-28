@@ -4,6 +4,7 @@
 #include "ws.h"
 #include "wifi.h"
 #include "config.h"
+#include "barrier.h"
 #include "driver/gpio.h"
 #include <string.h>
 
@@ -157,6 +158,7 @@ void ws_broadcast_io_status(int door1, int door2, int rex1, int rex2, int ali, i
 
 void ws_broadcast_barrier(int rex1, int rex2, int loop, int finish_up, int finish_down, int rele1, int rele2, int rele3, uint32_t time_up_ms, uint32_t time_down_ms, uint32_t open_hold_ms, int position, int loop_active_high)
 {
+    ESP_LOGI(TAG,"ws_broadcast_barrier");
     if (!g_server) return;
 
     cJSON *json = cJSON_CreateObject();
@@ -350,6 +352,7 @@ esp_err_t ws_handler(httpd_req_t *req)
                     {
                         wifi_broadcast_state();
                         ws_broadcast_io_status(gpio_get_level(DOOR1_GPIO), gpio_get_level(DOOR2_GPIO), gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), gpio_get_level(ALI_GPIO), gpio_get_level(RELE1_GPIO), gpio_get_level(RELE2_GPIO), gpio_get_level(RELE3_GPIO));
+                        force_broadcast_barrier();
                     }
                 }
                 free(buf);
