@@ -33,6 +33,9 @@ static int64_t s_move_start_time = 0;
 static int64_t s_open_start_time = 0;
 static uint8_t s_position_percent = 0;
 
+static bool s_error = false;
+static char s_error_msg[80] = "";
+
 #define BARRIER_SWITCH_DELAY_MS 50
 
 static bool s_last_up = false;
@@ -77,6 +80,9 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
         return;
     }
 
+    s_error = false;
+    s_error_msg[0] = '\0';
+
     if (s_state == BARRIER_OPENING)
     {
         s_state = BARRIER_OPEN;
@@ -90,7 +96,7 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
     {
         int loop_level = gpio_get_level(LOOP_GPIO);
         bool loop_active = g_barrier_config.loop_active_high ? (loop_level == 1) : (loop_level == 0);
-        if (loop_active)
+        if (!loop_active)
         {
             s_state = BARRIER_CLOSING;
             barrier_set_relays(false, true);
@@ -103,7 +109,7 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
         else
         {
             xTimerStart(s_timer, 0);
-            ESP_LOGI(TAG, "Unable to close %d", s_position_percent);
+            ESP_LOGI(TAG, "Unable to close, loop occupied %d", s_position_percent);
         }
     }
     else if (s_state == BARRIER_CLOSING)
@@ -155,6 +161,9 @@ void barrier_trigger_open(void)
         ESP_LOGE(TAG, "barrier_trigger_open: mutex timeout");
         return;
     }
+
+    s_error = false;
+    s_error_msg[0] = '\0';
 
     if (!s_timer)
     {
@@ -215,6 +224,9 @@ void barrier_position_reached_up(void)
         return;
     }
 
+    s_error = false;
+    s_error_msg[0] = '\0';
+
     if (s_state == BARRIER_OPENING)
     {
         int64_t now = esp_timer_get_time();
@@ -251,6 +263,9 @@ void barrier_position_reached_down(void)
         ESP_LOGE(TAG, "barrier_position_reached_down: mutex timeout");
         return;
     }
+
+    s_error = false;
+    s_error_msg[0] = '\0';
 
     if (s_state == BARRIER_CLOSING)
     {
@@ -328,8 +343,13 @@ static int barrier_calculate_position(void)
     return pos;
 }
 
-static void barrier_compute_status(int loop, int finish_up, int finish_down, char *buf, size_t len, uint32_t *remaining_ms)
+static void barrier_update_status(int loop, int finish_up, int finish_down, char *buf, size_t len, uint32_t *remaining_ms, bool *status_changed)
 {
+    if (status_changed)
+    {
+        *status_changed = false;
+    }
+
     if (remaining_ms)
     {
         *remaining_ms = 0;
@@ -347,12 +367,20 @@ static void barrier_compute_status(int loop, int finish_up, int finish_down, cha
         return;
     }
 
+    if (s_error)
+    {
+        snprintf(buf, len, "%s", s_error_msg);
+        xSemaphoreGive(s_mutex);
+        return;
+    }
+
     bool loop_active = g_barrier_config.loop_active_high ? (loop == 1) : (loop == 0);
     bool fin_up_active = (finish_up == 0);
     bool fin_dn_active = (finish_down == 0);
 
     int64_t now = esp_timer_get_time();
     int64_t elapsed_ms = (now - s_move_start_time) / 1000;
+    bool stop_motors = false;
 
     switch (s_state)
     {
@@ -370,10 +398,12 @@ static void barrier_compute_status(int loop, int finish_up, int finish_down, cha
     case BARRIER_OPENING:
         if (fin_up_active)
         {
+            stop_motors = true;
             snprintf(buf, len, "Error: Finish Up active");
         }
         else if (elapsed_ms > (int64_t)g_barrier_config.barrier_opening_ms + 2000)
         {
+            stop_motors = true;
             snprintf(buf, len, "Stuck: opening timeout");
         }
         else
@@ -389,21 +419,20 @@ static void barrier_compute_status(int loop, int finish_up, int finish_down, cha
         }
         else
         {
-            snprintf(buf, len, "Open (hold)");
-        }
-        if (remaining_ms)
-        {
             int64_t hold_elapsed = (now - s_open_start_time) / 1000;
             int64_t remaining = (int64_t)g_barrier_config.barrier_open_ms - hold_elapsed;
             if (remaining < 0)
                 remaining = 0;
-            *remaining_ms = (uint32_t)remaining;
+            if (remaining_ms)
+                *remaining_ms = (uint32_t)remaining;
+            snprintf(buf, len, "Open (hold for %ds)", (int)((remaining + 999) / 1000));
         }
         break;
 
     case BARRIER_CLOSING:
         if (fin_dn_active)
         {
+            stop_motors = true;
             snprintf(buf, len, "Error: Finish Down active");
         }
         else if (loop_active)
@@ -412,6 +441,7 @@ static void barrier_compute_status(int loop, int finish_up, int finish_down, cha
         }
         else if (elapsed_ms > (int64_t)g_barrier_config.barrier_closing_ms + 2000)
         {
+            stop_motors = true;
             snprintf(buf, len, "Stuck: closing timeout");
         }
         else
@@ -423,6 +453,18 @@ static void barrier_compute_status(int loop, int finish_up, int finish_down, cha
     default:
         snprintf(buf, len, "Unknown");
         break;
+    }
+
+    if (stop_motors)
+    {
+        s_error = true;
+        snprintf(s_error_msg, sizeof(s_error_msg), "%s", buf);
+        barrier_set_relays(false, false);
+        xTimerStop(s_timer, 0);
+        s_state = BARRIER_IDLE;
+        if (status_changed)
+            *status_changed = true;
+        ESP_LOGE(TAG, "Barrier motor stopped due to error: %s", s_error_msg);
     }
 
     xSemaphoreGive(s_mutex);
@@ -466,6 +508,7 @@ void barrier_task(void *arg)
     uint8_t last_rele2 = -1;
     uint8_t last_rele3 = -1;
     uint8_t last_position = 0;
+    uint32_t last_remaining_ms = 0;
 
     uint32_t time_up_ms = g_barrier_config.barrier_opening_ms;
     uint32_t time_down_ms = g_barrier_config.barrier_closing_ms;
@@ -564,11 +607,14 @@ void barrier_task(void *arg)
             changed = true;
         }
 
-        if (changed)
+        char status_buf[64];
+        uint32_t remaining_ms = 0;
+        bool status_changed = false;
+        barrier_update_status(loop, finish_up, finish_down, status_buf, sizeof(status_buf), &remaining_ms, &status_changed);
+
+        if (changed || status_changed || (remaining_ms / 1000) != (last_remaining_ms / 1000))
         {
-            char status_buf[64];
-            uint32_t remaining_ms = 0;
-            barrier_compute_status(loop, finish_up, finish_down, status_buf, sizeof(status_buf), &remaining_ms);
+            last_remaining_ms = remaining_ms;
             ws_broadcast_barrier(rex1, rex2, loop, finish_up, finish_down, rele1, rele2, rele3,
                                  time_up_ms, time_down_ms, g_barrier_config.barrier_open_ms, s_position_percent, g_barrier_config.loop_active_high,
                                  status_buf, remaining_ms);
@@ -585,6 +631,6 @@ void force_broadcast_barrier(void)
     int _finish_down = gpio_get_level(FINISH_DOWN_GPIO);
     char status_buf[64];
     uint32_t remaining_ms = 0;
-    barrier_compute_status(_loop, _finish_up, _finish_down, status_buf, sizeof(status_buf), &remaining_ms);
+    barrier_update_status(_loop, _finish_up, _finish_down, status_buf, sizeof(status_buf), &remaining_ms, NULL);
     ws_broadcast_barrier(gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), _loop, _finish_up, _finish_down, gpio_get_level(RELE1_GPIO), gpio_get_level(RELE2_GPIO), gpio_get_level(RELE3_GPIO), s_time_up_ms, s_time_down_ms, g_barrier_config.barrier_open_ms, s_position_percent, g_barrier_config.loop_active_high, status_buf, remaining_ms);
 }

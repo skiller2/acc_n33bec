@@ -245,26 +245,29 @@
     <div class="card">
       <h2>Barrier Control</h2>
       <div class="barrier-layout">
-          <div class="barrier-visual">
-            <div class="barrier-track">
-              <div class="barrier-pivot"></div>
-              <div class="barrier-arm" id="barrier-arm">
-              </div>
-              <div class="barrier-base"></div>
+        <div class="barrier-visual">
+          <div class="barrier-track">
+            <div class="barrier-pivot"></div>
+            <div class="barrier-arm" id="barrier-arm">
             </div>
-            <div class="barrier-visual-right">
-              <div class="barrier-position" id="barrier-position">0%</div>
-              <div class="barrier-status" id="barrier-status">Idle</div>
-              <div class="semaphore-label">Semaphore (RELE3)</div>
-              <div class="barrier-semaphore" id="barrier-semaphore">
-                <div class="semaphore-housing">
-                  <div class="sem-light sem-red on" id="sem-red"></div>
-                  <div class="sem-light sem-green" id="sem-green"></div>
-                </div>
-              </div>
-              <div class="barrier-remaining" id="barrier-remaining"></div>
+            <div class="barrier-base"></div>
+          </div>
+        </div>
+        <div class="barrier-visual-right">
+          <div class="semaphore-label">Semaphore (RELE3)</div>
+          <div class="barrier-semaphore" id="barrier-semaphore">
+            <div class="semaphore-housing">
+              <div class="sem-light sem-red on" id="sem-red"></div>
+              <div class="sem-light sem-green" id="sem-green"></div>
             </div>
           </div>
+        </div>
+        <div class="barrier-visual-right">
+          <div class="barrier-position" id="barrier-position">0%</div>
+          <div class="barrier-status" id="barrier-status">Idle</div>
+        </div>
+
+
         <div class="barrier-panel">
           <div class="barrier-leds">
             <div class="io-item"><span class="led" id="bar-led-rex1"></span><span>REX1</span></div>
@@ -363,7 +366,8 @@
 
     <div class="card">
       <h2>DPP Enrollment (Wi-Fi Easy Connect)</h2>
-      <p>Scan the QR code below with a DPP configurator (e.g. Android Wi-Fi Easy Connect) to provision WiFi credentials.</p>
+      <p>Scan the QR code below with a DPP configurator (e.g. Android Wi-Fi Easy Connect) to provision WiFi credentials.
+      </p>
       <div id="dpp-qrcode" style="margin: 10px 0; min-height: 200px;">Loading QR code...</div>
       <div id="dpp-uri" style="margin-top: 10px; word-break: break-all; font-family: monospace; font-size: 12px;"></div>
       <button onclick="regenerateDppBootstrap()">Regenerate QR Code</button>

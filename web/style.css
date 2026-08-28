@@ -398,13 +398,6 @@ li {
   animation: pulse 1s infinite;
 }
 
-.barrier-remaining {
-  font-size: 11px;
-  color: #aaa;
-  text-align: center;
-  min-height: 16px;
-}
-
 @keyframes pulse {
   0% { opacity: 1; }
   50% { opacity: 0.3; }

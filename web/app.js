@@ -642,18 +642,10 @@ function updateBarrierStatus(io) {
     }
   }
 
-  if (typeof io.remaining_ms === 'number' && io.remaining_ms > 0) {
-    const el = document.getElementById('barrier-remaining');
-    if (el) {
-      el.textContent = 'Closing in ' + (io.remaining_ms / 1000).toFixed(1) + 's';
-    }
-  } else {
-    const el = document.getElementById('barrier-remaining');
-    if (el) el.textContent = '';
-  }
 
   if (typeof io.loop === 'number') {
-    updateBarrierButton('loop', io.loop === 0);
+    var loopActive = io.loop_active_high ? (io.loop === 1) : (io.loop === 0);
+    updateBarrierButton('loop', loopActive);
   }
   if (typeof io.finish_up === 'number') {
     updateBarrierButton('finish_up', io.finish_up === 0);
