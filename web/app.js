@@ -628,6 +628,30 @@ function updateBarrierStatus(io) {
     if (el) el.textContent = io.open_hold_ms;
   }
 
+  if (io.status) {
+    const statusEl = document.getElementById('barrier-status');
+    if (statusEl) {
+      statusEl.textContent = io.status;
+      statusEl.className = 'barrier-status';
+      if (io.status.indexOf('Error') !== -1 || io.status.indexOf('Stuck') !== -1) {
+        statusEl.classList.add('error');
+        if (io.status.indexOf('Stuck') !== -1) {
+          statusEl.classList.add('stuck');
+        }
+      }
+    }
+  }
+
+  if (typeof io.remaining_ms === 'number' && io.remaining_ms > 0) {
+    const el = document.getElementById('barrier-remaining');
+    if (el) {
+      el.textContent = 'Closing in ' + (io.remaining_ms / 1000).toFixed(1) + 's';
+    }
+  } else {
+    const el = document.getElementById('barrier-remaining');
+    if (el) el.textContent = '';
+  }
+
   if (typeof io.loop === 'number') {
     updateBarrierButton('loop', io.loop === 0);
   }

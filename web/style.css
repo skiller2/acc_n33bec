@@ -379,6 +379,38 @@ li {
   text-align: center;
 }
 
+.barrier-status {
+  font-size: 13px;
+  font-weight: bold;
+  color: #ffcc00;
+  text-align: center;
+  min-height: 18px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.barrier-status.error {
+  color: #ff5555;
+}
+
+.barrier-status.stuck {
+  color: #ff5555;
+  animation: pulse 1s infinite;
+}
+
+.barrier-remaining {
+  font-size: 11px;
+  color: #aaa;
+  text-align: center;
+  min-height: 16px;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
 .barrier-visual-right {
   display: flex;
   flex-direction: column;
