@@ -200,14 +200,19 @@ void worker(void *p)
             }
 
             uint64_t now;
+            esp_err_t res = ESP_FAIL;
             now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
             tipo_habilitacion = 'X';
-            esp_err_t res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
-            if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
+            if (g_config.url_n33bec[0] != 0)
+            {
+
                 res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
+                if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
+                    res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
+            }
             int64_t t1 = esp_timer_get_time();
 
-            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %llu us", ok, tipo_habilitacion, t1 - t0);
+            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %llu us, tema:%s", ok, tipo_habilitacion, t1 - t0, g_config.cod_tema);
 
             if (res == ESP_OK)
             {
@@ -216,6 +221,7 @@ void worker(void *p)
             else
             {
                 ok = card_exists(e.card) ? 1 : 0;
+                tipo_habilitacion = 'P';
             }
 
             if (ok)

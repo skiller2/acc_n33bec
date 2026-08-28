@@ -63,7 +63,7 @@ esp_err_t config_save(const config_t *config);
 esp_err_t barrier_config_load(barrier_config_t *config);
 esp_err_t barrier_config_save(const barrier_config_t *config);
 extern barrier_config_t g_barrier_config;
-static config_t g_config = {0};
+extern config_t g_config;
 
 #ifdef __cplusplus
 }
