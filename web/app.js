@@ -416,6 +416,7 @@ function loadInfo() {
     })
     .then(data => {
       const infoContent = document.getElementById('info-content');
+      const infoTitle = document.getElementById('info-title');
       if (!infoContent) return;
 
       let html = '<p><strong>Device ID:</strong> ' + (data.device_id !== undefined ? data.device_id : 'N/A') + '</p>';
@@ -423,6 +424,7 @@ function loadInfo() {
       html += '<p><strong>ETH IP:</strong> ' + (data.eth_ip || 'N/A') + '</p>';
       html += '<p><strong>Uptime:</strong> ' + formatUptime(data.uptime_sec) + '</p>';
 
+      infoTitle.innerHTML = (data.is_barrier)? "Access Barrier":"Access Door"
       infoContent.innerHTML = html;
     })
     .catch(e => {
@@ -640,18 +642,6 @@ function updateBarrierStatus(io) {
         }
       }
     }
-  }
-
-
-  if (typeof io.loop === 'number') {
-    var loopActive = io.loop_active_high ? (io.loop === 1) : (io.loop === 0);
-    updateBarrierButton('loop', loopActive);
-  }
-  if (typeof io.finish_up === 'number') {
-    updateBarrierButton('finish_up', io.finish_up === 0);
-  }
-  if (typeof io.finish_down === 'number') {
-    updateBarrierButton('finish_down', io.finish_down === 0);
   }
 }
 

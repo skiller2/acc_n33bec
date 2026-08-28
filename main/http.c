@@ -1154,6 +1154,7 @@ static esp_err_t get_info(httpd_req_t *req)
     cJSON_AddStringToObject(json, "wifi_ip", wifi_ip);
     cJSON_AddStringToObject(json, "eth_ip", eth_ip);
     cJSON_AddNumberToObject(json, "uptime_sec", uptime_sec);
+    cJSON_AddBoolToObject(json, "is_barrier", IS_BARRIER);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
@@ -1222,7 +1223,7 @@ static esp_err_t get_device_info(httpd_req_t *req)
 
     char device_info_json[1024];
     snprintf(device_info_json, sizeof(device_info_json),
-             "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\",\"rtc_time_ts\":%.0f,\"sntp_time_ts\":%.0f,\"system_time_ts\":%.0f}",
+             "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\",\"rtc_time_ts\":%.0f,\"sntp_time_ts\":%.0f,\"system_time_ts\":%.0f,\"is_barrier\":%d}",
              mac_str,
              (chip_info.model == CHIP_ESP32) ? "ESP32" : (chip_info.model == CHIP_ESP32S2) ? "ESP32S2"
                                                      : (chip_info.model == CHIP_ESP32S3)   ? "ESP32S3"
@@ -1240,7 +1241,8 @@ static esp_err_t get_device_info(httpd_req_t *req)
              flash_mode_str,
              rtc_time_ts,
              sntp_time_ts,
-             system_time_ts);
+             system_time_ts,
+            IS_BARRIER);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, device_info_json);

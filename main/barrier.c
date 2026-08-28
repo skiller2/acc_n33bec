@@ -47,18 +47,6 @@ static bool s_relay_switch_pending = false;
 static bool s_at_finish_up = false;
 static bool s_at_finish_down = false;
 
-static bool barrier_read_finish_up(void)
-{
-    int val = gpio_get_level(FINISH_UP_GPIO);
-    return (val == 0);
-}
-
-static bool barrier_read_finish_down(void)
-{
-    int val = gpio_get_level(FINISH_DOWN_GPIO);
-    return (val == 0);
-}
-
 static bool barrier_read_loop(void)
 {
     int val = gpio_get_level(LOOP_GPIO);
@@ -193,44 +181,6 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
     xSemaphoreGive(s_mutex);
 }
 
-static void barrier_synchronize_startup(void)
-{
-    bool at_up = barrier_read_finish_up();
-    bool at_down = barrier_read_finish_down();
-
-    if (at_up && at_down)
-    {
-        ESP_LOGE(TAG, "Startup: both limit switches active - fault");
-        barrier_set_error("Fault: both limit switches active");
-        return;
-    }
-
-    if (at_up)
-    {
-        s_state = BARRIER_OPEN;
-        s_position_percent = 100;
-        s_at_finish_up = true;
-        s_at_finish_down = false;
-        ESP_LOGI(TAG, "Startup: barrier at OPEN position");
-    }
-    else if (at_down)
-    {
-        s_state = BARRIER_IDLE;
-        s_position_percent = 0;
-        s_at_finish_up = false;
-        s_at_finish_down = true;
-        ESP_LOGI(TAG, "Startup: barrier at CLOSED position");
-    }
-    else
-    {
-        s_state = BARRIER_IDLE;
-        s_position_percent = 0;
-        s_at_finish_up = false;
-        s_at_finish_down = false;
-        ESP_LOGW(TAG, "Startup: barrier position unknown, assuming closed");
-    }
-}
-
 void barrier_init(void)
 {
     s_mutex = xSemaphoreCreateMutex();
@@ -254,7 +204,6 @@ void barrier_init(void)
     }
 
     barrier_stop_relays();
-    barrier_synchronize_startup();
     ESP_LOGI(TAG, "Barrier control initialized, state=%d", s_state);
 }
 
@@ -365,7 +314,6 @@ void barrier_position_reached_up(void)
     s_error = false;
     s_error_msg[0] = '\0';
     s_at_finish_up = true;
-    s_at_finish_down = false;
 
     if (s_state == BARRIER_OPENING)
     {
@@ -418,7 +366,6 @@ void barrier_position_reached_down(void)
     s_error = false;
     s_error_msg[0] = '\0';
     s_at_finish_down = true;
-    s_at_finish_up = false;
 
     if (s_state == BARRIER_CLOSING)
     {
@@ -795,6 +742,12 @@ void barrier_task(void *arg)
                 barrier_position_reached_up();
                 ESP_LOGI(TAG, "Finish up triggered");
             }
+
+            if (!finish_up && !finish_down) {
+                ESP_LOGE(TAG, "Startup: both limit switches active - fault");
+                barrier_set_error("Fault: both limit switches active");
+            }
+
             last_finish_up = finish_up;
             changed = true;
         }
@@ -806,6 +759,12 @@ void barrier_task(void *arg)
                 barrier_position_reached_down();
                 ESP_LOGI(TAG, "Finish down triggered");
             }
+
+            if (!finish_up && !finish_down) {
+                ESP_LOGE(TAG, "Startup: both limit switches active - fault");
+                barrier_set_error("Fault: both limit switches active");
+            }
+
             last_finish_down = finish_down;
             changed = true;
         }
