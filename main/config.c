@@ -297,6 +297,8 @@ esp_err_t barrier_config_save(const barrier_config_t *cfg)
     ESP_LOGI(TAG, "Saved barrier config: opening=%u closing=%u open=%u",
              stored.barrier_opening_ms, stored.barrier_closing_ms, stored.barrier_open_ms);
 
+    barrier_config_load(&g_barrier_config);
+
     return ESP_OK;
 }
 

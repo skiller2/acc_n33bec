@@ -138,7 +138,6 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout)
 {
-    config_load(&g_config);
 
     esp_http_client_config_t config = {
         .url = g_config.url_n33bec,
@@ -208,7 +207,6 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
 {
     if (handle_send_card == NULL)
     {
-        config_load(&g_config);
         *ok = false;
         esp_http_client_config_t config = {
             .url = g_config.url_n33bec,
@@ -475,8 +473,6 @@ static esp_err_t test_relay(httpd_req_t *req)
     uint8_t port_id = 0;
     uint64_t value = 0;
 
-    config_load(&g_config);
-
     if (strcmp(target, "rex1") == 0)
     {
         pulse_output_by_relay(g_config.rex1_relay_number, g_config.rex1_relay_duration_ms);
@@ -724,11 +720,6 @@ static esp_err_t post_config(httpd_req_t *req)
 
 static esp_err_t get_barrier_config(httpd_req_t *req)
 {
-    barrier_config_t cfg;
-    if (barrier_config_load(&cfg) != ESP_OK)
-    {
-        ESP_LOGW(TAG, "get_barrier_config: using defaults");
-    }
 
     cJSON *json = cJSON_CreateObject();
     if (!json)
@@ -737,10 +728,10 @@ static esp_err_t get_barrier_config(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    cJSON_AddNumberToObject(json, "barrier_opening_ms", cfg.barrier_opening_ms);
-    cJSON_AddNumberToObject(json, "barrier_closing_ms", cfg.barrier_closing_ms);
-    cJSON_AddNumberToObject(json, "barrier_open_ms", cfg.barrier_open_ms);
-    cJSON_AddNumberToObject(json, "loop_active_high", cfg.loop_active_high);
+    cJSON_AddNumberToObject(json, "barrier_opening_ms", g_barrier_config.barrier_opening_ms);
+    cJSON_AddNumberToObject(json, "barrier_closing_ms", g_barrier_config.barrier_closing_ms);
+    cJSON_AddNumberToObject(json, "barrier_open_ms", g_barrier_config.barrier_open_ms);
+    cJSON_AddNumberToObject(json, "loop_active_high", g_barrier_config.loop_active_high);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
@@ -851,11 +842,6 @@ static esp_err_t get_version(httpd_req_t *req)
 
 static esp_err_t get_config(httpd_req_t *req)
 {
-    config_t cfg;
-    if (config_load(&cfg) != ESP_OK)
-    {
-        ESP_LOGW(TAG, "get_config: using defaults");
-    }
 
     cJSON *json = cJSON_CreateObject();
     if (!json)
@@ -864,23 +850,23 @@ static esp_err_t get_config(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    cJSON_AddNumberToObject(json, "rex1_relay_gpio", cfg.rex1_relay_number);
-    cJSON_AddNumberToObject(json, "rex2_relay_gpio", cfg.rex2_relay_number);
-    cJSON_AddNumberToObject(json, "port1_relay_gpio", cfg.port1_relay_number);
-    cJSON_AddNumberToObject(json, "port1_relay2_gpio", cfg.port1_relay2_number);
-    cJSON_AddNumberToObject(json, "port2_relay_gpio", cfg.port2_relay_number);
-    cJSON_AddNumberToObject(json, "port2_relay2_gpio", cfg.port2_relay2_number);
-    cJSON_AddNumberToObject(json, "rex1_relay_duration_ms", cfg.rex1_relay_duration_ms);
-    cJSON_AddNumberToObject(json, "rex2_relay_duration_ms", cfg.rex2_relay_duration_ms);
-    cJSON_AddNumberToObject(json, "port1_relay_duration_ms", cfg.port1_relay_duration_ms);
-    cJSON_AddNumberToObject(json, "port1_relay2_duration_ms", cfg.port1_relay2_duration_ms);
-    cJSON_AddNumberToObject(json, "port2_relay_duration_ms", cfg.port2_relay_duration_ms);
-    cJSON_AddNumberToObject(json, "port2_relay2_duration_ms", cfg.port2_relay2_duration_ms);
-    cJSON_AddStringToObject(json, "url_n33bec", cfg.url_n33bec);
-    cJSON_AddStringToObject(json, "cod_tema", cfg.cod_tema);
-    cJSON_AddNumberToObject(json, "input_debounce_ms", cfg.input_debounce_ms);
-    cJSON_AddNumberToObject(json, "device_id", cfg.device_id);
-    cJSON_AddNumberToObject(json, "keep_alive_secs", cfg.keep_alive_secs);
+    cJSON_AddNumberToObject(json, "rex1_relay_gpio", g_config.rex1_relay_number);
+    cJSON_AddNumberToObject(json, "rex2_relay_gpio", g_config.rex2_relay_number);
+    cJSON_AddNumberToObject(json, "port1_relay_gpio", g_config.port1_relay_number);
+    cJSON_AddNumberToObject(json, "port1_relay2_gpio", g_config.port1_relay2_number);
+    cJSON_AddNumberToObject(json, "port2_relay_gpio", g_config.port2_relay_number);
+    cJSON_AddNumberToObject(json, "port2_relay2_gpio", g_config.port2_relay2_number);
+    cJSON_AddNumberToObject(json, "rex1_relay_duration_ms", g_config.rex1_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "rex2_relay_duration_ms", g_config.rex2_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "port1_relay_duration_ms", g_config.port1_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "port1_relay2_duration_ms", g_config.port1_relay2_duration_ms);
+    cJSON_AddNumberToObject(json, "port2_relay_duration_ms", g_config.port2_relay_duration_ms);
+    cJSON_AddNumberToObject(json, "port2_relay2_duration_ms", g_config.port2_relay2_duration_ms);
+    cJSON_AddStringToObject(json, "url_n33bec", g_config.url_n33bec);
+    cJSON_AddStringToObject(json, "cod_tema", g_config.cod_tema);
+    cJSON_AddNumberToObject(json, "input_debounce_ms", g_config.input_debounce_ms);
+    cJSON_AddNumberToObject(json, "device_id", g_config.device_id);
+    cJSON_AddNumberToObject(json, "keep_alive_secs", g_config.keep_alive_secs);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
@@ -1138,11 +1124,6 @@ static esp_err_t reboot_handler(httpd_req_t *req)
 
 static esp_err_t get_info(httpd_req_t *req)
 {
-    config_t cfg;
-    if (config_load(&cfg) != ESP_OK)
-    {
-        ESP_LOGW(TAG, "get_info: using defaults");
-    }
 
     char wifi_ip[16] = {0};
     wifi_get_ip(wifi_ip, sizeof(wifi_ip));
@@ -1169,7 +1150,7 @@ static esp_err_t get_info(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    cJSON_AddNumberToObject(json, "device_id", cfg.device_id);
+    cJSON_AddNumberToObject(json, "device_id", g_config.device_id);
     cJSON_AddStringToObject(json, "wifi_ip", wifi_ip);
     cJSON_AddStringToObject(json, "eth_ip", eth_ip);
     cJSON_AddNumberToObject(json, "uptime_sec", uptime_sec);
