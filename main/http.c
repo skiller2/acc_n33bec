@@ -1190,11 +1190,11 @@ static esp_err_t get_device_info(httpd_req_t *req)
     esp_flash_get_size(NULL, &flash_size);
 
 #if CONFIG_ESPTOOLPY_FLASHFREQ_40M
-    const char *flash_speed_str = "40";
+    const char *flash_speed_str = "40M";
 #elif CONFIG_ESPTOOLPY_FLASHFREQ_80M
-    const char *flash_speed_str = "80";
+    const char *flash_speed_str = "80M";
 #elif CONFIG_ESPTOOLPY_FLASHFREQ_120M
-    const char *flash_speed_str = "120";
+    const char *flash_speed_str = "120M";
 #else
     const char *flash_speed_str = "unknown";
 #endif
