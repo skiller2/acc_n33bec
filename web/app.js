@@ -148,45 +148,16 @@ function triggerBarrier(target) {
     .catch(e => setStatus('Barrier error: ' + e, 'error'));
 }
 
-const barrierSimState = {
-  loop: false,
-  finish_up: false,
-  finish_down: false
-};
-
 function toggleBarrier(target) {
-  barrierSimState[target] = !barrierSimState[target];
-  const state = barrierSimState[target];
-
   fetch('/barrier', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target: target, state: state })
+    body: JSON.stringify({ target: target, state: 0 })
   })
     .then(r => r.text())
     .then(txt => {
-      if (txt === 'OK') {
-        updateBarrierButton(target, state);
-        setStatus('Barrier ' + target + ' ' + (state ? 'ON' : 'OFF'), 'success');
-      } else {
-        setStatus('Error: ' + txt, 'error');
-      }
     })
     .catch(e => setStatus('Barrier error: ' + e, 'error'));
-}
-
-function updateBarrierButton(target, state) {
-  const btnId = target === 'loop' ? 'btn-loop' :
-    target === 'finish_up' ? 'btn-finish-up' :
-      target === 'finish_down' ? 'btn-finish-down' : null;
-  const btn = document.getElementById(btnId);
-  if (btn) {
-    if (state) {
-      btn.classList.add('on');
-    } else {
-      btn.classList.remove('on');
-    }
-  }
 }
 
 function loadConfig() {
@@ -280,6 +251,9 @@ function loadBarrierConfig() {
       document.getElementById('barrier_opening_ms').value = cfg.barrier_opening_ms;
       document.getElementById('barrier_closing_ms').value = cfg.barrier_closing_ms;
       document.getElementById('barrier_open_ms').value = cfg.barrier_open_ms;
+      if (cfg.loop_active_high !== undefined) {
+        document.getElementById('loop_active_high').value = cfg.loop_active_high;
+      }
       setStatus('Barrier config loaded', 'success');
     })
     .catch(e => setStatus('Load barrier error: ' + e, 'error'));
@@ -289,7 +263,8 @@ function saveBarrierConfig() {
   const cfg = {
     barrier_opening_ms: parseInt(document.getElementById('barrier_opening_ms').value),
     barrier_closing_ms: parseInt(document.getElementById('barrier_closing_ms').value),
-    barrier_open_ms: parseInt(document.getElementById('barrier_open_ms').value)
+    barrier_open_ms: parseInt(document.getElementById('barrier_open_ms').value),
+    loop_active_high: parseInt(document.getElementById('loop_active_high').value)
   };
 
   fetch('/barrier_config', {
@@ -596,7 +571,7 @@ function updateBarrierStatus(io) {
   const ledMap = {
     rex1: { el: 'bar-led-rex1', activeHigh: false },
     rex2: { el: 'bar-led-rex2', activeHigh: false },
-    loop: { el: 'bar-led-loop', activeHigh: false },
+     loop: { el: 'bar-led-loop', activeHigh: !!io.loop_active_high },
     finish_up: { el: 'bar-led-finish-up', activeHigh: false },
     finish_down: { el: 'bar-led-finish-down', activeHigh: false },
     rele1: { el: 'bar-led-rele1', activeHigh: true },

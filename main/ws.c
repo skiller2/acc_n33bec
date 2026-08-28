@@ -155,7 +155,7 @@ void ws_broadcast_io_status(int door1, int door2, int rex1, int rex2, int ali, i
     }
 }
 
-void ws_broadcast_barrier(int rex1, int rex2, int loop, int finish_up, int finish_down, int rele1, int rele2, int rele3, uint32_t time_up_ms, uint32_t time_down_ms, uint32_t open_hold_ms, int position)
+void ws_broadcast_barrier(int rex1, int rex2, int loop, int finish_up, int finish_down, int rele1, int rele2, int rele3, uint32_t time_up_ms, uint32_t time_down_ms, uint32_t open_hold_ms, int position, int loop_active_high)
 {
     if (!g_server) return;
 
@@ -180,6 +180,7 @@ void ws_broadcast_barrier(int rex1, int rex2, int loop, int finish_up, int finis
     cJSON_AddNumberToObject(io, "time_down_ms", time_down_ms);
     cJSON_AddNumberToObject(io, "open_hold_ms", open_hold_ms);
     cJSON_AddNumberToObject(io, "position", position);
+    cJSON_AddNumberToObject(io, "loop_active_high", loop_active_high);
 
     cJSON_AddItemToObject(json, "barrier", io);
 

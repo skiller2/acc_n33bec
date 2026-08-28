@@ -221,13 +221,14 @@ esp_err_t config_load(config_t *config)
 static const char *BARRIER_NVS_NAMESPACE = "barrier_config";
 static const char *BARRIER_NVS_KEY = "config";
 static const uint32_t BARRIER_CONFIG_MAGIC = 0x4241524E; // 'BARN'
-static const uint8_t BARRIER_CONFIG_VERSION = 1;
+static const uint8_t BARRIER_CONFIG_VERSION = 2;
 
 static void barrier_set_defaults(barrier_config_t *cfg)
 {
     cfg->barrier_opening_ms = 3000;
     cfg->barrier_closing_ms = 3000;
     cfg->barrier_open_ms = 5000;
+    cfg->loop_active_high = 0;
 }
 
 esp_err_t barrier_config_load(barrier_config_t *cfg)
@@ -258,6 +259,7 @@ esp_err_t barrier_config_load(barrier_config_t *cfg)
     cfg->barrier_opening_ms = stored.barrier_opening_ms;
     cfg->barrier_closing_ms = stored.barrier_closing_ms;
     cfg->barrier_open_ms = stored.barrier_open_ms;
+    cfg->loop_active_high = stored.loop_active_high;
 
     return ESP_OK;
 }
@@ -273,7 +275,8 @@ esp_err_t barrier_config_save(const barrier_config_t *cfg)
         .version = BARRIER_CONFIG_VERSION,
         .barrier_opening_ms = cfg->barrier_opening_ms,
         .barrier_closing_ms = cfg->barrier_closing_ms,
-        .barrier_open_ms = cfg->barrier_open_ms
+        .barrier_open_ms = cfg->barrier_open_ms,
+        .loop_active_high = cfg->loop_active_high
     };
 
     nvs_handle_t nvs = 0;

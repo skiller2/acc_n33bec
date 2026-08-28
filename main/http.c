@@ -558,30 +558,21 @@ static esp_err_t simulate_barrier(httpd_req_t *req)
     }
     else if (strcmp(target, "loop") == 0)
     {
-        cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
-        bool on = state ? (bool)cJSON_IsTrue(state) : true;
-        barrier_set_simulated(on, false, false);
-        if (on) {
-            barrier_trigger_open();
-        }
+        //cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        //bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        gpio_set_level(LOOP_GPIO,!gpio_get_level(LOOP_GPIO));
     }
     else if (strcmp(target, "finish_up") == 0)
     {
-        cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
-        bool on = state ? (bool)cJSON_IsTrue(state) : true;
-        barrier_set_simulated(false, on, false);
-        if (on) {
-            barrier_position_reached_up();
-        }
+        //cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        //bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        gpio_set_level(FINISH_UP_GPIO,!gpio_get_level(FINISH_UP_GPIO));
     }
     else if (strcmp(target, "finish_down") == 0)
     {
-        cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
-        bool on = state ? (bool)cJSON_IsTrue(state) : true;
-        barrier_set_simulated(false, false, on);
-        if (on) {
-            barrier_position_reached_down();
-        }
+        //cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        //bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        gpio_set_level(FINISH_DOWN_GPIO,!gpio_get_level(FINISH_DOWN_GPIO));
     }
     else
     {
@@ -749,6 +740,7 @@ static esp_err_t get_barrier_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "barrier_opening_ms", cfg.barrier_opening_ms);
     cJSON_AddNumberToObject(json, "barrier_closing_ms", cfg.barrier_closing_ms);
     cJSON_AddNumberToObject(json, "barrier_open_ms", cfg.barrier_open_ms);
+    cJSON_AddNumberToObject(json, "loop_active_high", cfg.loop_active_high);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
@@ -815,6 +807,10 @@ static esp_err_t post_barrier_config(httpd_req_t *req)
     item = cJSON_GetObjectItemCaseSensitive(json, "barrier_open_ms");
     if (cJSON_IsNumber(item))
         cfg.barrier_open_ms = (uint32_t)item->valuedouble;
+
+    item = cJSON_GetObjectItemCaseSensitive(json, "loop_active_high");
+    if (cJSON_IsNumber(item))
+        cfg.loop_active_high = (uint8_t)(item->valuedouble ? 1 : 0);
 
     cJSON_Delete(json);
 

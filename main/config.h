@@ -16,7 +16,7 @@ extern "C" {
 #define CAR_GPIO GPIO_NUM_35 // AMARILLO (Pulso al morir)
 #define ALI_GPIO GPIO_NUM_36 // ROJO Encendido tiene 220
 
-#define LOOP_GPIO GPIO_NUM_19 // Espira / loop detector
+#define LOOP_GPIO GPIO_NUM_36 // Espira / loop detector
 #define FINISH_UP_GPIO GPIO_NUM_21 // Mechanical finish up switch
 #define FINISH_DOWN_GPIO GPIO_NUM_17 // Mechanical finish down switch
 
@@ -51,10 +51,11 @@ typedef struct {
 
 typedef struct {
     uint32_t magic;
-    uint8_t version;
+    uint8_t version;    
     uint32_t barrier_opening_ms;
     uint32_t barrier_closing_ms;
     uint32_t barrier_open_ms;
+    uint8_t loop_active_high;  /* 0 = LOW sensed as object, 1 = HIGH sensed as object */
 } barrier_config_t;
 
 esp_err_t config_load(config_t *config);

@@ -282,13 +282,6 @@ static int barrier_calculate_position(void)
     return pos;
 }
 
-void barrier_set_simulated(bool loop, bool finish_up, bool finish_down)
-{
-    gpio_set_level(LOOP_GPIO,loop);
-    gpio_set_level(FINISH_UP_GPIO,finish_up);
-    gpio_set_level(FINISH_DOWN_GPIO,finish_down);
-}
-
 void barrier_task(void *arg)
 {
     (void)arg;
@@ -301,8 +294,8 @@ void barrier_task(void *arg)
             (1ULL << LOOP_GPIO) |
             (1ULL << FINISH_UP_GPIO) |
             (1ULL << FINISH_DOWN_GPIO),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .mode = GPIO_MODE_INPUT_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,  
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
@@ -365,7 +358,8 @@ void barrier_task(void *arg)
         }
 
         if (loop != last_loop) {
-            if (!loop) {
+            bool loop_triggered = g_barrier_config.loop_active_high ? (loop == 1) : (loop == 0);
+            if (loop_triggered) {
                 barrier_trigger_open();
                 ESP_LOGI(TAG, "Loop detector triggered");
             }
@@ -412,7 +406,7 @@ void barrier_task(void *arg)
         }
 
         if (changed) {
-            ws_broadcast_barrier(rex1, rex2, loop, finish_up, finish_down, rele1, rele2, rele3, time_up_ms, time_down_ms, g_barrier_config.barrier_open_ms, position);
+            ws_broadcast_barrier(rex1, rex2, loop, finish_up, finish_down, rele1, rele2, rele3, time_up_ms, time_down_ms, g_barrier_config.barrier_open_ms, position, g_barrier_config.loop_active_high);
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));

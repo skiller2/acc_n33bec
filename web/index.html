@@ -247,16 +247,19 @@
       <div class="barrier-layout">
           <div class="barrier-visual">
             <div class="barrier-track">
+              <div class="barrier-position" id="barrier-position">0%</div>
               <div class="barrier-pivot"></div>
-              <div class="barrier-arm" id="barrier-arm"></div>
+              <div class="barrier-arm" id="barrier-arm">
+              </div>
               <div class="barrier-base"></div>
             </div>
-            <div class="barrier-position" id="barrier-position">0%</div>
-            <div class="semaphore-label">Semaphore (RELE3)</div>
-            <div class="barrier-semaphore" id="barrier-semaphore">
-              <div class="semaphore-housing">
-                <div class="sem-light sem-red on" id="sem-red"></div>
-                <div class="sem-light sem-green" id="sem-green"></div>
+            <div class="barrier-visual-right">
+              <div class="semaphore-label">Semaphore (RELE3)</div>
+              <div class="barrier-semaphore" id="barrier-semaphore">
+                <div class="semaphore-housing">
+                  <div class="sem-light sem-red on" id="sem-red"></div>
+                  <div class="sem-light sem-green" id="sem-green"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -299,6 +302,15 @@
         </label>
         <label>Keep Open (ms):
           <input type="number" id="barrier_open_ms" min="0" max="60000">
+        </label>
+      </div>
+      <div class="config-section">
+        <h3>Sensor Loop Logic</h3>
+        <label>Sensing Object:
+          <select id="loop_active_high">
+            <option value="0">LOW (0 = object detected)</option>
+            <option value="1">HIGH (1 = object detected)</option>
+          </select>
         </label>
       </div>
       <div class="config-buttons">
