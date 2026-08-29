@@ -31,7 +31,6 @@ static SemaphoreHandle_t s_mutex = NULL;
 static uint32_t s_time_up_ms = 0;
 static uint32_t s_time_down_ms = 0;
 static int64_t s_move_start_time = 0;
-static uint8_t s_position_percent = 0;
 
 static int64_t s_open_expire_time = 0;
 
@@ -147,7 +146,7 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
     {
         s_state = BARRIER_OPEN;
         s_open_expire_time = esp_timer_get_time() + ((int64_t)g_barrier_config.barrier_open_ms * 1000);
-        s_position_percent = 100;
+        //s_position_percent = 100;
         barrier_stop_relays();
 
         xTimerChangePeriod(s_timer, pdMS_TO_TICKS(g_barrier_config.barrier_open_ms), 0);
@@ -163,7 +162,7 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
             barrier_set_relays(false, true);
             s_move_start_time = esp_timer_get_time();
             s_move_timeout = false;
-            s_position_percent = 100;
+            //s_position_percent = 100;
             xTimerChangePeriod(s_timer, pdMS_TO_TICKS(g_barrier_config.barrier_closing_ms), 0);
             xTimerStart(s_timer, 0);
             ESP_LOGI(TAG, "Barrier closing");
@@ -172,7 +171,7 @@ static void barrier_timer_cb(TimerHandle_t xTimer)
         {
             s_open_expire_time = esp_timer_get_time() + ((int64_t)g_barrier_config.barrier_open_ms * 1000);
             xTimerStart(s_timer, 0);
-            ESP_LOGI(TAG, "Unable to close, loop occupied %d", s_position_percent);
+            ESP_LOGI(TAG, "Unable to close, loop occupied");
         }
     }
     else if (s_state == BARRIER_CLOSING)
@@ -315,7 +314,7 @@ void barrier_trigger_open(void)
         }
         else
         {
-            s_position_percent = 0;
+            //s_position_percent = 0;
             s_move_start_time = esp_timer_get_time();
 
             xTimerChangePeriod(
@@ -368,7 +367,7 @@ void barrier_position_reached_up(void)
         }
         s_state = BARRIER_OPEN;
         s_open_expire_time = esp_timer_get_time() + ((int64_t)g_barrier_config.barrier_open_ms * 1000);
-        s_position_percent = 100;
+        //s_position_percent = 100;
         barrier_stop_relays();
         if (s_timer)
         {
@@ -414,7 +413,7 @@ void barrier_position_reached_down(void)
             s_time_down_ms = (uint32_t)elapsed_ms;
         }
         s_state = BARRIER_IDLE;
-        s_position_percent = 0;
+        //s_position_percent = 0;
         barrier_stop_relays();
         if (s_timer)
         {
@@ -429,7 +428,7 @@ void barrier_position_reached_down(void)
     else
     {
         s_state = BARRIER_IDLE;
-        s_position_percent = 0;
+        //s_position_percent = 0;
         ESP_LOGI(TAG, "Rich Down s_position_percent = 0");
         barrier_stop_relays();
     }
@@ -793,8 +792,8 @@ void barrier_task(void *arg)
             last_rele3 = rele3;
             changed = true;
         }
-
-        s_position_percent = barrier_calculate_position();
+ 
+        uint8_t s_position_percent = barrier_calculate_position();
 
         int pos_diff = s_position_percent - last_position;
         if (pos_diff < 0)
@@ -831,5 +830,5 @@ void force_broadcast_barrier(void)
     char status_buf[64];
     uint32_t remaining_ms = 0;
     barrier_update_status(_loop, _finish_up, _finish_down, status_buf, sizeof(status_buf), &remaining_ms, NULL);
-    ws_broadcast_barrier(gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), _loop, _finish_up, _finish_down, gpio_get_level(RELE1_GPIO), gpio_get_level(RELE2_GPIO), gpio_get_level(RELE3_GPIO), s_time_up_ms, s_time_down_ms, g_barrier_config.barrier_open_ms, s_position_percent, g_barrier_config.loop_active_high, status_buf, remaining_ms);
+    ws_broadcast_barrier(gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), _loop, _finish_up, _finish_down, gpio_get_level(RELE1_GPIO), gpio_get_level(RELE2_GPIO), gpio_get_level(RELE3_GPIO), s_time_up_ms, s_time_down_ms, g_barrier_config.barrier_open_ms, 0, g_barrier_config.loop_active_high, status_buf, remaining_ms);
 }
