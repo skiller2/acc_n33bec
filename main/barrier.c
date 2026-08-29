@@ -798,7 +798,7 @@ void barrier_task(void *arg)
         int pos_diff = s_position_percent - last_position;
         if (pos_diff < 0)
             pos_diff = -pos_diff;
-        if (pos_diff >= 10)
+        if (pos_diff >= 5)
         {
             last_position = s_position_percent;
 
