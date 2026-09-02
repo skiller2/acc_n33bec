@@ -38,9 +38,13 @@ void initialize_sntp(void)
     ESP_LOGI(TAG, "Initializing SNTP");
 
     esp_sntp_config_t config =
-        ESP_NETIF_SNTP_DEFAULT_CONFIG_MULTIPLE(
-            1,
-            ESP_SNTP_SERVER_LIST("pool.ntp.org"));
+        ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+
+    config.server_from_dhcp = false;
+    config.smooth_sync = false;
+    config.start = true;
+    config.wait_for_sync = true;
+
 
     esp_err_t err = esp_netif_sntp_init(&config);
     ESP_LOGI(TAG, "esp_netif_sntp_init() = %s", esp_err_to_name(err));
@@ -49,14 +53,14 @@ void initialize_sntp(void)
 static esp_err_t obtain_time(void)
 {
     int retry = 0;
-    const int retry_count = 10;
+    const int retry_count = 15;
 
     esp_err_t err;
 
-    while ((err = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(2000))) != ESP_OK &&
+    while ((err = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(5000))) != ESP_OK &&
            ++retry < retry_count) {
 
-        ESP_LOGI(TAG,
+        ESP_LOGW(TAG,
                  "sync_wait() = %s (%d/%d)",
                  esp_err_to_name(err),
                  retry,
@@ -109,10 +113,10 @@ exit:
     esp_netif_sntp_deinit();
 
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Error updating time in nvs");
+        ESP_LOGE(TAG, "Error updating time");
     } else {
         _isTimeNTP = true;
-        ESP_LOGI(TAG, "Updated time in NVS");
+        ESP_LOGI(TAG, "Updated time");
     }
     return err;
 }
@@ -151,35 +155,3 @@ exit:
     return err;
 }
 
-bool rtc_is_initialized(void)
-{
-    nvs_handle_t handle;
-    uint8_t value = 0;
-
-    if (nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &handle) != ESP_OK)
-        return false;
-
-    esp_err_t err = nvs_get_u8(handle, KEY_RTC_INIT, &value);
-
-    nvs_close(handle);
-
-    return (err == ESP_OK && value == 1);
-}
-
-esp_err_t rtc_set_initialized(void)
-{
-    nvs_handle_t handle;
-
-    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &handle);
-    if (err != ESP_OK)
-        return err;
-
-    err = nvs_set_u8(handle, KEY_RTC_INIT, 1);
-
-    if (err == ESP_OK)
-        err = nvs_commit(handle);
-
-    nvs_close(handle);
-
-    return err;
-}

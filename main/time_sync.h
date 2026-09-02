@@ -25,10 +25,6 @@ esp_err_t fetch_and_store_time_in_nvs(void*);
 
 
 void initialize_sntp(void);
-
-bool rtc_is_initialized(void);
-esp_err_t rtc_set_initialized(void);
-
 bool isTimeNTP(void);
 
 #ifdef __cplusplus
