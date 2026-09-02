@@ -663,6 +663,137 @@ function regenerateDppBootstrap() {
     });
 }
 
+function authModeToStr(m) {
+  const map = {
+    0: 'OPEN', 1: 'WEP', 2: 'WPA_PSK', 3: 'WPA2_PSK',
+    5: 'WPA2_ENTERPRISE', 6: 'WPA3_PSK', 7: 'WPA2_WPA3_PSK'
+  };
+  return map[m] || ('AUTH_' + m);
+}
+
+function scanWifiNetworks() {
+  const statusDiv = document.getElementById('wifi-scan-status');
+  const list = document.getElementById('wifi-scan-results');
+  statusDiv.innerHTML = '<p class="status">Scanning...</p>';
+  list.innerHTML = '';
+
+  fetch('/wifi/scan')
+    .then(r => r.json())
+    .then(aps => {
+      statusDiv.innerHTML = '<p class="status success">Found ' + aps.length + ' network(s)</p>';
+      aps.sort((a, b) => b.rssi - a.rssi);
+      for (const ap of aps) {
+        const li = document.createElement('li');
+        li.style.marginBottom = '6px';
+        const ssid = (ap.ssid && ap.ssid.length) ? ap.ssid : '(hidden)';
+        const auth = authModeToStr(ap.authmode);
+        const sec = ap.authmode === 0 ? '' : ' 🔒';
+        li.innerHTML = '<strong>' + escapeHtml(ssid) + '</strong>'
+          + sec + ' — ch ' + ap.channel + ', ' + ap.rssi + ' dBm, ' + auth
+          + ' <button style="margin-left:8px; padding:2px 8px;" '
+          + 'onclick="useScanResult(\'' + escapeAttr(ssid) + '\')">Use</button>';
+        list.appendChild(li);
+      }
+    })
+    .catch(e => {
+      statusDiv.innerHTML = '<p class="status error">Error: ' + e + '</p>';
+    });
+}
+
+function useScanResult(ssid) {
+  document.getElementById('wifi-ssid').value = ssid;
+  document.getElementById('wifi-password').focus();
+}
+
+function connectWifi() {
+  const ssid = document.getElementById('wifi-ssid').value.trim();
+  const password = document.getElementById('wifi-password').value;
+  const statusDiv = document.getElementById('wifi-connect-status');
+
+  if (!ssid) {
+    statusDiv.innerHTML = '<p class="status error">SSID is required</p>';
+    return;
+  }
+
+  statusDiv.innerHTML = '<p class="status">Connecting to "' + escapeHtml(ssid) + '"...</p>';
+
+  fetch('/wifi/connect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ssid: ssid, password: password })
+  })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        statusDiv.innerHTML = '<p class="status success">Connect requested. Watch WiFi status above for the result.</p>';
+      } else {
+        statusDiv.innerHTML = '<p class="status error">' + escapeHtml(txt) + '</p>';
+      }
+    })
+    .catch(e => {
+      statusDiv.innerHTML = '<p class="status error">Error: ' + e + '</p>';
+    });
+}
+
+function loadWifiCredentials() {
+  const statusDiv = document.getElementById('wifi-connect-status');
+  statusDiv.innerHTML = '<p class="status">Loading...</p>';
+
+  fetch('/wifi/credentials')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.configured) {
+        document.getElementById('wifi-ssid').value = data.ssid || '';
+        statusDiv.innerHTML = '<p class="status success">Loaded saved credentials.</p>';
+      } else {
+        statusDiv.innerHTML = '<p class="status">No saved credentials.</p>';
+      }
+    })
+    .catch(e => {
+      statusDiv.innerHTML = '<p class="status error">Error: ' + e + '</p>';
+    });
+}
+
+function clearWifiCredentials() {
+  const statusDiv = document.getElementById('wifi-connect-status');
+  if (!confirm('Clear saved WiFi credentials?')) return;
+
+  fetch('/wifi/credentials', { method: 'DELETE' })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        document.getElementById('wifi-ssid').value = '';
+        document.getElementById('wifi-password').value = '';
+        statusDiv.innerHTML = '<p class="status success">Saved credentials cleared.</p>';
+      } else {
+        statusDiv.innerHTML = '<p class="status error">' + escapeHtml(txt) + '</p>';
+      }
+    })
+    .catch(e => {
+      statusDiv.innerHTML = '<p class="status error">Error: ' + e + '</p>';
+    });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escapeAttr(s) {
+  return String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const cb = document.getElementById('wifi-show-pass');
+  const pw = document.getElementById('wifi-password');
+  if (cb && pw) {
+    cb.addEventListener('change', () => {
+      pw.type = cb.checked ? 'text' : 'password';
+    });
+  }
+});
+
 async function waitForFirmwareApplied() {
   const maxRetries = 60;
 

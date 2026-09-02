@@ -365,6 +365,35 @@
     </div>
 
     <div class="card">
+      <h2>WiFi Station Configuration</h2>
+      <p>Configure the device to connect to a WiFi access point. Credentials are stored in NVS and applied immediately.</p>
+      <div style="margin-top: 10px;">
+        <label for="wifi-ssid"><strong>SSID:</strong></label>
+        <input type="text" id="wifi-ssid" placeholder="Network name" style="width: 100%; padding: 6px; margin-top: 4px;">
+      </div>
+      <div style="margin-top: 10px;">
+        <label for="wifi-password"><strong>Password:</strong></label>
+        <input type="password" id="wifi-password" placeholder="Leave empty for open networks" style="width: 100%; padding: 6px; margin-top: 4px;">
+        <label style="display:block; margin-top:4px; font-size:12px;">
+          <input type="checkbox" id="wifi-show-pass"> Show password
+        </label>
+      </div>
+      <div style="margin-top: 12px;">
+        <button onclick="connectWifi()">Connect</button>
+        <button onclick="loadWifiCredentials()">Load saved</button>
+        <button onclick="clearWifiCredentials()">Clear saved</button>
+      </div>
+      <div id="wifi-connect-status" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Available Networks</h2>
+      <button onclick="scanWifiNetworks()">Scan</button>
+      <div id="wifi-scan-status" style="margin-top: 8px;"></div>
+      <ul id="wifi-scan-results" style="margin-top: 10px; padding-left: 20px;"></ul>
+    </div>
+
+    <div class="card">
       <h2>DPP Enrollment (Wi-Fi Easy Connect)</h2>
       <p>Scan the QR code below with a DPP configurator (e.g. Android Wi-Fi Easy Connect) to provision WiFi credentials.
       </p>

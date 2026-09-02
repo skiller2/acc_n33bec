@@ -19,6 +19,9 @@
 #include "esp_dpp.h"
 #include "esp_wifi_types.h"
 #include "connect.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "cJSON.h"
 
 #ifdef CONFIG_ESP_DPP_ENABLE_QRCODE
 #include "qrcode.h"
@@ -49,8 +52,9 @@
 #define MAX_SSID_LEN     32
 #define MAX_IP_LEN       16
 
-static bool s_wifi_stopped_by_ethernet = false;
 static const char *TAG = "wifi_dpp";
+
+static int s_disconnect_retry_count = 0;
 
 static wifi_status_t s_wifi_status = WIFI_STATUS_DISCONNECTED;
 static char s_dpp_uri[MAX_DPP_URI_LEN] = {0};
@@ -58,6 +62,233 @@ static char s_connected_ssid[MAX_SSID_LEN + 1] = {0};
 static char s_ip_str[MAX_IP_LEN] = {0};
 static SemaphoreHandle_t s_wifi_mutex = NULL;
 static bool s_dpp_initialized = false;
+static bool s_wifi_driver_started = false;
+static bool s_wifi_stopped_by_ethernet = false;
+
+#define WIFI_NVS_NAMESPACE "wifi_creds"
+#define WIFI_NVS_KEY_SSID  "ssid"
+#define WIFI_NVS_KEY_PASS  "password"
+
+esp_err_t wifi_get_credentials(char *ssid_buf, size_t ssid_buf_len,
+                               char *pass_buf, size_t pass_buf_len)
+{
+    if (!ssid_buf || !pass_buf || ssid_buf_len == 0 || pass_buf_len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    ssid_buf[0] = '\0';
+    pass_buf[0] = '\0';
+
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(WIFI_NVS_NAMESPACE, NVS_READONLY, &nvs);
+    if (err != ESP_OK) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    size_t s_len = ssid_buf_len;
+    size_t p_len = pass_buf_len;
+    esp_err_t err_s = nvs_get_str(nvs, WIFI_NVS_KEY_SSID, ssid_buf, &s_len);
+    esp_err_t err_p = nvs_get_str(nvs, WIFI_NVS_KEY_PASS, pass_buf, &p_len);
+    nvs_close(nvs);
+
+    if (err_s != ESP_OK || err_p != ESP_OK || ssid_buf[0] == '\0') {
+        ssid_buf[0] = '\0';
+        pass_buf[0] = '\0';
+        return ESP_ERR_NOT_FOUND;
+    }
+    return ESP_OK;
+}
+
+esp_err_t wifi_clear_credentials(void)
+{
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(WIFI_NVS_NAMESPACE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        return err;
+    }
+    nvs_erase_key(nvs, WIFI_NVS_KEY_SSID);
+    nvs_erase_key(nvs, WIFI_NVS_KEY_PASS);
+    err = nvs_commit(nvs);
+    nvs_close(nvs);
+    return err;
+}
+
+static esp_err_t wifi_save_credentials(const char *ssid, const char *password)
+{
+    if (!ssid || ssid[0] == '\0') {
+        return ESP_ERR_INVALID_ARG;
+    }
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(WIFI_NVS_NAMESPACE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for wifi creds: %s", esp_err_to_name(err));
+        return err;
+    }
+    err = nvs_set_str(nvs, WIFI_NVS_KEY_SSID, ssid);
+    if (err == ESP_OK) {
+        err = nvs_set_str(nvs, WIFI_NVS_KEY_PASS, password ? password : "");
+    }
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs);
+    }
+    nvs_close(nvs);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to save wifi creds: %s", esp_err_to_name(err));
+    }
+    return err;
+}
+
+char *wifi_scan_to_json(void)
+{
+    if (!s_dpp_initialized) {
+        ESP_LOGW(TAG, "Cannot scan: WiFi not initialised");
+        return NULL;
+    }
+
+    wifi_scan_config_t scan_cfg = {
+        .show_hidden = false,
+        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
+        .scan_time.active.min = 100,
+        .scan_time.active.max = 300,
+    };
+
+    esp_err_t err = esp_wifi_scan_start(&scan_cfg, true);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Scan start failed: %s", esp_err_to_name(err));
+        return NULL;
+    }
+
+    uint16_t ap_count = 0;
+    err = esp_wifi_scan_get_ap_num(&ap_count);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Scan get_ap_num failed: %s", esp_err_to_name(err));
+        return NULL;
+    }
+
+    wifi_ap_record_t *ap_list = NULL;
+    if (ap_count > 0) {
+        ap_list = calloc(ap_count, sizeof(wifi_ap_record_t));
+        if (!ap_list) {
+            return NULL;
+        }
+        err = esp_wifi_scan_get_ap_records(&ap_count, ap_list);
+        if (err != ESP_OK) {
+            free(ap_list);
+            return NULL;
+        }
+    }
+
+    cJSON *root = cJSON_CreateArray();
+    if (!root) {
+        free(ap_list);
+        return NULL;
+    }
+
+    for (uint16_t i = 0; i < ap_count; ++i) {
+        cJSON *item = cJSON_CreateObject();
+        if (!item) continue;
+        cJSON_AddStringToObject(item, "ssid", (const char *)ap_list[i].ssid);
+        cJSON_AddNumberToObject(item, "rssi", ap_list[i].rssi);
+        cJSON_AddNumberToObject(item, "channel", ap_list[i].primary);
+        cJSON_AddNumberToObject(item, "authmode", ap_list[i].authmode);
+        cJSON_AddItemToArray(root, item);
+    }
+
+    free(ap_list);
+
+    char *out = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return out;
+}
+
+esp_err_t wifi_connect_sta(const char *ssid, const char *password)
+{
+    if (!ssid || ssid[0] == '\0') {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (strlen(ssid) > MAX_SSID_LEN) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (password && strlen(password) > 63) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = wifi_save_credentials(ssid, password);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    s_disconnect_retry_count = 0;
+
+    if (s_wifi_stopped_by_ethernet && !s_wifi_driver_started) {
+        ESP_LOGW(TAG, "WiFi disabled by ethernet, cannot connect");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!s_dpp_initialized) {
+        if (s_wifi_driver_started) {
+            /* WiFi was previously initialised and then stopped. The driver
+             * state is gone; we cannot safely call wifi_init() again because
+             * the default STA netif still exists. Refuse the request. */
+            ESP_LOGE(TAG, "WiFi stopped after init; reboot required to reconnect");
+            return ESP_ERR_INVALID_STATE;
+        }
+        err = wifi_init();
+        if (err != ESP_OK) {
+            return err;
+        }
+    }
+
+    if (s_wifi_mutex && xSemaphoreTake(s_wifi_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        s_wifi_status = WIFI_STATUS_CONNECTING;
+        memset(s_connected_ssid, 0, sizeof(s_connected_ssid));
+        strncpy(s_connected_ssid, ssid, sizeof(s_connected_ssid) - 1);
+        xSemaphoreGive(s_wifi_mutex);
+    }
+
+    wifi_config_t sta_cfg = {0};
+    strncpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid) - 1);
+    if (password) {
+        strncpy((char *)sta_cfg.sta.password, password, sizeof(sta_cfg.sta.password) - 1);
+    }
+    sta_cfg.sta.threshold.authmode = (password && password[0] != '\0')
+                                        ? WIFI_AUTH_WPA2_PSK
+                                        : WIFI_AUTH_OPEN;
+    sta_cfg.sta.pmf_cfg.capable = true;
+    sta_cfg.sta.pmf_cfg.required = false;
+
+    err = esp_wifi_set_config(WIFI_IF_STA, &sta_cfg);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set STA config: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    /* Stop DPP listening so it does not block the STA connection with
+     * "Do not go offchannel when sta is connecting". We also deinit the DPP
+     * supplicant entirely to fully release the offchannel ROC. The user can
+     * re-enable DPP via /dpp/bootstrap after clearing credentials. */
+    if (s_dpp_initialized) {
+        esp_err_t stop_err = esp_supp_dpp_stop_listen();
+        if (stop_err != ESP_OK) {
+            ESP_LOGW(TAG, "esp_supp_dpp_stop_listen: %s", esp_err_to_name(stop_err));
+        }
+        esp_err_t deinit_err = esp_supp_dpp_deinit();
+        if (deinit_err != ESP_OK) {
+            ESP_LOGW(TAG, "esp_supp_dpp_deinit: %s", esp_err_to_name(deinit_err));
+        }
+        s_dpp_initialized = false;
+    }
+
+    wifi_broadcast_state();
+
+    err = esp_wifi_connect();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_connect failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    ESP_LOGI(TAG, "Connecting to SSID '%s'...", ssid);
+    return ESP_OK;
+}
 
 void wifi_broadcast_state(void)
 {
@@ -132,30 +363,56 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         switch (event_id) {
         case WIFI_EVENT_STA_START:
             ESP_LOGI(TAG, "WiFi STA started");
-            /* Start DPP enrollee listening after WiFi is started */
-            if (esp_supp_dpp_start_listen() != ESP_OK) {
-                ESP_LOGE(TAG, "Failed to start DPP listen");
-            } else {
-                ESP_LOGI(TAG, "DPP enrollee listening for authentication");
+            /* Start DPP enrollee listening only if no STA credentials are
+             * configured. When credentials are present the user wants the
+             * device to behave as a plain station and DPP must NOT touch the
+             * channel. */
+            {
+                char chk_ssid[4] = {0};
+                char chk_pass[4] = {0};
+                bool has_creds = (wifi_get_credentials(chk_ssid, sizeof(chk_ssid),
+                                                     chk_pass, sizeof(chk_pass)) == ESP_OK);
+                if (has_creds) {
+                    ESP_LOGI(TAG, "Stored STA credentials present, DPP disabled for this session");
+                    if (s_dpp_initialized) {
+                        esp_supp_dpp_stop_listen();
+                        esp_supp_dpp_deinit();
+                        s_dpp_initialized = false;
+                    }
+                } else {
+                    if (esp_supp_dpp_start_listen() != ESP_OK) {
+                        ESP_LOGE(TAG, "Failed to start DPP listen");
+                    } else {
+                        ESP_LOGI(TAG, "DPP enrollee listening for authentication");
+                    }
+                }
             }
             break;
 
-        case WIFI_EVENT_STA_DISCONNECTED:
-            ESP_LOGW(TAG, "WiFi station disconnected");
+        case WIFI_EVENT_STA_DISCONNECTED: {
+            wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
+            ESP_LOGW(TAG, "WiFi station disconnected (reason=%d)", disc ? disc->reason : -1);
             if (s_wifi_mutex && xSemaphoreTake(s_wifi_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
                 s_wifi_status = WIFI_STATUS_DISCONNECTED;
                 memset(s_ip_str, 0, sizeof(s_ip_str));
                 xSemaphoreGive(s_wifi_mutex);
             }
             wifi_broadcast_state();
-            /* Retry connection with stored config (driver retains last config) */
-            if (s_connected_ssid[0] != '\0') {
+            /* Retry connection once after a short delay if a SSID is configured.
+             * After that we stop retrying to avoid tight reconnect loops when
+             * the credentials are wrong. The user can retry manually from the
+             * web UI. */
+            if (s_connected_ssid[0] != '\0' && s_disconnect_retry_count < 1) {
+                s_disconnect_retry_count++;
+                vTaskDelay(pdMS_TO_TICKS(2000));
                 esp_wifi_connect();
             }
             break;
+        }
 
         case WIFI_EVENT_STA_CONNECTED: {
             wifi_event_sta_connected_t *evt = (wifi_event_sta_connected_t *)event_data;
+            s_disconnect_retry_count = 0;
             if (evt->ssid_len > 0) {
                 ESP_LOGI(TAG, "Connected to AP: %.*s", evt->ssid_len, (const char *)evt->ssid);
                 if (s_wifi_mutex && xSemaphoreTake(s_wifi_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
@@ -203,7 +460,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             wifi_event_dpp_failed_t *dpp_fail = (wifi_event_dpp_failed_t *)event_data;
             ESP_LOGW(TAG, "DPP authentication failed (reason: %s)",
                      esp_err_to_name((int)dpp_fail->failure_reason));
-            if (esp_supp_dpp_start_listen() != ESP_OK) {
+            /* Only restart DPP listen if STA credentials are not configured */
+            char chk_ssid[4] = {0};
+            char chk_pass[4] = {0};
+            bool has_creds = (wifi_get_credentials(chk_ssid, sizeof(chk_ssid),
+                                                  chk_pass, sizeof(chk_pass)) == ESP_OK);
+            if (!has_creds && esp_supp_dpp_start_listen() != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to restart DPP listen");
             }
             break;
@@ -283,6 +545,7 @@ esp_err_t wifi_init(void)
 
     /* Create default WiFi STA netif */
     esp_netif_create_default_wifi_sta();
+    s_wifi_driver_started = true;
 
     /* Register WiFi and IP event handlers */
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
@@ -306,6 +569,31 @@ esp_err_t wifi_init(void)
 
     /* Start WiFi (triggers WIFI_EVENT_STA_START which starts DPP listen) */
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    /* If there are stored STA credentials, apply them so the device
+     * auto-connects on boot. The driver holds the config until we ask it to
+     * connect, which we do after WiFi is up. */
+    char stored_ssid[33] = {0};
+    char stored_pass[64] = {0};
+    if (wifi_get_credentials(stored_ssid, sizeof(stored_ssid), stored_pass, sizeof(stored_pass)) == ESP_OK) {
+        wifi_config_t sta_cfg = {0};
+        strncpy((char *)sta_cfg.sta.ssid, stored_ssid, sizeof(sta_cfg.sta.ssid) - 1);
+        strncpy((char *)sta_cfg.sta.password, stored_pass, sizeof(sta_cfg.sta.password) - 1);
+        sta_cfg.sta.threshold.authmode = (stored_pass[0] != '\0')
+                                            ? WIFI_AUTH_WPA2_PSK
+                                            : WIFI_AUTH_OPEN;
+        if (esp_wifi_set_config(WIFI_IF_STA, &sta_cfg) == ESP_OK) {
+            esp_supp_dpp_stop_listen();
+            esp_supp_dpp_deinit();
+            s_dpp_initialized = false;
+            esp_wifi_connect();
+            if (s_wifi_mutex && xSemaphoreTake(s_wifi_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+                memset(s_connected_ssid, 0, sizeof(s_connected_ssid));
+                strncpy(s_connected_ssid, stored_ssid, sizeof(s_connected_ssid) - 1);
+                xSemaphoreGive(s_wifi_mutex);
+            }
+        }
+    }
 
     if (s_wifi_mutex && xSemaphoreTake(s_wifi_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         s_wifi_status = WIFI_STATUS_DPP_LISTENING;
@@ -336,6 +624,7 @@ void wifi_stop(void)
 
     esp_wifi_stop();
     esp_wifi_deinit();
+    s_wifi_driver_started = false;
 
     ESP_LOGI(TAG, "WiFi stopped");
 }

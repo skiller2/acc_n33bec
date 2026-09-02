@@ -110,6 +110,48 @@ esp_err_t dpp_trigger_bootstrap(void);
 void wifi_broadcast_state(void);
 
 /**
+ * @brief Connect the WiFi station to an AP using SSID + password.
+ *
+ * Stores the credentials in NVS, stops DPP listening (if active), and starts
+ * a WiFi STA connection. Connection result is reported via the existing
+ * wifi event handler / websocket broadcast.
+ *
+ * If WiFi is not yet initialised, it will be initialised here.
+ *
+ * @param ssid      SSID of the target AP (max 32 chars).
+ * @param password  WPA2 password (may be empty for open networks, max 63 chars).
+ * @return ESP_OK on success, error code otherwise.
+ */
+esp_err_t wifi_connect_sta(const char *ssid, const char *password);
+
+/**
+ * @brief Get the currently stored WiFi credentials from NVS.
+ *
+ * @param ssid_buf      Destination buffer for the SSID.
+ * @param ssid_buf_len  Size of the SSID buffer.
+ * @param pass_buf      Destination buffer for the password.
+ * @param pass_buf_len  Size of the password buffer.
+ * @return ESP_OK if credentials are stored, ESP_ERR_NOT_FOUND otherwise.
+ */
+esp_err_t wifi_get_credentials(char *ssid_buf, size_t ssid_buf_len,
+                               char *pass_buf, size_t pass_buf_len);
+
+/**
+ * @brief Clear stored WiFi credentials from NVS.
+ *
+ * @return ESP_OK on success, error code otherwise.
+ */
+esp_err_t wifi_clear_credentials(void);
+
+/**
+ * @brief Trigger a WiFi scan and return the list of visible APs as JSON.
+ *
+ * The returned string is heap-allocated and must be free()d by the caller.
+ * On error, returns NULL.
+ */
+char *wifi_scan_to_json(void);
+
+/**
  * @brief Start a WiFi access point using the device hostname as SSID.
  *
  * Stops the STA interface and brings up an AP with:

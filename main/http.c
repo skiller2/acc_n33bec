@@ -899,6 +899,135 @@ static esp_err_t dpp_bootstrap_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t wifi_connect_handler(httpd_req_t *req)
+{
+    size_t len = req->content_len;
+    if (len == 0 || len > 256)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid content length");
+        return ESP_FAIL;
+    }
+
+    char *buf = malloc(len + 1);
+    if (!buf)
+    {
+        httpd_resp_sendstr(req, "ERR: alloc");
+        return ESP_FAIL;
+    }
+    int r = httpd_req_recv(req, buf, len);
+    if (r <= 0)
+    {
+        free(buf);
+        httpd_resp_sendstr(req, "ERR: recv");
+        return ESP_FAIL;
+    }
+    buf[r] = '\0';
+
+    cJSON *json = cJSON_Parse(buf);
+    free(buf);
+    if (!json)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid json");
+        return ESP_FAIL;
+    }
+
+    cJSON *ssid_item = cJSON_GetObjectItemCaseSensitive(json, "ssid");
+    cJSON *pass_item = cJSON_GetObjectItemCaseSensitive(json, "password");
+
+    if (!cJSON_IsString(ssid_item) || ssid_item->valuestring == NULL || ssid_item->valuestring[0] == '\0')
+    {
+        cJSON_Delete(json);
+        httpd_resp_sendstr(req, "ERR: missing ssid");
+        return ESP_FAIL;
+    }
+
+    const char *pass = (cJSON_IsString(pass_item) && pass_item->valuestring) ? pass_item->valuestring : "";
+
+    esp_err_t err = wifi_connect_sta(ssid_item->valuestring, pass);
+    cJSON_Delete(json);
+
+    httpd_resp_set_type(req, "text/plain");
+    if (err == ESP_OK)
+    {
+        httpd_resp_sendstr(req, "OK");
+    }
+    else
+    {
+        char out[96];
+        snprintf(out, sizeof(out), "ERR: %s", esp_err_to_name(err));
+        httpd_resp_sendstr(req, out);
+    }
+    return ESP_OK;
+}
+
+static esp_err_t wifi_credentials_handler(httpd_req_t *req)
+{
+    char ssid[33] = {0};
+    char pass[64] = {0};
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json)
+    {
+        httpd_resp_sendstr(req, "ERR: alloc");
+        return ESP_FAIL;
+    }
+
+    if (wifi_get_credentials(ssid, sizeof(ssid), pass, sizeof(pass)) == ESP_OK)
+    {
+        cJSON_AddStringToObject(json, "ssid", ssid);
+        cJSON_AddBoolToObject(json, "configured", true);
+        cJSON_AddNumberToObject(json, "has_password", pass[0] != '\0' ? 1 : 0);
+    }
+    else
+    {
+        cJSON_AddBoolToObject(json, "configured", false);
+    }
+
+    char *s = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!s)
+    {
+        httpd_resp_sendstr(req, "ERR: print");
+        return ESP_FAIL;
+    }
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, s);
+    free(s);
+    return ESP_OK;
+}
+
+static esp_err_t wifi_clear_handler(httpd_req_t *req)
+{
+    esp_err_t err = wifi_clear_credentials();
+    httpd_resp_set_type(req, "text/plain");
+    if (err == ESP_OK)
+    {
+        httpd_resp_sendstr(req, "OK");
+    }
+    else
+    {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "ERR: %s", esp_err_to_name(err));
+        httpd_resp_sendstr(req, buf);
+    }
+    return ESP_OK;
+}
+
+static esp_err_t wifi_scan_handler(httpd_req_t *req)
+{
+    char *json = wifi_scan_to_json();
+    if (!json)
+    {
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_sendstr(req, "[]");
+        return ESP_OK;
+    }
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json);
+    free(json);
+    return ESP_OK;
+}
+
 #define UPDATE_BUNDLE_MAGIC "ACN2"
 #define UPDATE_BUNDLE_VERSION 1
 
@@ -1512,6 +1641,18 @@ void http_init(QueueHandle_t qh)
 
         httpd_uri_t dpp_bs_uri = {.uri = "/dpp/bootstrap", .method = HTTP_POST, .handler = dpp_bootstrap_handler};
         httpd_register_uri_handler(s, &dpp_bs_uri);
+
+        httpd_uri_t wifi_scan_uri = {.uri = "/wifi/scan", .method = HTTP_GET, .handler = wifi_scan_handler};
+        httpd_register_uri_handler(s, &wifi_scan_uri);
+
+        httpd_uri_t wifi_conn_uri = {.uri = "/wifi/connect", .method = HTTP_POST, .handler = wifi_connect_handler};
+        httpd_register_uri_handler(s, &wifi_conn_uri);
+
+        httpd_uri_t wifi_cred_uri = {.uri = "/wifi/credentials", .method = HTTP_GET, .handler = wifi_credentials_handler};
+        httpd_register_uri_handler(s, &wifi_cred_uri);
+
+        httpd_uri_t wifi_clear_uri = {.uri = "/wifi/credentials", .method = HTTP_DELETE, .handler = wifi_clear_handler};
+        httpd_register_uri_handler(s, &wifi_clear_uri);
 
         httpd_uri_t ws_uri = {
             .uri = "/ws",
