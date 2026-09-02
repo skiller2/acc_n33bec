@@ -49,6 +49,7 @@
 #define MAX_SSID_LEN     32
 #define MAX_IP_LEN       16
 
+static bool s_wifi_stopped_by_ethernet = false;
 static const char *TAG = "wifi_dpp";
 
 static wifi_status_t s_wifi_status = WIFI_STATUS_DISCONNECTED;
@@ -269,6 +270,11 @@ esp_err_t wifi_init(void)
 {
     esp_err_t ret;
 
+    if (s_wifi_stopped_by_ethernet) {
+        ESP_LOGI(TAG, "Ethernet already has IP, skipping WiFi init");
+        return ESP_OK;
+    }
+
     s_wifi_mutex = xSemaphoreCreateMutex();
     if (s_wifi_mutex == NULL) {
         ESP_LOGE(TAG, "Failed to create WiFi mutex");
@@ -310,6 +316,36 @@ esp_err_t wifi_init(void)
 
     ESP_LOGI(TAG, "WiFi with DPP enrollee initialized, listening on channel(s): %s", DPP_LISTEN_CHANNEL_LIST);
     return ESP_OK;
+}
+
+void wifi_stop(void)
+{
+    if (!s_dpp_initialized) {
+        return;
+    }
+
+    esp_supp_dpp_deinit();
+    s_dpp_initialized = false;
+
+    if (s_wifi_mutex && xSemaphoreTake(s_wifi_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+        s_wifi_status = WIFI_STATUS_DISCONNECTED;
+        s_connected_ssid[0] = 0;
+        s_ip_str[0] = 0;
+        xSemaphoreGive(s_wifi_mutex);
+    }
+
+    esp_wifi_stop();
+    esp_wifi_deinit();
+
+    ESP_LOGI(TAG, "WiFi stopped");
+}
+
+void wifi_request_stop_by_ethernet(void)
+{
+    s_wifi_stopped_by_ethernet = true;
+    if (s_dpp_initialized) {
+        wifi_stop();
+    }
 }
 
 bool wifi_is_connected(void)

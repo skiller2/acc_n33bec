@@ -17,6 +17,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "connect.h"
+#include "wifi.h"
 
 static const char *TAG = "ethernet_connect";
 
@@ -55,9 +56,11 @@ static void eth_on_got_ip(void *arg,
              "Got IPv4 event: Interface \"%s\" address: " IPSTR,
              esp_netif_get_desc(event->esp_netif),
              IP2STR(&event->ip_info.ip));
-     
 
     xEventGroupSetBits(s_ip_event_group, HAVE_IP);
+
+    ESP_LOGI(TAG, "Ethernet connected: stopping WiFi");
+    wifi_request_stop_by_ethernet();
 }
 
 

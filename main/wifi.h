@@ -41,6 +41,23 @@ typedef enum {
 esp_err_t wifi_init(void);
 
 /**
+ * @brief Stop the WiFi driver and DPP enrollee.
+ *
+ * Used to disable WiFi when an alternative interface (e.g. Ethernet) is
+ * preferred.
+ */
+void wifi_stop(void);
+
+/**
+ * @brief Request that WiFi be disabled because Ethernet already has an IP.
+ *
+ * If WiFi has not been initialised yet, this sets a flag so that the next
+ * wifi_init() will return without bringing WiFi up. If WiFi is already
+ * running, this stops it immediately.
+ */
+void wifi_request_stop_by_ethernet(void);
+
+/**
  * @brief Check if WiFi is currently connected (IP obtained).
  *
  * @return true if connected, false otherwise.

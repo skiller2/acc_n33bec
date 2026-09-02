@@ -44,24 +44,7 @@ typedef struct
     uint64_t value;
 } log_t;
 
-typedef struct
-{
-    uint32_t magic;
-    uint16_t version;
-    uint16_t reserved;
-    uint32_t write_index;
-    uint32_t count;
-} pending_header_t;
-
-typedef struct
-{
-    uint8_t event_id;
-    uint8_t port_id;
-    uint64_t value;
-    int64_t ts;
-} pending_log_drain_entry_t;
-
-static bool pending_header_valid(pending_header_t *hdr)
+static bool pending_header_valid(log_header_t *hdr)
 {
     return (hdr->magic == PENDING_LOG_MAGIC &&
             hdr->version == PENDING_LOG_VERSION &&
@@ -77,7 +60,7 @@ static void pending_create_file(void)
         ESP_LOGE(TAG, "Cannot create pending.dat");
         return;
     }
-    pending_header_t hdr = {
+    log_header_t hdr = {
         .magic = PENDING_LOG_MAGIC,
         .version = PENDING_LOG_VERSION,
         .reserved = 0,
@@ -115,7 +98,7 @@ void log_store_init(void)
     FILE *pf = fopen(PENDING_LOG_PATH, "rb");
     if (pf)
     {
-        pending_header_t hdr;
+        log_header_t hdr;
         if (fread(&hdr, sizeof(hdr), 1, pf) == 1 && !pending_header_valid(&hdr))
         {
             ESP_LOGW(TAG, "Invalid pending header, recreating");
@@ -504,7 +487,7 @@ void pending_log_add(uint8_t event_id,
         return;
     }
 
-    pending_header_t hdr;
+    log_header_t hdr;
     if (fread(&hdr, sizeof(hdr), 1, f) != 1 || !pending_header_valid(&hdr))
     {
         ESP_LOGE(TAG, "Invalid pending header, recreating");
@@ -521,7 +504,7 @@ void pending_log_add(uint8_t event_id,
         .ts = (uint64_t)ts,
         .value = value};
 
-    long offset = sizeof(pending_header_t) + ((long)hdr.write_index * sizeof(log_t));
+    long offset = sizeof(log_header_t) + ((long)hdr.write_index * sizeof(log_t));
     if (fseek(f, offset, SEEK_SET) != 0)
     {
         ESP_LOGE(TAG, "fseek failed");
@@ -569,7 +552,7 @@ void pending_log_load_and_drain(QueueHandle_t q, uint32_t *drained_count)
         return;
     }
 
-    pending_header_t hdr;
+    log_header_t hdr;
     if (fread(&hdr, sizeof(hdr), 1, f) != 1 || !pending_header_valid(&hdr))
     {
         fclose(f);
@@ -589,14 +572,14 @@ void pending_log_load_and_drain(QueueHandle_t q, uint32_t *drained_count)
     for (uint32_t i = 0; i < hdr.count; i++)
     {
         uint32_t index = (start + i) % PENDING_LOG_MAX;
-        long offset = sizeof(pending_header_t) + ((long)index * sizeof(log_t));
+        long offset = sizeof(log_header_t) + ((long)index * sizeof(log_t));
         if (fseek(f, offset, SEEK_SET) != 0)
             break;
         log_t e;
         if (fread(&e, sizeof(log_t), 1, f) != 1)
             break;
 
-        pending_log_drain_entry_t entry = {
+        log_t entry = {
             .event_id = e.event_id,
             .port_id = e.port_id,
             .value = e.value,

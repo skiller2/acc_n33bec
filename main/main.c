@@ -594,14 +594,16 @@ void app_main()
         ESP_LOGE(TAG, "RTC NOT WORKING");
     }
 
-#if !CONFIG_SKIP_WAIT_FOR_RTC
-    wait_for_valid_time();
-#endif
 
     if (wifi_init() != ESP_OK)
     {
         ESP_LOGE(TAG, "WiFi/DPP initialization failed");
     }
+
+#if !CONFIG_SKIP_WAIT_FOR_RTC
+    wait_for_valid_time();
+#endif
+
 
     //=========================================
 
