@@ -142,6 +142,13 @@ body { background:#111; color:#eee; font-family:Arial; margin:0; padding:10px; }
   color:#00ff00;
 }
 
+.logs-count {
+  font-size:14px;
+  color:#888;
+  font-weight:normal;
+  margin-left:6px;
+}
+
 .card h3 {
   margin-top:15px;
   margin-bottom:10px;

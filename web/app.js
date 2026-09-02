@@ -913,8 +913,11 @@ function loadLogs() {
       const container = document.getElementById('logs-list');
       container.innerHTML = '';
 
-      logs
-        .sort((a, b) => b.ts - a.ts) // Mayor fecha primero
+      const sorted = logs.sort((a, b) => b.ts - a.ts);
+      const countEl = document.getElementById('logs-count');
+      if (countEl) countEl.textContent = `(${sorted.length})`;
+
+      sorted
         .forEach(log => {
           const div = document.createElement('div');
           div.className = 'card';

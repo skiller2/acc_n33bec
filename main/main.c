@@ -126,7 +126,7 @@ typedef struct
 } input_event_t;
 
 static QueueHandle_t queue_cards;
-static QueueHandle_t queue_inputs;
+static QueueHandle_t queue_remote_logs;
 
 void log_input_task(void *arg)
 {
@@ -140,7 +140,7 @@ void log_input_task(void *arg)
 
     while (1)
     {
-        if (xQueueReceive(queue_inputs, &evt, portMAX_DELAY) == pdTRUE)
+        if (xQueueReceive(queue_remote_logs, &evt, portMAX_DELAY) == pdTRUE)
         {
             esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value, 1200);
 
@@ -150,7 +150,7 @@ void log_input_task(void *arg)
                 ESP_LOGW(TAG, "send_json failed (%s), requeueing event retry %d",
                          esp_err_to_name(err), evt.send_retry);
 
-                if (xQueueSendToBack(queue_inputs, &evt, 0) != pdTRUE)
+                if (xQueueSendToBack(queue_remote_logs, &evt, 0) != pdTRUE)
                 {
                     ESP_LOGE(TAG, "Failed to requeue event");
                 }
@@ -164,7 +164,7 @@ void log_input_task(void *arg)
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts)
 {
     log_add(event_id, port_id, value, ts);
-    if (queue_inputs != NULL)
+    if (queue_remote_logs != NULL)
     {
         input_event_t evt = {
             .event_id = event_id,
@@ -172,7 +172,7 @@ void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t t
             .value = value,
             .ts = ts,
             .send_retry = 0};
-        xQueueSendToBack(queue_inputs, &evt, 0);
+        xQueueSendToBack(queue_remote_logs, &evt, 0);
     }
 }
 
@@ -489,8 +489,8 @@ void app_main()
     // Queue
 
     ESP_LOGI(TAG, "Creating input event queue");
-    queue_inputs = xQueueCreate(64, sizeof(input_event_t));
-    if (!queue_inputs)
+    queue_remote_logs = xQueueCreate(64, sizeof(input_event_t));
+    if (!queue_remote_logs)
     {
         ESP_LOGE(TAG, "Failed to create input event queue");
     }

@@ -267,8 +267,7 @@ esp_err_t log_read_all_json(httpd_req_t *req)
 
     log_header_t hdr;
 
-    if (fread(&hdr,
-              sizeof(hdr),
+    if (fread(&hdr, sizeof(hdr),
               1,
               f) != 1)
     {
