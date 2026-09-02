@@ -24,6 +24,7 @@ typedef enum {
     WIFI_STATUS_CONNECTING,         /**< WiFi credentials received, connecting to AP */
     WIFI_STATUS_CONNECTED,          /**< WiFi connected and IP obtained */
     WIFI_STATUS_DPP_FAILED,         /**< DPP authentication failed after retries */
+    WIFI_STATUS_AP_ACTIVE,          /**< WiFi AP mode is active (e.g. provisioning) */
 } wifi_status_t;
 
 /**
@@ -107,6 +108,21 @@ esp_err_t wifi_get_ip(char *buf, size_t len);
  */
 esp_err_t dpp_trigger_bootstrap(void);
 void wifi_broadcast_state(void);
+
+/**
+ * @brief Start a WiFi access point using the device hostname as SSID.
+ *
+ * Stops the STA interface and brings up an AP with:
+ *   SSID     = esp_netif_get_hostname() (falls back to "esp_ap" if unavailable)
+ *   password = "12345678"
+ *   auth     = WPA2_PSK
+ *   channel  = 1, max 4 clients
+ *
+ * Intended to be called from a factory-reset / boot-button handler.
+ *
+ * @return ESP_OK on success, error code otherwise.
+ */
+esp_err_t wifi_start_ap_from_hostname(void);
 
 #ifdef __cplusplus
 }

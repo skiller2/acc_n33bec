@@ -115,6 +115,8 @@ extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
 void barrier_task(void *arg);
 void log_input_task(void *arg);
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
+static void service_mode_task(void *arg);
+extern esp_err_t wifi_start_ap_from_hostname(void);
 
 typedef struct
 {
@@ -422,6 +424,8 @@ static void door_reader_task(void *arg)
         last_rele2 = rele2;
         last_rele3 = rele3;
 
+
+
         vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms));
     }
 }
@@ -517,6 +521,30 @@ static void keep_alive_task(void *arg)
     }
 }
 
+static void service_mode_task(void *arg)
+{
+    gpio_config_t io = {
+        .pin_bit_mask = 1ULL << GPIO_NUM_0,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE};
+    gpio_config(&io);
+
+    while (1)
+    {
+        if (gpio_get_level(GPIO_NUM_0) == 1)
+        {
+            ESP_LOGW(TAG, "GPIO0 is LOW, enable WIFI SERVICE MODE");
+//            wifi_start_ap_from_hostname();
+//            vTaskDelete(NULL);
+        }
+            ESP_LOGW(TAG, "GPIO9 is %d", gpio_get_level(GPIO_NUM_0));
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 void app_main()
 {
 
@@ -599,6 +627,12 @@ void app_main()
     {
         ESP_LOGE(TAG, "WiFi/DPP initialization failed");
     }
+
+    //if (xTaskCreate(service_mode_task, "service_mode", 2048, NULL, 3, NULL) != pdPASS)
+    //{
+    //    ESP_LOGE(TAG, "Failed to create service_mode task");
+    //}
+
 
 #if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();

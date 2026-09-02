@@ -439,3 +439,59 @@ esp_err_t wifi_get_ip(char *buf, size_t len)
 
     return ESP_ERR_TIMEOUT;
 }
+
+esp_err_t wifi_start_ap_from_hostname(void)
+{
+    if (s_dpp_initialized) {
+        esp_supp_dpp_deinit();
+        s_dpp_initialized = false;
+    }
+
+    if (!s_wifi_mutex) {
+        s_wifi_mutex = xSemaphoreCreateMutex();
+        if (!s_wifi_mutex) {
+            ESP_LOGE(TAG, "Failed to create WiFi mutex");
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
+    esp_wifi_stop();
+    esp_wifi_deinit();
+
+    esp_netif_t *ap_netif = (esp_netif_t *)esp_netif_create_default_wifi_ap();
+
+    char hostname[32] = "esp_ap";
+    esp_netif_t *netif = esp_netif_get_default_netif();
+    if (netif) {
+        const char *h = NULL;
+        if (esp_netif_get_hostname(netif, &h) == ESP_OK && h && h[0] != '\0') {
+            strncpy(hostname, h, sizeof(hostname) - 1);
+            hostname[sizeof(hostname) - 1] = '\0';
+        }
+    }
+    if (ap_netif && hostname[0] != '\0') {
+        esp_netif_set_hostname(ap_netif, hostname);
+    }
+
+    wifi_config_t ap_config = {0};
+    strncpy((char *)ap_config.ap.ssid, hostname, sizeof(ap_config.ap.ssid) - 1);
+    ap_config.ap.ssid_len = (uint8_t)strlen(hostname);
+    strncpy((char *)ap_config.ap.password, "12345678", sizeof(ap_config.ap.password) - 1);
+    ap_config.ap.max_connection = 4;
+    ap_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
+    ap_config.ap.channel = 1;
+
+    wifi_init_config_t wifi_cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&wifi_cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    if (xSemaphoreTake(s_wifi_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+        s_wifi_status = WIFI_STATUS_AP_ACTIVE;
+        xSemaphoreGive(s_wifi_mutex);
+    }
+
+    ESP_LOGI(TAG, "AP started: SSID='%s' password='12345678'", hostname);
+    return ESP_OK;
+}
