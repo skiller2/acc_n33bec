@@ -523,6 +523,7 @@ static void keep_alive_task(void *arg)
 
 static void service_mode_task(void *arg)
 {
+    /*
     gpio_config_t io = {
         .pin_bit_mask = 1ULL << GPIO_NUM_0,
         .mode = GPIO_MODE_INPUT,
@@ -530,19 +531,20 @@ static void service_mode_task(void *arg)
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE};
     gpio_config(&io);
-
-    while (1)
+*/
+    int waitsecs = 20;
+    while (waitsecs-- > 0)
     {
-        if (gpio_get_level(GPIO_NUM_0) == 1)
+        if (gpio_get_level(GPIO_NUM_0) == 0)
         {
-            ESP_LOGW(TAG, "GPIO0 is LOW, enable WIFI SERVICE MODE");
-//            wifi_start_ap_from_hostname();
-//            vTaskDelete(NULL);
+            ESP_LOGW(TAG, "GPIO0 is LOW, enable WIFI SERVICE MODE ID %lu", g_config.device_id);
+            wifi_start_service_mode();
+            break;
         }
-            ESP_LOGW(TAG, "GPIO9 is %d", gpio_get_level(GPIO_NUM_0));
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    vTaskDelete(NULL);
 }
 
 void app_main()
@@ -577,6 +579,8 @@ void app_main()
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(nvs_flash_init());
     fs_init();
+
+    config_load(&g_config);
     // ====================================
 
     // ====================================
@@ -593,11 +597,6 @@ void app_main()
 
     http_init(queue_cards);
 
-    ESP_LOGI(TAG, "Loading REX configuration");
-    if (config_load(&g_config) != ESP_OK)
-    {
-        ESP_LOGW(TAG, "Failed to load REX config, using defaults");
-    }
 
     ESP_LOGI(TAG, "Loading barrier configuration");
     if (barrier_config_load(&g_barrier_config) != ESP_OK)
@@ -628,10 +627,10 @@ void app_main()
         ESP_LOGE(TAG, "WiFi/DPP initialization failed");
     }
 
-    //if (xTaskCreate(service_mode_task, "service_mode", 2048, NULL, 3, NULL) != pdPASS)
-    //{
-    //    ESP_LOGE(TAG, "Failed to create service_mode task");
-    //}
+    if (xTaskCreate(service_mode_task, "service_mode", 2048, NULL, 3, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create service_mode task");
+    }
 
 
 #if !CONFIG_SKIP_WAIT_FOR_RTC

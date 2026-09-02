@@ -122,7 +122,7 @@ void wifi_broadcast_state(void);
  *
  * @return ESP_OK on success, error code otherwise.
  */
-esp_err_t wifi_start_ap_from_hostname(void);
+esp_err_t wifi_start_service_mode(void);
 
 #ifdef __cplusplus
 }

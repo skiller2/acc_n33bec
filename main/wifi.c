@@ -440,7 +440,7 @@ esp_err_t wifi_get_ip(char *buf, size_t len)
     return ESP_ERR_TIMEOUT;
 }
 
-esp_err_t wifi_start_ap_from_hostname(void)
+esp_err_t wifi_start_service_mode(void)
 {
     if (s_dpp_initialized) {
         esp_supp_dpp_deinit();

@@ -17,6 +17,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "connect.h"
+#include "config.h"
 #include "wifi.h"
 
 static const char *TAG = "ethernet_connect";
@@ -112,11 +113,12 @@ static esp_netif_t *eth_start(void)
 
 
    /* Set hostname based on MAC address */
+
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     char hostname[32];
-    snprintf(hostname, sizeof(hostname), "panel_%02x%02x%02x%02x%02x%02x",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    snprintf(hostname, sizeof(hostname), "panel%lu_%02x%02x%02x%02x%02x%02x",
+             g_config.device_id, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     esp_netif_set_hostname(s_eth_netif, hostname);
     ESP_LOGI(TAG, "Hostname set to: %s", hostname);
 
