@@ -9,14 +9,22 @@
 #include "esp_heap_caps.h"
 #include "esp_system.h"
 #include "esp_http_server.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
 
 #define MAX_LOGS 1000
+#define PENDING_LOG_MAX 512
+#define PENDING_LOG_PATH "/fs/pending.dat"
 
 static const char *TAG = "logs";
 static SemaphoreHandle_t s_log_mutex = NULL;
+static SemaphoreHandle_t s_pending_mutex = NULL;
 
 #define LOG_MAGIC 0x4C4F4731UL // "LOG1"
 #define LOG_VERSION 1
+#define PENDING_LOG_MAGIC 0x504E4431UL // "PND1"
+#define PENDING_LOG_VERSION 1
 
 typedef struct
 {
@@ -36,6 +44,51 @@ typedef struct
     uint64_t value;
 } log_t;
 
+typedef struct
+{
+    uint32_t magic;
+    uint16_t version;
+    uint16_t reserved;
+    uint32_t write_index;
+    uint32_t count;
+} pending_header_t;
+
+typedef struct
+{
+    uint8_t event_id;
+    uint8_t port_id;
+    uint64_t value;
+    int64_t ts;
+} pending_log_drain_entry_t;
+
+static bool pending_header_valid(pending_header_t *hdr)
+{
+    return (hdr->magic == PENDING_LOG_MAGIC &&
+            hdr->version == PENDING_LOG_VERSION &&
+            hdr->write_index < PENDING_LOG_MAX &&
+            hdr->count <= PENDING_LOG_MAX);
+}
+
+static void pending_create_file(void)
+{
+    FILE *f = fopen(PENDING_LOG_PATH, "wb");
+    if (!f)
+    {
+        ESP_LOGE(TAG, "Cannot create pending.dat");
+        return;
+    }
+    pending_header_t hdr = {
+        .magic = PENDING_LOG_MAGIC,
+        .version = PENDING_LOG_VERSION,
+        .reserved = 0,
+        .write_index = 0,
+        .count = 0};
+    fwrite(&hdr, sizeof(hdr), 1, f);
+    fflush(f);
+    fclose(f);
+    ESP_LOGI(TAG, "pending.dat created");
+}
+
 void log_store_init(void)
 {
     if (!s_log_mutex)
@@ -47,6 +100,37 @@ void log_store_init(void)
             ESP_LOGE(TAG, "Error creating mutex");
             return;
         }
+    }
+
+    if (!s_pending_mutex)
+    {
+        s_pending_mutex = xSemaphoreCreateMutex();
+        if (!s_pending_mutex)
+        {
+            ESP_LOGE(TAG, "Error creating pending mutex");
+            return;
+        }
+    }
+
+    FILE *pf = fopen(PENDING_LOG_PATH, "rb");
+    if (pf)
+    {
+        pending_header_t hdr;
+        if (fread(&hdr, sizeof(hdr), 1, pf) == 1 && !pending_header_valid(&hdr))
+        {
+            ESP_LOGW(TAG, "Invalid pending header, recreating");
+            fclose(pf);
+            remove(PENDING_LOG_PATH);
+            pending_create_file();
+        }
+        else
+        {
+            fclose(pf);
+        }
+    }
+    else
+    {
+        pending_create_file();
     }
 
     FILE *f = fopen("/fs/logs.dat", "rb");
@@ -165,9 +249,9 @@ void log_add(uint8_t event_id,
 
         fclose(f);
         remove("/fs/logs.dat");
-        xSemaphoreGive(s_log_mutex);
 
         log_store_init();
+        xSemaphoreGive(s_log_mutex);
 
         return;
     }
@@ -393,4 +477,143 @@ esp_err_t log_read_all_json(httpd_req_t *req)
         return err;
 
     return httpd_resp_send_chunk(req, NULL, 0);
+}
+
+void pending_log_add(uint8_t event_id,
+                     uint8_t port_id,
+                     uint64_t value,
+                     int64_t ts)
+{
+    if (!s_pending_mutex)
+        return;
+
+    if (ts == 0)
+        ts = getTimeStamp();
+
+    if (xSemaphoreTake(s_pending_mutex, pdMS_TO_TICKS(5000)) != pdTRUE)
+    {
+        ESP_LOGW(TAG, "Timeout waiting pending mutex");
+        return;
+    }
+
+    FILE *f = fopen(PENDING_LOG_PATH, "r+b");
+    if (!f)
+    {
+        ESP_LOGE(TAG, "Cannot open pending.dat");
+        xSemaphoreGive(s_pending_mutex);
+        return;
+    }
+
+    pending_header_t hdr;
+    if (fread(&hdr, sizeof(hdr), 1, f) != 1 || !pending_header_valid(&hdr))
+    {
+        ESP_LOGE(TAG, "Invalid pending header, recreating");
+        fclose(f);
+        remove(PENDING_LOG_PATH);
+        xSemaphoreGive(s_pending_mutex);
+        pending_create_file();
+        return;
+    }
+
+    log_t entry = {
+        .event_id = event_id,
+        .port_id = port_id,
+        .ts = (uint64_t)ts,
+        .value = value};
+
+    long offset = sizeof(pending_header_t) + ((long)hdr.write_index * sizeof(log_t));
+    if (fseek(f, offset, SEEK_SET) != 0)
+    {
+        ESP_LOGE(TAG, "fseek failed");
+        fclose(f);
+        xSemaphoreGive(s_pending_mutex);
+        return;
+    }
+    if (fwrite(&entry, sizeof(entry), 1, f) != 1)
+    {
+        ESP_LOGE(TAG, "Error writing pending entry");
+        fclose(f);
+        xSemaphoreGive(s_pending_mutex);
+        return;
+    }
+
+    hdr.write_index = (hdr.write_index + 1) % PENDING_LOG_MAX;
+    if (hdr.count < PENDING_LOG_MAX)
+        hdr.count++;
+
+    fseek(f, 0, SEEK_SET);
+    if (fwrite(&hdr, sizeof(hdr), 1, f) != 1)
+    {
+        ESP_LOGE(TAG, "Header write failed");
+    }
+    fflush(f);
+    fclose(f);
+    xSemaphoreGive(s_pending_mutex);
+}
+
+void pending_log_load_and_drain(QueueHandle_t q, uint32_t *drained_count)
+{
+    if (drained_count)
+        *drained_count = 0;
+
+    if (!s_pending_mutex)
+        return;
+
+    if (xSemaphoreTake(s_pending_mutex, pdMS_TO_TICKS(5000)) != pdTRUE)
+        return;
+
+    FILE *f = fopen(PENDING_LOG_PATH, "rb");
+    if (!f)
+    {
+        xSemaphoreGive(s_pending_mutex);
+        return;
+    }
+
+    pending_header_t hdr;
+    if (fread(&hdr, sizeof(hdr), 1, f) != 1 || !pending_header_valid(&hdr))
+    {
+        fclose(f);
+        xSemaphoreGive(s_pending_mutex);
+        return;
+    }
+
+    if (hdr.count == 0)
+    {
+        fclose(f);
+        xSemaphoreGive(s_pending_mutex);
+        return;
+    }
+
+    uint32_t start = (hdr.count < PENDING_LOG_MAX) ? 0 : hdr.write_index;
+
+    for (uint32_t i = 0; i < hdr.count; i++)
+    {
+        uint32_t index = (start + i) % PENDING_LOG_MAX;
+        long offset = sizeof(pending_header_t) + ((long)index * sizeof(log_t));
+        if (fseek(f, offset, SEEK_SET) != 0)
+            break;
+        log_t e;
+        if (fread(&e, sizeof(log_t), 1, f) != 1)
+            break;
+
+        pending_log_drain_entry_t entry = {
+            .event_id = e.event_id,
+            .port_id = e.port_id,
+            .value = e.value,
+            .ts = (int64_t)e.ts};
+        if (xQueueSendToBack(q, &entry, 0) != pdTRUE)
+        {
+            ESP_LOGE(TAG, "Failed to enqueue pending log");
+            break;
+        }
+        if (drained_count)
+            (*drained_count)++;
+    }
+
+    fclose(f);
+
+    remove(PENDING_LOG_PATH);
+    pending_create_file();
+
+    xSemaphoreGive(s_pending_mutex);
 }
