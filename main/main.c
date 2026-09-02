@@ -581,6 +581,7 @@ void app_main()
     fs_init();
 
     config_load(&g_config);
+    barrier_config_load(&g_barrier_config);
     // ====================================
 
     // ====================================
@@ -596,13 +597,6 @@ void app_main()
     ESP_ERROR_CHECK(ethernet_init());
 
     http_init(queue_cards);
-
-
-    ESP_LOGI(TAG, "Loading barrier configuration");
-    if (barrier_config_load(&g_barrier_config) != ESP_OK)
-    {
-        ESP_LOGW(TAG, "Failed to load barrier config, using defaults");
-    }
 
     ESP_LOGI(TAG, "Initializing card store");
     card_store_init();
