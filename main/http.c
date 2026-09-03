@@ -369,78 +369,76 @@ esp_err_t get_card_list(void)
         return ESP_FAIL;
     }
 
-    int content_length = esp_http_client_get_content_length(client);
-    size_t buf_size = (content_length > 0) ? (size_t)content_length + 1 : 4096;
-
-    char *response = malloc(buf_size);
-    if (!response)
-    {
-        ESP_LOGE(TAG, "Failed to allocate response buffer");
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
-    }
-
-    int total_read = 0;
-    int read_len;
-    while ((read_len = esp_http_client_read(client, response + total_read, buf_size - total_read - 1)) > 0)
-    {
-        total_read += read_len;
-        if ((size_t)total_read >= buf_size - 1)
-        {
-            buf_size *= 2;
-            response = realloc(response, buf_size);
-            if (!response)
-            {
-                ESP_LOGE(TAG, "Failed to grow response buffer");
-                esp_http_client_cleanup(client);
-                return ESP_FAIL;
-            }
-        }
-    }
-    response[total_read] = '\0';
-
-    ESP_LOGI(TAG, "Card list response (%d bytes): %s", total_read, response);
-
-    cJSON *root = cJSON_Parse(response);
-    if (!root)
-    {
-        ESP_LOGE(TAG, "Failed to parse JSON response");
-        free(response);
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
-    }
-
-    if (!cJSON_IsArray(root))
-    {
-        ESP_LOGE(TAG, "Expected JSON array in response");
-        cJSON_Delete(root);
-        free(response);
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
-    }
-
     card_truncate();
 
-    cJSON *card_item = NULL;
+    uint8_t chunk_buf[512];
+    int read_len;
     int added = 0;
-    cJSON_ArrayForEach(card_item, root)
+    const char pattern[] = "\"cod_credencial\":";
+    size_t pattern_len = sizeof(pattern) - 1;
+    size_t match_pos = 0;
+    enum
     {
-        if (cJSON_IsObject(card_item))
+        ST_SCAN,
+        ST_READ_NUM
+    } state = ST_SCAN;
+    uint64_t current_num = 0;
+
+    while ((read_len = esp_http_client_read(client, (char *)chunk_buf, sizeof(chunk_buf))) > 0)
+    {
+        for (int i = 0; i < read_len; i++)
         {
-            cJSON *cod_item = cJSON_GetObjectItemCaseSensitive(card_item, "cod_credencial");
-            if (cJSON_IsNumber(cod_item))
+            char c = (char)chunk_buf[i];
+
+            if (state == ST_SCAN)
             {
-                uint64_t card_id = (uint64_t)cod_item->valuedouble;
-                card_add(card_id);
-                added++;
+                if (c == pattern[match_pos])
+                {
+                    match_pos++;
+                    if (match_pos == pattern_len)
+                    {
+                        state = ST_READ_NUM;
+                        current_num = 0;
+                        match_pos = 0;
+                    }
+                }
+                else
+                {
+                    match_pos = 0;
+                }
+            }
+            else
+            {
+                if (c >= '0' && c <= '9')
+                {
+                    current_num = current_num * 10 + (uint64_t)(c - '0');
+                }
+                else
+                {
+                    if (current_num != 0)
+                    {
+                        card_add(current_num);
+                        added++;
+                    }
+                    state = ST_SCAN;
+                    current_num = 0;
+                    if (c == pattern[0])
+                    {
+                        match_pos = 1;
+                    }
+                }
             }
         }
+    }
+
+    if (state == ST_READ_NUM && current_num != 0)
+    {
+        card_add(current_num);
+        added++;
     }
 
     ESP_LOGI(TAG, "Card list updated: %d cards added", added);
 
-    cJSON_Delete(root);
-    free(response);
     esp_http_client_cleanup(client);
     return ESP_OK;
 }
