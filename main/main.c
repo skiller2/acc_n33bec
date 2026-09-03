@@ -112,6 +112,7 @@ extern void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habil
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
 extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
+extern esp_err_t get_card_list(void);
 void barrier_task(void *arg);
 void log_input_task(void *arg);
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
@@ -423,8 +424,6 @@ static void door_reader_task(void *arg)
         last_rele2 = rele2;
         last_rele3 = rele3;
 
-
-
         vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms));
     }
 }
@@ -486,6 +485,7 @@ void time_sync_task(void *arg)
         vTaskDelay(pdMS_TO_TICKS(60 * 60 * 1000));
     }
 }
+
 static void keep_alive_task(void *arg)
 {
     const char *TAG = "keep_alive";
@@ -544,6 +544,21 @@ static void service_mode_task(void *arg)
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    vTaskDelete(NULL);
+}
+
+static void card_list_task(void *arg)
+{
+    ESP_LOGI(TAG, "card_list_task started, waiting for network IP");
+    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
+    ESP_LOGI(TAG, "got IP, fetching card list");
+
+    esp_err_t err = get_card_list();
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "get_card_list failed: %s", esp_err_to_name(err));
+    }
+
     vTaskDelete(NULL);
 }
 
@@ -615,7 +630,6 @@ void app_main()
         ESP_LOGE(TAG, "RTC NOT WORKING");
     }
 
-
     if (wifi_init() != ESP_OK)
     {
         ESP_LOGE(TAG, "WiFi/DPP initialization failed");
@@ -625,15 +639,13 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create service_mode task");
     }
-    
-    if (wifi_sta_start()!= ESP_OK)
+
+    if (wifi_sta_start() != ESP_OK)
         dpp_start();
-    
 
 #if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();
 #endif
-
 
     //=========================================
 
@@ -712,5 +724,11 @@ void app_main()
     if (xTaskCreate(keep_alive_task, "keep_alive_task", 4096, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
+    }
+
+    ESP_LOGI(TAG, "Creating card list task");
+    if (xTaskCreate(card_list_task, "card_list_task", 8192, NULL, 5, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create card_list task");
     }
 }

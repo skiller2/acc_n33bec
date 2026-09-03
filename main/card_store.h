@@ -7,6 +7,7 @@ extern "C" {
 
 void card_add(uint64_t);
 void card_del(uint64_t);
+void card_truncate(void);
 int card_exists(uint64_t);
 char *card_read_all_json(void);
 

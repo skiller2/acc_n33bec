@@ -37,6 +37,7 @@
 
 extern void card_add(uint64_t);
 extern void card_del(uint64_t);
+extern void card_truncate(void);
 // extern char *log_read_all_json(void);
 extern esp_err_t log_read_all_json(httpd_req_t *req);
 extern char *card_read_all_json(void);
@@ -301,6 +302,149 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
         handle_send_card = NULL;
     }
     return err;
+}
+
+esp_err_t get_card_list(void)
+{
+    char url[768];
+    uint32_t timeout=15000;
+
+    const char *base_end = strstr(g_config.url_n33bec, "://");
+    if (base_end)
+    {
+        base_end += 3;
+        const char *path_start = strchr(base_end, '/');
+        if (path_start)
+            base_end = path_start;
+        else
+            base_end = g_config.url_n33bec + strlen(g_config.url_n33bec);
+    }
+    else
+    {
+        base_end = strchr(g_config.url_n33bec, '/');
+        if (!base_end)
+            base_end = g_config.url_n33bec + strlen(g_config.url_n33bec);
+    }
+
+    size_t base_len = base_end - g_config.url_n33bec;
+    if (base_len >= 256)
+        base_len = 255;
+    char base_url[256];
+    memcpy(base_url, g_config.url_n33bec, base_len);
+    base_url[base_len] = '\0';
+
+    snprintf(url, sizeof(url), "%s/v1/habiaccesos/tema?tema=%s/%lu",
+             base_url, g_config.cod_tema, g_config.device_id);
+
+    esp_http_client_config_t config = {
+        .url = url,
+        .timeout_ms = timeout,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (!client)
+    {
+        ESP_LOGE(TAG, "Failed to init HTTP client");
+        return ESP_FAIL;
+    }
+
+    esp_http_client_set_method(client, HTTP_METHOD_GET);
+
+    ESP_LOGI(TAG, "Fetch card list from %s", url);
+
+    esp_err_t err = esp_http_client_perform(client);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "HTTP GET failed: %s", esp_err_to_name(err));
+        esp_http_client_cleanup(client);
+        return err;
+    }
+
+    int status_code = esp_http_client_get_status_code(client);
+    if (status_code != 200 && status_code != 201)
+    {
+        ESP_LOGE(TAG, "Unexpected status code: %d", status_code);
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    int content_length = esp_http_client_get_content_length(client);
+    size_t buf_size = (content_length > 0) ? (size_t)content_length + 1 : 4096;
+
+    char *response = malloc(buf_size);
+    if (!response)
+    {
+        ESP_LOGE(TAG, "Failed to allocate response buffer");
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    int total_read = 0;
+    int read_len;
+    while ((read_len = esp_http_client_read(client, response + total_read, buf_size - total_read - 1)) > 0)
+    {
+        total_read += read_len;
+        if ((size_t)total_read >= buf_size - 1)
+        {
+            buf_size *= 2;
+            response = realloc(response, buf_size);
+            if (!response)
+            {
+                ESP_LOGE(TAG, "Failed to grow response buffer");
+                esp_http_client_cleanup(client);
+                return ESP_FAIL;
+            }
+        }
+    }
+    response[total_read] = '\0';
+
+    ESP_LOGI(TAG, "Card list response (%d bytes): %s", total_read, response);
+
+    cJSON *root = cJSON_Parse(response);
+    if (!root)
+    {
+        ESP_LOGE(TAG, "Failed to parse JSON response");
+        free(response);
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    if (!cJSON_IsArray(root))
+    {
+        ESP_LOGE(TAG, "Expected JSON array in response");
+        cJSON_Delete(root);
+        free(response);
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    card_truncate();
+
+    cJSON *card_item = NULL;
+    int added = 0;
+    cJSON_ArrayForEach(card_item, root)
+    {
+        if (cJSON_IsNumber(card_item))
+        {
+            uint64_t card_id = (uint64_t)card_item->valuedouble;
+            card_add(card_id);
+            added++;
+        }
+        else if (cJSON_IsString(card_item) && card_item->valuestring)
+        {
+            uint64_t card_id = strtoull(card_item->valuestring, NULL, 10);
+            card_add(card_id);
+            added++;
+        }
+    }
+
+    ESP_LOGI(TAG, "Card list updated: %d cards added", added);
+
+    cJSON_Delete(root);
+    free(response);
+    esp_http_client_cleanup(client);
+    return ESP_OK;
 }
 
 static esp_err_t static_file_handler(httpd_req_t *req)

@@ -18,6 +18,14 @@ void card_store_init()
     fclose(f);
 }
 
+void card_truncate(void)
+{
+    count = 0;
+    FILE *f = fopen("/fs/cards.dat", "wb");
+    if (f)
+        fclose(f);
+}
+
 int card_exists(uint64_t id)
 {
     for (int i = 0; i < count; i++)
