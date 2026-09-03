@@ -9,24 +9,10 @@
 #include <string.h>
 
 static const char *TAG = "ws";
-
-static const char *wifi_status_to_str(wifi_status_t status)
-{
-    switch (status) {
-    case WIFI_STATUS_DISCONNECTED: return "disconnected";
-    case WIFI_STATUS_DPP_LISTENING: return "dpp_listening";
-    case WIFI_STATUS_DPP_READY: return "dpp_ready";
-    case WIFI_STATUS_CONNECTING: return "connecting";
-    case WIFI_STATUS_CONNECTED: return "connected";
-    case WIFI_STATUS_DPP_FAILED: return "dpp_failed";
-    default: return "disconnected";
-    }
-}
-
 static httpd_handle_t g_server = NULL;
 
 
-void ws_broadcast_wifi_status(wifi_status_t status, bool connected, const char *ssid, const char *ip, const char *dpp_uri)
+void ws_broadcast_wifi_status(const char *status, const char *ssid, const char *ip, const char *dpp_uri)
 {
     if (!g_server) return;
 
@@ -40,8 +26,7 @@ void ws_broadcast_wifi_status(wifi_status_t status, bool connected, const char *
     }
 
     cJSON_AddStringToObject(wifi, "type", "wifi");
-    cJSON_AddStringToObject(wifi, "status", wifi_status_to_str(status));
-    cJSON_AddBoolToObject(wifi, "connected", connected);
+    cJSON_AddStringToObject(wifi, "status", status);
     if (ssid && ssid[0]) cJSON_AddStringToObject(wifi, "ssid", ssid);
     if (ip && ip[0]) cJSON_AddStringToObject(wifi, "ip", ip);
     if (dpp_uri && dpp_uri[0]) cJSON_AddStringToObject(wifi, "dpp_uri", dpp_uri);
@@ -359,8 +344,7 @@ esp_err_t ws_handler(httpd_req_t *req)
                     }
                     else if (strcmp((char *)buf, "init") == 0)
                     {
-                        wifi_broadcast_state();
-                        
+                        ws_broadcast_wifi_status_last();
                         ws_broadcast_io_status(gpio_get_level(DOOR1_GPIO), gpio_get_level(DOOR2_GPIO), gpio_get_level(REX1_GPIO), gpio_get_level(REX2_GPIO), gpio_get_level(ALI_GPIO), gpio_get_level(RELE1_GPIO), gpio_get_level(RELE2_GPIO), gpio_get_level(RELE3_GPIO));
                         if (IS_BARRIER) force_broadcast_barrier();
                     }

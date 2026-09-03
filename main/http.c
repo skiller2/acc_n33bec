@@ -901,6 +901,7 @@ static esp_err_t dpp_bootstrap_handler(httpd_req_t *req)
 
 static esp_err_t wifi_connect_handler(httpd_req_t *req)
 {
+    esp_err_t err;
     size_t len = req->content_len;
     if (len == 0 || len > 256)
     {
@@ -943,7 +944,14 @@ static esp_err_t wifi_connect_handler(httpd_req_t *req)
 
     const char *pass = (cJSON_IsString(pass_item) && pass_item->valuestring) ? pass_item->valuestring : "";
 
-    esp_err_t err = wifi_connect_sta(ssid_item->valuestring, pass);
+
+    err = wifi_save_credentials(ssid_item->valuestring, pass);
+    if (err== ESP_OK)
+    {
+        err = wifi_sta_start();
+    }
+    
+
     cJSON_Delete(json);
 
     httpd_resp_set_type(req, "text/plain");
@@ -1255,7 +1263,6 @@ static esp_err_t get_info(httpd_req_t *req)
 {
 
     char wifi_ip[16] = {0};
-    wifi_get_ip(wifi_ip, sizeof(wifi_ip));
 
     char eth_ip[16] = {0};
 #if CONFIG_EXAMPLE_CONNECT_ETHERNET
@@ -1269,6 +1276,8 @@ static esp_err_t get_info(httpd_req_t *req)
         }
     }
 #endif
+
+
 
     uint32_t uptime_sec = (uint32_t)(esp_timer_get_time() / 1000000);
 

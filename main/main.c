@@ -116,7 +116,6 @@ void barrier_task(void *arg);
 void log_input_task(void *arg);
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
 static void service_mode_task(void *arg);
-extern esp_err_t wifi_start_ap_from_hostname(void);
 
 typedef struct
 {
@@ -538,6 +537,7 @@ static void service_mode_task(void *arg)
         if (gpio_get_level(GPIO_NUM_0) == 0)
         {
             ESP_LOGW(TAG, "GPIO0 is LOW, enable WIFI SERVICE MODE ID %lu", g_config.device_id);
+            wifi_stop();
             wifi_start_service_mode();
             break;
         }
@@ -625,7 +625,10 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create service_mode task");
     }
-
+    
+    if (wifi_sta_start()!= ESP_OK)
+        dpp_start();
+    
 
 #if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();

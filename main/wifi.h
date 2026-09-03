@@ -17,15 +17,6 @@ extern "C" {
 /**
  * @brief WiFi / DPP enrollee status
  */
-typedef enum {
-    WIFI_STATUS_DISCONNECTED = 0,   /**< WiFi disconnected, DPP not active */
-    WIFI_STATUS_DPP_LISTENING,      /**< DPP enrollee listening for authentication */
-    WIFI_STATUS_DPP_READY,          /**< DPP QR code / bootstrap ready, waiting for scan */
-    WIFI_STATUS_CONNECTING,         /**< WiFi credentials received, connecting to AP */
-    WIFI_STATUS_CONNECTED,          /**< WiFi connected and IP obtained */
-    WIFI_STATUS_DPP_FAILED,         /**< DPP authentication failed after retries */
-    WIFI_STATUS_AP_ACTIVE,          /**< WiFi AP mode is active (e.g. provisioning) */
-} wifi_status_t;
 
 /**
  * @brief Initialize WiFi in STA mode with DPP enrollee support.
@@ -63,12 +54,10 @@ void wifi_request_stop_by_ethernet(void);
  *
  * @return true if connected, false otherwise.
  */
-bool wifi_is_connected(void);
 
 /**
  * @brief Get the current WiFi/DPP status.
  */
-wifi_status_t wifi_get_status(void);
 
 /**
  * @brief Get the DPP bootstrap URI (QR code content).
@@ -78,24 +67,6 @@ wifi_status_t wifi_get_status(void);
  * @return ESP_OK if URI is available, ESP_ERR_NOT_FOUND if not yet ready.
  */
 esp_err_t wifi_get_dpp_uri(char *buf, size_t len);
-
-/**
- * @brief Get the SSID the device is connected to.
- *
- * @param buf  Destination buffer for the SSID.
- * @param len  Size of the destination buffer.
- * @return ESP_OK if connected and SSID available, ESP_ERR_NOT_FOUND otherwise.
- */
-esp_err_t wifi_get_ssid(char *buf, size_t len);
-
-/**
- * @brief Get the IP address assigned to the WiFi station interface.
- *
- * @param buf  Destination buffer for the IP address string.
- * @param len  Size of the destination buffer.
- * @return ESP_OK if IP is available, ESP_ERR_NOT_FOUND otherwise.
- */
-esp_err_t wifi_get_ip(char *buf, size_t len);
 
 /**
  * @brief Trigger DPP bootstrap regeneration.
@@ -108,21 +79,6 @@ esp_err_t wifi_get_ip(char *buf, size_t len);
  */
 esp_err_t dpp_trigger_bootstrap(void);
 void wifi_broadcast_state(void);
-
-/**
- * @brief Connect the WiFi station to an AP using SSID + password.
- *
- * Stores the credentials in NVS, stops DPP listening (if active), and starts
- * a WiFi STA connection. Connection result is reported via the existing
- * wifi event handler / websocket broadcast.
- *
- * If WiFi is not yet initialised, it will be initialised here.
- *
- * @param ssid      SSID of the target AP (max 32 chars).
- * @param password  WPA2 password (may be empty for open networks, max 63 chars).
- * @return ESP_OK on success, error code otherwise.
- */
-esp_err_t wifi_connect_sta(const char *ssid, const char *password);
 
 /**
  * @brief Get the currently stored WiFi credentials from NVS.
@@ -165,6 +121,16 @@ char *wifi_scan_to_json(void);
  * @return ESP_OK on success, error code otherwise.
  */
 esp_err_t wifi_start_service_mode(void);
+
+esp_err_t wifi_sta_start(void);
+
+esp_err_t dpp_start(void);
+
+esp_err_t wifi_save_credentials(const char *ssid, const char *password);
+
+void wifi_stop(void);
+
+void ws_broadcast_wifi_status_last(void);
 
 #ifdef __cplusplus
 }
