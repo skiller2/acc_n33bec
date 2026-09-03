@@ -31,6 +31,8 @@
 #include "wifi.h"
 #include "ws.h"
 
+#include "esp_timer.h"
+
 /* -------------------------------------------------------------------------- */
 /* Configuration                                                               */
 /* -------------------------------------------------------------------------- */
@@ -77,6 +79,7 @@ static char ssid[MAX_SSID_LEN + 1] = {0};
 static char s_ip_str[MAX_IP_LEN];
 static int s_disconnect_retry_count = 0;
 static char s_status[64] = {0};
+static esp_timer_handle_t s_wifi_retry_timer = NULL;
 
 /* -------------------------------------------------------------------------- */
 /* Forward declarations                                                        */
@@ -249,6 +252,18 @@ static void print_qr_code(const char *uri)
 #endif
 }
 
+static void wifi_retry_timer_cb(void *arg)
+
+{
+    ESP_LOGI(TAG, "Retrying WiFi connection");
+    esp_err_t err = esp_wifi_connect();
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "esp_wifi_connect failed: %s",
+                 esp_err_to_name(err));
+    }
+}
+
 static void dpp_bootstrap_generate(void)
 {
     size_t key_len = strlen(DPP_BOOTSTRAPPING_KEY ? DPP_BOOTSTRAPPING_KEY : "");
@@ -293,7 +308,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data)
 {
     ESP_LOGW(TAG, "EVENT (%d) (%d)", event_base, event_id);
- 
+
     if (event_base == WIFI_EVENT)
     {
         switch (event_id)
@@ -310,16 +325,32 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             strcpy(s_status, "WIFI_EVENT_STA_DISCONNECTED");
             ws_broadcast_wifi_status(s_status, ssid, s_ip_str, s_dpp_uri);
 
-
             /* Single retry after a short delay to avoid tight reconnect loops
              * when the credentials are wrong. The user can retry from the UI. */
+
             if (ssid[0] != '\0' &&
                 s_disconnect_retry_count < WIFI_DISCONNECT_RETRY_MAX)
             {
                 s_disconnect_retry_count++;
-                vTaskDelay(pdMS_TO_TICKS(WIFI_DISCONNECT_RETRY_DELAY_MS));
-                esp_wifi_connect();
+
+                if (s_wifi_retry_timer)
+                {
+                    esp_err_t err = esp_timer_stop(s_wifi_retry_timer);
+
+                    if (err != ESP_OK &&
+                        err != ESP_ERR_INVALID_STATE)
+                    {
+                        ESP_LOGW(TAG, "timer stop failed: %s",
+                                 esp_err_to_name(err));
+                    }
+                }
+
+                ESP_ERROR_CHECK(
+                    esp_timer_start_once(
+                        s_wifi_retry_timer,
+                        WIFI_DISCONNECT_RETRY_DELAY_MS * 1000ULL));
             }
+
             break;
         }
 
@@ -331,13 +362,14 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             {
                 ESP_LOGI(TAG, "Connected to AP: %.*s", evt->ssid_len, (const char *)evt->ssid);
 
-                memset(ssid, 0, sizeof(ssid));
-                memcpy(ssid, evt->ssid, evt->ssid_len);
+                size_t len = (evt->ssid_len < sizeof(ssid) - 1)
+                                 ? evt->ssid_len
+                                 : sizeof(ssid) - 1;
+                memcpy(ssid, evt->ssid, len);
+                ssid[len] = '\0';
 
                 strcpy(s_status, "WIFI_EVENT_STA_CONNECTED");
                 ws_broadcast_wifi_status(s_status, ssid, s_ip_str, s_dpp_uri);
-
-
             }
             break;
         }
@@ -362,6 +394,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         case WIFI_EVENT_DPP_CFG_RECVD:
         {
             wifi_event_dpp_config_received_t *cfg = (wifi_event_dpp_config_received_t *)event_data;
+            if (!cfg)
+            {
+                ESP_LOGW(TAG, "NULL DPP config");
+                break;
+            }
+
             ESP_LOGI(TAG, "DPP config received, connecting to SSID: %s",
                      (const char *)cfg->wifi_cfg.sta.ssid);
             memset(ssid, 0, sizeof(ssid));
@@ -388,6 +426,21 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+
+        if (s_wifi_retry_timer)
+        {
+            esp_err_t err = esp_timer_stop(s_wifi_retry_timer);
+
+            if (err != ESP_OK &&
+                err != ESP_ERR_INVALID_STATE)
+            {
+                ESP_LOGW(TAG, "timer stop failed: %s",
+                         esp_err_to_name(err));
+            }
+        }
+
+        s_disconnect_retry_count = 0;
+
         ESP_LOGI(TAG, "WiFi got IP: " IPSTR, IP2STR(&event->ip_info.ip));
         /* Promote WiFi STA to the default netif when Ethernet has no link.
          * This is what user-facing sockets (HTTP, SNTP, DNS) use. */
@@ -432,7 +485,7 @@ esp_err_t wifi_sta_start(void)
     err = wifi_get_credentials(ssid, sizeof(ssid),
                                stored_pass, sizeof(stored_pass));
 
-    ESP_LOGE(TAG, "wifi_sta_start SSID: %s, password: %s", ssid, stored_pass);
+    ESP_LOGE(TAG, "wifi_sta_start SSID: %s", ssid);
 
     if (err != ESP_OK)
     {
@@ -440,7 +493,6 @@ esp_err_t wifi_sta_start(void)
         return err;
     }
 
-    
     strncpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid) - 1);
     strncpy((char *)sta_cfg.sta.password, stored_pass, sizeof(sta_cfg.sta.password) - 1);
     sta_cfg.sta.threshold.authmode = (stored_pass[0] != '\0')
@@ -448,16 +500,15 @@ esp_err_t wifi_sta_start(void)
                                          : WIFI_AUTH_OPEN;
     sta_cfg.sta.pmf_cfg.capable = true;
     sta_cfg.sta.pmf_cfg.required = false;
-    
-    err= esp_wifi_set_config(WIFI_IF_STA, &sta_cfg); 
+
+    err = esp_wifi_set_config(WIFI_IF_STA, &sta_cfg);
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "esp_wifi_set_config failed: %s", esp_err_to_name(err));
         return err;
     }
     esp_wifi_start();
-    
-    
+
     err = esp_wifi_connect();
     if (err != ESP_OK)
     {
@@ -502,7 +553,7 @@ esp_err_t wifi_init(void)
     esp_netif_t *netifsta = esp_netif_create_default_wifi_sta();
     esp_netif_t *netifap = esp_netif_create_default_wifi_ap();
 
-    //set_default_wifi_handlers();  //For STA and AP events
+    // set_default_wifi_handlers();  //For STA and AP events
 
     if (netif)
     {
@@ -517,6 +568,15 @@ esp_err_t wifi_init(void)
     esp_netif_set_hostname(netifsta, hostname);
     esp_netif_set_hostname(netifap, hostname);
 
+    const esp_timer_create_args_t retry_timer_args = {
+        .callback = wifi_retry_timer_cb,
+        .arg = NULL,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "wifi_retry"};
+    ESP_ERROR_CHECK(
+        esp_timer_create(&retry_timer_args,
+                         &s_wifi_retry_timer));
+
     return ESP_OK;
 }
 
@@ -527,6 +587,12 @@ void wifi_stop(void)
     esp_wifi_stop();
 
     // esp_wifi_deinit();
+    if (s_wifi_retry_timer)
+    {
+        esp_timer_stop(s_wifi_retry_timer);
+        esp_timer_delete(s_wifi_retry_timer);
+        s_wifi_retry_timer = NULL;
+    }
 
     ESP_LOGI(TAG, "WiFi stopped");
     strcpy(s_status, "WIFI_STOP");

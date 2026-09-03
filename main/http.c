@@ -387,7 +387,7 @@ static esp_err_t add_card(httpd_req_t *req)
         len = 0;
 
     buf[len] = 0;
-    
+
     uint64_t id = strtoull(buf, NULL, 10);
     card_add(id);
     httpd_resp_sendstr(req, "OK");
@@ -554,21 +554,21 @@ static esp_err_t simulate_barrier(httpd_req_t *req)
     }
     else if (strcmp(target, "loop") == 0)
     {
-        //cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
-        //bool on = state ? (bool)cJSON_IsTrue(state) : true;
-        gpio_set_level(LOOP_GPIO,!gpio_get_level(LOOP_GPIO));
+        // cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        // bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        gpio_set_level(LOOP_GPIO, !gpio_get_level(LOOP_GPIO));
     }
     else if (strcmp(target, "finish_up") == 0)
     {
-        //cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
-        //bool on = state ? (bool)cJSON_IsTrue(state) : true;
-        gpio_set_level(FINISH_UP_GPIO,!gpio_get_level(FINISH_UP_GPIO));
+        // cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        // bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        gpio_set_level(FINISH_UP_GPIO, !gpio_get_level(FINISH_UP_GPIO));
     }
     else if (strcmp(target, "finish_down") == 0)
     {
-        //cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
-        //bool on = state ? (bool)cJSON_IsTrue(state) : true;
-        gpio_set_level(FINISH_DOWN_GPIO,!gpio_get_level(FINISH_DOWN_GPIO));
+        // cJSON *state = cJSON_GetObjectItemCaseSensitive(json, "state");
+        // bool on = state ? (bool)cJSON_IsTrue(state) : true;
+        gpio_set_level(FINISH_DOWN_GPIO, !gpio_get_level(FINISH_DOWN_GPIO));
     }
     else
     {
@@ -944,13 +944,11 @@ static esp_err_t wifi_connect_handler(httpd_req_t *req)
 
     const char *pass = (cJSON_IsString(pass_item) && pass_item->valuestring) ? pass_item->valuestring : "";
 
-
     err = wifi_save_credentials(ssid_item->valuestring, pass);
-    if (err== ESP_OK)
+    if (err == ESP_OK)
     {
         err = wifi_sta_start();
     }
-    
 
     cJSON_Delete(json);
 
@@ -1277,7 +1275,15 @@ static esp_err_t get_info(httpd_req_t *req)
     }
 #endif
 
-
+    esp_netif_t *sta_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (eth_netif)
+    {
+        esp_netif_ip_info_t ip_info;
+        if (esp_netif_get_ip_info(sta_netif, &ip_info) == ESP_OK)
+        {
+            snprintf(wifi_ip, sizeof(wifi_ip), IPSTR, IP2STR(&ip_info.ip));
+        }
+    }
 
     uint32_t uptime_sec = (uint32_t)(esp_timer_get_time() / 1000000);
 
@@ -1352,10 +1358,11 @@ static esp_err_t get_device_info(httpd_req_t *req)
     time_t now;
     time(&now);
     double system_time_ts = (double)now;
-    double sntp_time_ts=0;
+    double sntp_time_ts = 0;
     time_t rtc_now;
     double rtc_time_ts = 0;
-    if (rtc_read_time(&rtc_now) == ESP_OK) {
+    if (rtc_read_time(&rtc_now) == ESP_OK)
+    {
         rtc_time_ts = (double)rtc_now;
     }
 
@@ -1368,7 +1375,7 @@ static esp_err_t get_device_info(httpd_req_t *req)
                                                      : (chip_info.model == CHIP_ESP32C3)   ? "ESP32C3"
                                                      : (chip_info.model == CHIP_ESP32C2)   ? "ESP32C2"
                                                      : (chip_info.model == CHIP_ESP32C6)   ? "ESP32C6"
-                                                                                            : "Unknown",
+                                                                                           : "Unknown",
              chip_info.cores,
              chip_info.revision,
              esp_get_idf_version(),
@@ -1380,7 +1387,7 @@ static esp_err_t get_device_info(httpd_req_t *req)
              rtc_time_ts,
              sntp_time_ts,
              system_time_ts,
-            IS_BARRIER);
+             IS_BARRIER);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, device_info_json);
