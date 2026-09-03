@@ -425,17 +425,15 @@ esp_err_t get_card_list(void)
     int added = 0;
     cJSON_ArrayForEach(card_item, root)
     {
-        if (cJSON_IsNumber(card_item))
+        if (cJSON_IsObject(card_item))
         {
-            uint64_t card_id = (uint64_t)card_item->valuedouble;
-            card_add(card_id);
-            added++;
-        }
-        else if (cJSON_IsString(card_item) && card_item->valuestring)
-        {
-            uint64_t card_id = strtoull(card_item->valuestring, NULL, 10);
-            card_add(card_id);
-            added++;
+            cJSON *cod_item = cJSON_GetObjectItemCaseSensitive(card_item, "cod_credencial");
+            if (cJSON_IsNumber(cod_item))
+            {
+                uint64_t card_id = (uint64_t)cod_item->valuedouble;
+                card_add(card_id);
+                added++;
+            }
         }
     }
 
