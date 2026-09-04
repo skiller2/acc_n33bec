@@ -304,10 +304,39 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
     return err;
 }
 
+static void url_encode(const char *src, char *dst, size_t dst_size)
+{
+    static const char hex_chars[] = "0123456789ABCDEF";
+    size_t i = 0;
+
+    while (*src && i + 3 < dst_size)
+    {
+        unsigned char c = (unsigned char)*src++;
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+            c == '-' || c == '_' || c == '.' || c == '~')
+        {
+            dst[i++] = c;
+        }
+        else if (c == ' ')
+        {
+            dst[i++] = '+';
+        }
+        else
+        {
+            dst[i++] = '%';
+            dst[i++] = hex_chars[c >> 4];
+            dst[i++] = hex_chars[c & 0x0F];
+        }
+    }
+    dst[i] = '\0';
+}
+
 esp_err_t get_card_list(void)
 {
-    char url[768];
-    uint32_t timeout=15000;
+    char url[512];
+    char encoded_param[128];
+    char param_value[300];
+    uint32_t timeout = 15000;
 
     const char *base_end = strstr(g_config.url_n33bec, "://");
     if (base_end)
@@ -333,8 +362,12 @@ esp_err_t get_card_list(void)
     memcpy(base_url, g_config.url_n33bec, base_len);
     base_url[base_len] = '\0';
 
-    snprintf(url, sizeof(url), "%s/v1/habiaccesos/tema?tema=%s/%lu",
-             base_url, g_config.cod_tema, g_config.device_id);
+    snprintf(param_value, sizeof(param_value), "%s/%lu",
+             g_config.cod_tema, (unsigned long)g_config.device_id);
+    url_encode(param_value, encoded_param, sizeof(encoded_param));
+
+    snprintf(url, sizeof(url), "%s/api/v1/habiaccesos/tema?tema=%s",
+             base_url, encoded_param);
 
     esp_http_client_config_t config = {
         .url = url,
@@ -352,8 +385,8 @@ esp_err_t get_card_list(void)
 
     ESP_LOGI(TAG, "Fetch card list from %s", url);
 
-    esp_err_t err = esp_http_client_perform(client);
-
+    esp_err_t err = esp_http_client_open(client,0);
+    esp_http_client_fetch_headers(client);
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "HTTP GET failed: %s", esp_err_to_name(err));
@@ -386,6 +419,7 @@ esp_err_t get_card_list(void)
 
     while ((read_len = esp_http_client_read(client, (char *)chunk_buf, sizeof(chunk_buf))) > 0)
     {
+        ESP_LOGD(TAG, "Read %d bytes from HTTP response %s", read_len,chunk_buf);
         for (int i = 0; i < read_len; i++)
         {
             char c = (char)chunk_buf[i];

@@ -465,7 +465,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             }
         }
         snprintf(s_ip_str, sizeof(s_ip_str), IPSTR, IP2STR(&event->ip_info.ip));
-        ESP_LOGI(TAG, "SET HAVE_IP: " IPSTR, IP2STR(&event->ip_info.ip));
         xEventGroupSetBits(s_ip_event_group, HAVE_IP);
 
         strcpy(s_status, "WIFI_EVENT_STA_GOT_IP");

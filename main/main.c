@@ -142,6 +142,7 @@ typedef struct
 
 void log_input_task(void *arg)
 {
+    esp_err_t err;
     ESP_LOGI(TAG, "log input task started");
 
     pending_log_drain_entry_t qevt;
@@ -149,6 +150,18 @@ void log_input_task(void *arg)
     ESP_LOGI(TAG, "waiting for network IP...");
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
+
+
+    //Load CARDS
+    err = get_card_list();
+    if (err != ESP_OK)
+        err = get_card_list();
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "get_card_list failed: %s", esp_err_to_name(err));
+    }
+
+    
 
     uint32_t drained_count = 0;
     pending_log_load_and_drain(queue_remote_logs, &drained_count);
@@ -168,7 +181,7 @@ void log_input_task(void *arg)
                 .ts = qevt.ts,
                 .send_retry = 0};
 
-            esp_err_t err = send_json(evt.event_id, evt.port_id, evt.value, 1200);
+            err = send_json(evt.event_id, evt.port_id, evt.value, 1200);
 
             if (err != ESP_OK)
             {
@@ -547,20 +560,6 @@ static void service_mode_task(void *arg)
     vTaskDelete(NULL);
 }
 
-static void card_list_task(void *arg)
-{
-    ESP_LOGI(TAG, "card_list_task started, waiting for network IP");
-    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
-    ESP_LOGI(TAG, "got IP, fetching card list");
-
-    esp_err_t err = get_card_list();
-    if (err != ESP_OK)
-    {
-        ESP_LOGW(TAG, "get_card_list failed: %s", esp_err_to_name(err));
-    }
-
-    vTaskDelete(NULL);
-}
 
 void app_main()
 {
@@ -726,9 +725,4 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
 
-    ESP_LOGI(TAG, "Creating card list task");
-    if (xTaskCreate(card_list_task, "card_list_task", 8192, NULL, 5, NULL) != pdPASS)
-    {
-        ESP_LOGE(TAG, "Failed to create card_list task");
-    }
 }

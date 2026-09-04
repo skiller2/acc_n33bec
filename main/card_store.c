@@ -21,6 +21,7 @@ void card_store_init()
 void card_truncate(void)
 {
     count = 0;
+    
     FILE *f = fopen("/fs/cards.dat", "wb");
     if (f)
         fclose(f);
