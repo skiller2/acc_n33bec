@@ -24,8 +24,7 @@ static void output_off_cb(TimerHandle_t xTimer)
     gpio_set_level(gpio, 0);
 }
 
-#define MAX_GPIO 10
-static TimerHandle_t gpio_timers[MAX_GPIO] = {0};
+static TimerHandle_t gpio_timers[GPIO_NUM_MAX] = {0};
 
 void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
 {
@@ -54,36 +53,7 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
     }
 }
 
-void pulse_outputOld(gpio_num_t gpio, uint32_t duration_ms)
-{
 
-    static TimerHandle_t timer = NULL;
-
-    if (duration_ms == 0) {
-        gpio_set_level(gpio, 0);
-        return;
-    }
-
-    // set HIGH immediately
-    gpio_set_level(gpio, 1);
-    ESP_LOGI(TAG, "pulse_output: GPIO %d SET %d for %u ms", gpio, 1, duration_ms );
-
-    // create one-shot timer
-
-    if (timer != NULL) {
-        xTimerDelete(timer, 0);
-    }
-
-    timer = xTimerCreate(
-        "pulse_timer",
-        pdMS_TO_TICKS(duration_ms),
-        pdFALSE,        // one-shot
-        (void *)gpio,   // store gpio in timer
-        output_off_cb); //  callback when timer expires
-
-    if (timer != NULL)
-        xTimerStart(timer, 0);
-}
 
 void pulse_output_by_relay(uint8_t relay_number, uint32_t duration_ms)
 {
@@ -99,7 +69,10 @@ void pulse_output_by_relay(uint8_t relay_number, uint32_t duration_ms)
         default: return;
     }
 
+    heap_caps_check_integrity_all(true);
     pulse_output(gpio, duration_ms);
+    heap_caps_check_integrity_all(true);
+
 }
 
 static void melody_task(void *arg)

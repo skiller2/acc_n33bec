@@ -161,7 +161,6 @@ void log_input_task(void *arg)
     {
         ESP_LOGW(TAG, "get_card_list failed: %s", esp_err_to_name(err));
     }
-
     
 
     uint32_t drained_count = 0;
