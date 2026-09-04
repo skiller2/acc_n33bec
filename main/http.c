@@ -30,6 +30,7 @@
 #include "rtc.h"
 #include "time_sync.h"
 #include "barrier.h"
+#include "card_store.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -40,7 +41,6 @@ extern void card_del(uint64_t);
 extern void card_truncate(void);
 // extern char *log_read_all_json(void);
 extern esp_err_t log_read_all_json(httpd_req_t *req);
-extern char *card_read_all_json(void);
 extern void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
 
 static const char *TAG = "http";
@@ -544,13 +544,7 @@ static esp_err_t get_logs(httpd_req_t *req)
 
 static esp_err_t get_cards(httpd_req_t *req)
 {
-
-    char *json = card_read_all_json();
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, json);
-    free(json);
-
-    return ESP_OK;
+    return http_send_cards(req);
 }
 
 static esp_err_t add_card(httpd_req_t *req)
