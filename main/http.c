@@ -407,7 +407,7 @@ esp_err_t get_card_list(void)
     uint8_t chunk_buf[512];
     int read_len;
     int added = 0;
-    const char pattern[] = "\"cod_credencial\":";
+    const char pattern[] = "\"card_number\":";
     size_t pattern_len = sizeof(pattern) - 1;
     size_t match_pos = 0;
     enum
