@@ -22,6 +22,7 @@
 #include "esp_http_client.h"
 #include "esp_http_server.h"
 #include "driver/gpio.h"
+#include "esp_system.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -640,7 +641,10 @@ void app_main()
     }
 
     if (wifi_sta_start() != ESP_OK)
-        dpp_start();
+    {
+    //  Deshabilitado por ahora
+    // dpp_start();
+    }
 
 #if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();
@@ -680,7 +684,9 @@ void app_main()
 
     //=========================================
 
-    log_add(1, 0, 0, 0);
+
+    esp_reset_reason_t reason = esp_reset_reason();
+    log_add(1, 0, reason, 0);
     ESP_LOGI(TAG, "app_main complete - version %s", PROJECT_VERSION);
 
     // play_melody(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
