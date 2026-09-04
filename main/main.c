@@ -147,7 +147,7 @@ void log_input_task(void *arg)
     pending_log_drain_entry_t qevt;
 
     ESP_LOGI(TAG, "waiting for network IP...");
-    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
+    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
 
     uint32_t drained_count = 0;
@@ -473,7 +473,7 @@ void wait_for_valid_time(void)
 
 void time_sync_task(void *arg)
 {
-    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
+    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     vTaskDelay(pdMS_TO_TICKS(10 * 1000));
     while (1)
     {
@@ -492,7 +492,7 @@ static void keep_alive_task(void *arg)
     ESP_LOGI(TAG, "keep alive task started");
 
     ESP_LOGI(TAG, "waiting for network IP...");
-    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
+    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
 
     while (1)
@@ -550,7 +550,7 @@ static void service_mode_task(void *arg)
 static void card_list_task(void *arg)
 {
     ESP_LOGI(TAG, "card_list_task started, waiting for network IP");
-    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdTRUE, pdFALSE, portMAX_DELAY);
+    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP, fetching card list");
 
     esp_err_t err = get_card_list();
