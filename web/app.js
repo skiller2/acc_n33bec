@@ -1026,6 +1026,50 @@ function loadEnabledCards() {
     });
 }
 
+function resetReasonToStr(v) {
+  const num = Number(v);
+  const reasons = [
+    "ESP_RST_UNKNOWN",
+    "ESP_RST_POWERON",
+    "ESP_RST_EXT",
+    "ESP_RST_SW",
+    "ESP_RST_PANIC",
+    "ESP_RST_INT_WDT",
+    "ESP_RST_TASK_WDT",
+    "ESP_RST_WDT",
+    "ESP_RST_DEEPSLEEP",
+    "ESP_RST_BROWNOUT",
+    "ESP_RST_SDIO",
+    "ESP_RST_USB",
+    "ESP_RST_JTAG",
+    "ESP_RST_EFUSE",
+    "ESP_RST_PWR_GLITCH",
+    "ESP_RST_CPU_LOCKUP"
+  ];
+  const labels = [
+    "Reset reason unknown",
+    "Power-on reset",
+    "Reset by external pin",
+    "Software reset",
+    "Panic/exception reset",
+    "Interrupt watchdog reset",
+    "Task watchdog reset",
+    "Other watchdog reset",
+    "Woke from deep sleep",
+    "Brownout reset",
+    "SDIO reset",
+    "USB peripheral reset",
+    "JTAG reset",
+    "eFuse error reset",
+    "Power glitch reset",
+    "CPU lockup reset"
+  ];
+  if (!isNaN(num) && num >= 0 && num < reasons.length) {
+    return labels[num] + " (" + reasons[num] + ")";
+  }
+  return "UNKNOWN RESET (" + v + ")";
+}
+
 function formatTimestamp(ts) {
   const ms = Math.floor(ts / 1000);
   const micros = ts % 1000000;
@@ -1063,7 +1107,12 @@ function loadLogs() {
             let valueDisplay = log.value;
             let eventDisplay = "";
 
-            if (log.event_id == 10) {
+            if (log.event_id == 1) {
+              eventDisplay = "SYSTEM START";
+              if (!isNaN(Number(log.value)) && Number(log.value) >= 0 && Number(log.value) < 16) {
+                valueDisplay = resetReasonToStr(log.value);
+              }
+            } else if (log.event_id == 10) {
               eventDisplay = "CARD PASSED";
             } else if (log.event_id == 11) {
               eventDisplay = "CARD DENIED";
@@ -1073,8 +1122,6 @@ function loadLogs() {
               eventDisplay = "DOOR";
             } else if (log.event_id == 2) {
               eventDisplay = "POWER";
-            } else if (log.event_id == 1) {
-              eventDisplay = "SYSTEM START";
             } else {
               eventDisplay = "EVENT" + log.event_id;
             }

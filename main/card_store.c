@@ -5,7 +5,7 @@
 #include "esp_log.h"
 #include "esp_http_server.h"
 
-#define MAX 20000
+#define MAX 10000
 static uint64_t *cards = NULL;
 static int count = 0;
 
