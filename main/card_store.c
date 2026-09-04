@@ -1,14 +1,20 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include "esp_log.h"
 #include "esp_http_server.h"
 
-#define MAX 20000
-static uint64_t cards[MAX];
+#define MAX 4000
+static uint64_t *cards = NULL;
 static int count = 0;
 
 void card_store_init()
 {
+    cards = calloc(MAX, sizeof(uint64_t));
+    if (!cards)
+        return;
+
     FILE *f = fopen("/fs/cards.dat", "rb");
     if (!f)
         return;
