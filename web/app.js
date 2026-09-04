@@ -15,7 +15,9 @@ function switchTab(tab, btn) {
   }
 
   if (tab === 'cards') {
-    loadCards();
+    //loadCards();
+  } else if (tab === 'enabled-cards') {
+    loadEnabledCards();
   } else if (tab === 'logs') {
     loadLogs();
   } else if (tab === 'config') {
@@ -992,13 +994,17 @@ function connectWebSocket() {
 // Start connection
 connectWebSocket();
 
-function loadCards() {
+function loadEnabledCards() {
   fetch('/cards')
     .then(r => r.json())
     .then(cards => {
-      const container = document.getElementById('cards-list');
+      const container = document.getElementById('enabled-cards-list');
+      const countEl = document.getElementById('enabled-cards-count');
       container.innerHTML = '';
-      // Support both array or object format
+      
+      const count = Array.isArray(cards) ? cards.length : Object.keys(cards).length;
+      if (countEl) countEl.textContent = `(${count})`;
+      
       if (Array.isArray(cards)) {
         cards.forEach(row => {
           const div = document.createElement('div');
@@ -1007,7 +1013,6 @@ function loadCards() {
           container.appendChild(div);
         });
       } else {
-        // If it's an object like {id: status}
         Object.keys(cards).forEach(key => {
           const div = document.createElement('div');
           div.className = 'card';
@@ -1017,7 +1022,7 @@ function loadCards() {
       }
     })
     .catch(e => {
-      document.getElementById('cards-list').innerText = 'Error loading cards: ' + e;
+      document.getElementById('enabled-cards-list').innerText = 'Error loading cards: ' + e;
     });
 }
 

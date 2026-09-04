@@ -32,6 +32,7 @@
 
   <div class="tabs">
     <button class="tab-btn" onclick="switchTab('cards', this)">Cards</button>
+    <button class="tab-btn" onclick="switchTab('enabled-cards', this)">Enabled Cards</button>
     <button class="tab-btn" onclick="switchTab('logs', this)">Logs</button>
     <button class="tab-btn" onclick="switchTab('config', this)">Config</button>
     <button class="tab-btn" onclick="switchTab('firmware', this)">Firmware</button>
@@ -77,6 +78,11 @@
     </div>
 
     <div class="card">
+      <h2>Live Activity</h2>
+      <ul id="live"></ul>
+    </div>
+
+    <div class="card">
       <h2>Test Relays</h2>
       <button onclick="testRelay('rex1')">Test REX1</button>
       <button onclick="testRelay('rex2')">Test REX2</button>
@@ -84,21 +90,16 @@
       <button onclick="testRelay('port2')">Test Port 2</button>
     </div>
 
-    <div class="card">
-      <h2>Enabled Cards</h2>
-      <div id="cards-list"></div>
-    </div>
-
-    <div class="card">
-      <h2>Live Activity</h2>
-      <ul id="live"></ul>
-    </div>
-
-
-
-
   </div>
 
+
+  <!-- Enabled Cards Tab -->
+  <div id="enabled-cards-tab" class="tab-content">
+    <div class="card">
+      <h2>Enabled Cards <span id="enabled-cards-count" class="logs-count">(0)</span></h2>
+      <div id="enabled-cards-list"></div>
+    </div>
+  </div>
 
   <!-- Logs Tab -->
   <div id="logs-tab" class="tab-content">
