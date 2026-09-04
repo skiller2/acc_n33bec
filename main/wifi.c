@@ -501,6 +501,8 @@ esp_err_t wifi_sta_start(void)
     sta_cfg.sta.pmf_cfg.capable = true;
     sta_cfg.sta.pmf_cfg.required = false;
 
+    esp_wifi_set_mode(WIFI_MODE_STA);
+
     err = esp_wifi_set_config(WIFI_IF_STA, &sta_cfg);
     if (err != ESP_OK)
     {
