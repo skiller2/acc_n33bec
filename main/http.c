@@ -1494,6 +1494,8 @@ static esp_err_t get_device_info(httpd_req_t *req)
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
 
+
+    //heap_caps_print_heap_info
     uint32_t free_heap = esp_get_free_heap_size();
     uint32_t min_free_heap = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
     // Tamaño de la flash

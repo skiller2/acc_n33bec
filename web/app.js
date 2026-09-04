@@ -912,10 +912,11 @@ function appendLiveEntry(card, ts, ok, tipo_habilitacion, time_consuming, port_i
   const valueDisplay = wiegand26ToFcCard(card);
   const tipoLabel = tipo_habilitacion === 'P' ? 'Permanent' : tipo_habilitacion === 'T' ? 'Temporary' : 'Unknown';
   const tipoClass = tipo_habilitacion === 'P' ? 'tipo-permanent' : tipo_habilitacion === 'T' ? 'tipo-temporary' : 'tipo-unknown';
+  const eventClass = ok ? 'event-passed' : 'event-denied';
   const timeMs = typeof time_consuming === 'number' ? time_consuming / 1000 : 0;
   const timeDisplay = timeMs > 0 ? (timeMs < 1000 ? timeMs.toFixed(0) + ' ms' : (timeMs / 1000).toFixed(2) + ' s') : '';
 
-  li.innerHTML = `${readableTime} - ${eventDisplay} - Port${port_id} - ${valueDisplay} - <span class="${tipoClass}">${tipoLabel}</span> - <span class="time-consumed">${timeDisplay}</span>`;
+  li.innerHTML = `${readableTime} - <span class="${eventClass}">${eventDisplay}</span> - Port${port_id} - ${valueDisplay} - <span class="${tipoClass}">${tipoLabel}</span> - <span class="time-consumed">${timeDisplay}</span>`;
   ul.insertBefore(li, ul.firstChild);
   while (ul.children.length > 50) {
     ul.removeChild(ul.lastChild);

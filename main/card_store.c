@@ -12,6 +12,8 @@ static int count = 0;
 void card_store_init()
 {
     cards = calloc(MAX, sizeof(uint64_t));
+
+    //cards = heap_caps_malloc(MAX * sizeof(uint64_t), MALLOC_CAP_SPIRAM);
     if (!cards)
         return;
 

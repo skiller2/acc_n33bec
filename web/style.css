@@ -317,6 +317,16 @@ li {
   font-weight: bold;
 }
 
+.event-denied {
+  color: #ff4444;
+  font-weight: bold;
+}
+
+.event-passed {
+  color: #00ff00;
+  font-weight: bold;
+}
+
 .barrier-layout {
   display: flex;
   gap: 20px;
