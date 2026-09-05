@@ -65,7 +65,7 @@
 #define WIFI_NVS_KEY_SSID "ssid"
 #define WIFI_NVS_KEY_PASS "password"
 
-#define WIFI_DISCONNECT_RETRY_MAX 1
+#define WIFI_DISCONNECT_RETRY_MAX 100
 #define WIFI_DISCONNECT_RETRY_DELAY_MS 2000
 
 /* -------------------------------------------------------------------------- */
@@ -519,6 +519,20 @@ esp_err_t wifi_sta_start(void)
     }
 
     ESP_LOGI(TAG, "Connecting to SSID '%s'...", ssid);
+
+
+
+
+    const esp_timer_create_args_t retry_timer_args = {
+        .callback = wifi_retry_timer_cb,
+        .arg = NULL,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "wifi_retry"};
+    ESP_ERROR_CHECK(
+        esp_timer_create(&retry_timer_args,
+                         &s_wifi_retry_timer));
+
+
     return ESP_OK;
 }
 
@@ -569,15 +583,6 @@ esp_err_t wifi_init(void)
 
     esp_netif_set_hostname(netifsta, hostname);
     esp_netif_set_hostname(netifap, hostname);
-
-    const esp_timer_create_args_t retry_timer_args = {
-        .callback = wifi_retry_timer_cb,
-        .arg = NULL,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "wifi_retry"};
-    ESP_ERROR_CHECK(
-        esp_timer_create(&retry_timer_args,
-                         &s_wifi_retry_timer));
 
     return ESP_OK;
 }

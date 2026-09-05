@@ -5,13 +5,18 @@
 #include "esp_log.h"
 #include "esp_http_server.h"
 
-#define MAX 10000
-static uint64_t *cards = NULL;
+#include "esp_attr.h"
+
+#define MAX_CARDS 10000
+//EXT_RAM_BSS_ATTR uint64_t cardsx[MAX_CARDS];
+//uint64_t *cards = cardsx;
 static int count = 0;
+static uint64_t *cards = NULL;
+
 
 void card_store_init()
 {
-    cards = calloc(MAX, sizeof(uint64_t));
+    cards = calloc(MAX_CARDS, sizeof(uint64_t));
 
     //cards = heap_caps_malloc(MAX * sizeof(uint64_t), MALLOC_CAP_SPIRAM);
     if (!cards)
@@ -20,7 +25,7 @@ void card_store_init()
     FILE *f = fopen("/fs/cards.dat", "rb");
     if (!f)
         return;
-    while (count < MAX && fread(&cards[count], 8, 1, f))
+    while (count < MAX_CARDS && fread(&cards[count], 8, 1, f))
         count++;
     fclose(f);
 }
@@ -44,9 +49,9 @@ int card_exists(uint64_t id)
 
 void card_add(uint64_t id)
 {
-    if (count >= MAX)
+    if (count >= MAX_CARDS)
     {
-        ESP_LOGW("card_store", "card store full (%d/%d), cannot add card %llu", count, MAX, id);
+        ESP_LOGW("card_store", "card store full (%d/%d), cannot add card %llu", count, MAX_CARDS, id);
         return;
     }
 
