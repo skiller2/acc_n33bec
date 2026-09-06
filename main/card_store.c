@@ -14,6 +14,22 @@ static int count = 0;
 static uint64_t *cards = NULL;
 
 
+static int card_uint64_cmp(const void *a, const void *b)
+{
+    uint64_t va = *(const uint64_t *)a;
+    uint64_t vb = *(const uint64_t *)b;
+    if (va < vb) return -1;
+    if (va > vb) return 1;
+    return 0;
+}
+
+void card_mem_sort(void)
+{
+    if (count > 1)
+        qsort(cards, count, sizeof(uint64_t), card_uint64_cmp);
+}
+
+
 void card_store_init()
 {
     cards = calloc(MAX_CARDS, sizeof(uint64_t));
@@ -28,6 +44,8 @@ void card_store_init()
     while (count < MAX_CARDS && fread(&cards[count], 8, 1, f))
         count++;
     fclose(f);
+
+    card_mem_sort();
 }
 
 void card_truncate(void)
@@ -79,6 +97,91 @@ void card_del(uint64_t id)
     }
     count = new_count;
     fclose(f);
+}
+
+
+
+
+
+
+int card_mem_exists(uint64_t id)
+{
+    if (count == 0)
+        return 0;
+    int lo = 0, hi = count - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (cards[mid] == id)
+            return 1;
+        if (cards[mid] < id)
+            lo = mid + 1;
+        else
+            hi = mid - 1;
+    }
+    return 0;
+}
+
+void card_mem_add(uint64_t id)
+{
+    if (count >= MAX_CARDS)
+    {
+        ESP_LOGW("card_store", "card store full (%d/%d), cannot mem-add card %llu", count, MAX_CARDS, id);
+        return;
+    }
+
+    if (card_mem_exists(id))
+        return;
+
+    int lo = 0, hi = count;
+    while (lo < hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (cards[mid] < id)
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+
+    memmove(&cards[lo + 1], &cards[lo], (count - lo) * sizeof(uint64_t));
+    cards[lo] = id;
+    count++;
+}
+
+void card_mem_del(uint64_t id)
+{
+    if (count == 0)
+        return;
+
+    int lo = 0, hi = count - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (cards[mid] == id) {
+            memmove(&cards[mid], &cards[mid + 1], (count - mid - 1) * sizeof(uint64_t));
+            count--;
+            return;
+        }
+        if (cards[mid] < id)
+            lo = mid + 1;
+        else
+            hi = mid - 1;
+    }
+}
+
+void card_mem_batch_add(const uint64_t *ids, size_t n)
+{
+    if (!ids || n == 0)
+        return;
+
+    size_t space = MAX_CARDS - count;
+    if (space == 0)
+    {
+        ESP_LOGW("card_store", "card store full, cannot batch add %zu cards", n);
+        return;
+    }
+
+    size_t to_add = n < space ? n : space;
+    memcpy(&cards[count], ids, to_add * sizeof(uint64_t));
+    count += to_add;
+    card_mem_sort();
 }
 
 static const char *TAG = "card_store";
