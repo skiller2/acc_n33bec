@@ -6,13 +6,47 @@
 #include "esp_http_server.h"
 
 #include "esp_attr.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define MAX_CARDS 10000
 //EXT_RAM_BSS_ATTR uint64_t cardsx[MAX_CARDS];
 //uint64_t *cards = cardsx;
 static int count = 0;
 static uint64_t *cards = NULL;
+static const char *TAG = "card_store";
 
+static void card_sync_task(void *pvParameters)
+{
+    uint64_t *local_cards = (uint64_t *)pvParameters;
+    int local_count = count;
+
+    FILE *f = fopen("/fs/cards.dat", "wb");
+    if (f)
+    {
+        for (int i = 0; i < local_count; i++)
+            fwrite(&local_cards[i], sizeof(uint64_t), 1, f);
+        fclose(f);
+    }
+
+    free(local_cards);
+    vTaskDelete(NULL);
+}
+
+void card_mem_sync(void)
+{
+    if (!cards || count <= 0)
+        return;
+
+    uint64_t *copy = malloc(count * sizeof(uint64_t));
+    if (!copy)
+        return;
+
+    memcpy(copy, cards, count * sizeof(uint64_t));
+
+    if (xTaskCreate(card_sync_task, "card_sync", 4096, copy, 5, NULL) != pdTRUE)
+        free(copy);
+}
 
 static int card_uint64_cmp(const void *a, const void *b)
 {
@@ -32,6 +66,7 @@ void card_mem_sort(void)
 
 void card_store_init()
 {
+    int64_t t_start = esp_timer_get_time();
     cards = calloc(MAX_CARDS, sizeof(uint64_t));
 
     //cards = heap_caps_malloc(MAX * sizeof(uint64_t), MALLOC_CAP_SPIRAM);
@@ -46,6 +81,11 @@ void card_store_init()
     fclose(f);
 
     card_mem_sort();
+    int64_t dt_us = esp_timer_get_time() - t_start;
+
+    ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus", count, (long long)dt_us);
+
+
 }
 
 void card_truncate(void)
@@ -184,7 +224,6 @@ void card_mem_batch_add(const uint64_t *ids, size_t n)
     card_mem_sort();
 }
 
-static const char *TAG = "card_store";
 
 esp_err_t http_send_cards(httpd_req_t *req)
 {

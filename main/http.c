@@ -469,10 +469,11 @@ esp_err_t get_card_list(void)
 
     if (state == ST_READ_NUM && current_num != 0)
     {
-        card_add(current_num);
+        card_mem_add(current_num);
         added++;
     }
 
+    card_mem_sync();
     int64_t dt_us = esp_timer_get_time() - t_start;
     ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus", added, (long long)dt_us);
 

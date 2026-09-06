@@ -18,6 +18,7 @@ int card_mem_exists(uint64_t);
 void card_mem_add(uint64_t);
 void card_mem_del(uint64_t);
 void card_mem_batch_add(const uint64_t *ids, size_t n);
+void card_mem_sync(void);
 
 #ifdef __cplusplus
 }
