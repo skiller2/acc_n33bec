@@ -155,8 +155,8 @@ void log_input_task(void *arg)
 
     //Load CARDS
     err = get_card_list();
-    if (err != ESP_OK)
-        err = get_card_list();
+//    if (err != ESP_OK)
+//        err = get_card_list();
     if (err != ESP_OK)
     {
         ESP_LOGW(TAG, "get_card_list failed: %s", esp_err_to_name(err));
@@ -725,9 +725,11 @@ void app_main()
     }
 
     ESP_LOGI(TAG, "Creating keep alive task");
+    /*
     if (xTaskCreate(keep_alive_task, "keep_alive_task", 4096, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
+        */
 
 }

@@ -139,7 +139,6 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout)
 {
-
     esp_http_client_config_t config = {
         .url = g_config.url_n33bec,
         .timeout_ms = timeout,
@@ -198,6 +197,8 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
+
+    esp_http_client_close(client);
     esp_http_client_cleanup(client);
 
     return err;
@@ -297,6 +298,7 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
     tipo_habilitacion[0] = parsed_tipo_habilitacion[0];
     if (err != ESP_OK)
     {
+        esp_http_client_close(handle_send_card);
         esp_http_client_cleanup(handle_send_card);
         vTaskDelay(pdMS_TO_TICKS(1));
         handle_send_card = NULL;
@@ -385,13 +387,25 @@ esp_err_t get_card_list(void)
 
     ESP_LOGI(TAG, "Fetch card list from %s", url);
 
-    esp_err_t err = esp_http_client_open(client,0);
-    esp_http_client_fetch_headers(client);
+    esp_err_t err = esp_http_client_open(client, 0);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "HTTP GET failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "open failed: %s", esp_err_to_name(err));
+        esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return err;
+    }
+
+
+
+ESP_LOGW(TAG, "status=%d, content_length=%d, chunked=%d", esp_http_client_get_status_code(client), esp_http_client_get_content_length(client), esp_http_client_is_chunked_response(client));
+ESP_LOGI(TAG, "heap=%lu largest=%lu", esp_get_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    int64_t content_length = esp_http_client_fetch_headers(client);
+    if (content_length < 0)
+    {
+        ESP_LOGE(TAG, "fetch_headers failed");
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
     }
 
     int status_code = esp_http_client_get_status_code(client);
@@ -421,7 +435,8 @@ esp_err_t get_card_list(void)
 
     while ((read_len = esp_http_client_read(client, (char *)chunk_buf, sizeof(chunk_buf))) > 0)
     {
-        ESP_LOGD(TAG, "Read %d bytes from HTTP response %s", read_len,chunk_buf);
+        //ESP_LOGD(TAG, "Read %d bytes from HTTP response %s", read_len, chunk_buf);
+        ESP_LOGD(TAG, "Read %d bytes", read_len);
         for (int i = 0; i < read_len; i++)
         {
             char c = (char)chunk_buf[i];
@@ -476,7 +491,7 @@ esp_err_t get_card_list(void)
     card_mem_sync();
     int64_t dt_us = esp_timer_get_time() - t_start;
     ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus", added, (long long)dt_us);
-
+    esp_http_client_close(client);
     esp_http_client_cleanup(client);
     return ESP_OK;
 }
@@ -1498,8 +1513,7 @@ static esp_err_t get_device_info(httpd_req_t *req)
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
 
-
-    //heap_caps_print_heap_info
+    // heap_caps_print_heap_info
     uint32_t free_heap = esp_get_free_heap_size();
     uint32_t min_free_heap = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
     // Tamaño de la flash

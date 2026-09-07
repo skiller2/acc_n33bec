@@ -266,6 +266,7 @@ static void wifi_retry_timer_cb(void *arg)
 
 static void dpp_bootstrap_generate(void)
 {
+    esp_err_t ret = ESP_ERR_INVALID_STATE;
     size_t key_len = strlen(DPP_BOOTSTRAPPING_KEY ? DPP_BOOTSTRAPPING_KEY : "");
     char *key = NULL;
 
@@ -288,8 +289,8 @@ static void dpp_bootstrap_generate(void)
         }
     }
 
-    esp_err_t ret = esp_supp_dpp_bootstrap_gen(DPP_LISTEN_CHANNEL_LIST, DPP_BOOTSTRAP_QR_CODE,
-                                               key, DPP_DEVICE_INFO);
+    //esp_err_t ret = esp_supp_dpp_bootstrap_gen(DPP_LISTEN_CHANNEL_LIST, DPP_BOOTSTRAP_QR_CODE,
+    //                                           key, DPP_DEVICE_INFO);
     if (key)
     {
         free(key);
@@ -589,8 +590,8 @@ esp_err_t wifi_init(void)
 
 void wifi_stop(void)
 {
-    esp_supp_dpp_stop_listen();
-    esp_supp_dpp_deinit();
+    //esp_supp_dpp_stop_listen();
+    //esp_supp_dpp_deinit();
     esp_wifi_stop();
 
     // esp_wifi_deinit();
@@ -608,20 +609,20 @@ void wifi_stop(void)
 
 esp_err_t dpp_trigger_bootstrap(void)
 {
-
+    esp_err_t err =  ESP_ERR_INVALID_STATE;
     ESP_LOGI(TAG, "Triggering DPP bootstrap regeneration");
 
-    esp_err_t deinit_err = esp_supp_dpp_deinit();
-    if (deinit_err != ESP_OK)
+    //err = esp_supp_dpp_deinit();
+    if (err != ESP_OK)
     {
-        ESP_LOGW(TAG, "DPP deinit returned %s", esp_err_to_name(deinit_err));
+        ESP_LOGW(TAG, "DPP deinit returned %s", esp_err_to_name(err));
     }
 
-    ESP_ERROR_CHECK(esp_supp_dpp_init());
+    //ESP_ERROR_CHECK(esp_dpp_deinit());
 
     dpp_bootstrap_generate();
 
-    esp_err_t err = esp_supp_dpp_start_listen();
+    //err = esp_supp_dpp_start_listen();
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
     {
         ESP_LOGE(TAG, "Failed to restart DPP listen: %s", esp_err_to_name(err));
