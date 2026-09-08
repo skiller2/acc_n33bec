@@ -37,8 +37,6 @@
 #define PROJECT_VERSION "dev"
 #endif
 
-extern void card_del(uint64_t);
-extern void card_truncate(void);
 // extern char *log_read_all_json(void);
 extern esp_err_t log_read_all_json(httpd_req_t *req);
 extern void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
@@ -425,8 +423,6 @@ esp_err_t get_card_list(void)
         return ESP_FAIL;
     }
 
-    card_truncate();
-
     int64_t t_start = esp_timer_get_time();
 
     uint8_t chunk_buf[512];
@@ -551,7 +547,7 @@ static esp_err_t del_card(httpd_req_t *req)
     buf[len] = 0;
 
     uint64_t id = strtoull(buf, NULL, 10);
-    card_del(id);
+    card_mem_del(id);
 
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;

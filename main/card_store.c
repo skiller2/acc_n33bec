@@ -21,12 +21,16 @@ static void card_sync_task(void *pvParameters)
     uint64_t *local_cards = (uint64_t *)pvParameters;
     int local_count = count;
 
-    FILE *f = fopen("/fs/cards.dat", "wb");
+    const char *tmp_path = "/fs/cards.dat.tmp";
+    const char *dst_path = "/fs/cards.dat";
+
+    FILE *f = fopen(tmp_path, "wb");
     if (f)
     {
         for (int i = 0; i < local_count; i++)
             fwrite(&local_cards[i], sizeof(uint64_t), 1, f);
         fclose(f);
+        rename(tmp_path, dst_path);
     }
 
     free(local_cards);
@@ -87,45 +91,6 @@ void card_store_init()
 
 
 }
-
-void card_truncate(void)
-{
-    count = 0;
-
-    FILE *f = fopen("/fs/cards.dat", "wb");
-    if (f)
-        fclose(f);
-}
-
-int card_exists(uint64_t id)
-{
-    for (int i = 0; i < count; i++)
-        if (cards[i] == id)
-            return 1;
-    return 0;
-}
-
-void card_del(uint64_t id)
-{
-    FILE *f = fopen("/fs/cards.dat", "wb");
-
-    size_t new_count = 0;
-    for (int i = 0; i < count; i++)
-    {
-        if (cards[i] != id)
-        {
-            fwrite(&cards[i], sizeof(uint64_t), 1, f);
-            cards[new_count++] = cards[i];
-        }
-    }
-    count = new_count;
-    fclose(f);
-}
-
-
-
-
-
 
 int card_mem_exists(uint64_t id)
 {

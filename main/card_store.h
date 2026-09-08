@@ -7,9 +7,6 @@
 extern "C" {
 #endif
 
-void card_del(uint64_t);
-void card_truncate(void);
-int card_exists(uint64_t);
 esp_err_t http_send_cards(httpd_req_t *req);
 
 void card_mem_sort(void);
@@ -18,6 +15,7 @@ bool card_mem_add(uint64_t);
 void card_mem_del(uint64_t);
 void card_mem_batch_add(const uint64_t *ids, size_t n);
 void card_mem_sync(void);
+void card_store_init(void);
 
 #ifdef __cplusplus
 }

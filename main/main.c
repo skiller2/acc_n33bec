@@ -23,6 +23,7 @@
 #include "esp_http_server.h"
 #include "driver/gpio.h"
 #include "esp_system.h"
+#include "card_store.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -106,9 +107,7 @@ tone_t access_denied[] = {
 
 extern void fs_init();
 extern void http_init(QueueHandle_t qh);
-extern void card_store_init();
 extern void log_store_init();
-extern int card_exists(uint64_t);
 extern void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habilitacion, int64_t time_consuming, int port_id);
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
 extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion);
@@ -263,7 +262,7 @@ void worker(void *p)
             }
             else
             {
-                ok = card_exists(e.card) ? 1 : 0;
+                ok = card_mem_exists(e.card) ? 1 : 0;
                 tipo_habilitacion = 'P';
             }
 
