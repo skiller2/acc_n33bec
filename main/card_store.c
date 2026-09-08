@@ -105,23 +105,6 @@ int card_exists(uint64_t id)
     return 0;
 }
 
-void card_add(uint64_t id)
-{
-    if (count >= MAX_CARDS)
-    {
-        ESP_LOGW("card_store", "card store full (%d/%d), cannot add card %llu", count, MAX_CARDS, id);
-        return;
-    }
-
-    if (!card_exists(id))
-    {
-        cards[count++] = id;
-        FILE *f = fopen("/fs/cards.dat", "ab");
-        fwrite(&id, 8, 1, f);
-        fclose(f);
-    }
-}
-
 void card_del(uint64_t id)
 {
     FILE *f = fopen("/fs/cards.dat", "wb");
@@ -161,16 +144,16 @@ int card_mem_exists(uint64_t id)
     return 0;
 }
 
-void card_mem_add(uint64_t id)
+bool card_mem_add(uint64_t id)
 {
     if (count >= MAX_CARDS)
     {
         ESP_LOGW("card_store", "card store full (%d/%d), cannot mem-add card %llu", count, MAX_CARDS, id);
-        return;
+        return false;
     }
 
     if (card_mem_exists(id))
-        return;
+        return true;
 
     int lo = 0, hi = count;
     while (lo < hi) {
@@ -184,6 +167,7 @@ void card_mem_add(uint64_t id)
     memmove(&cards[lo + 1], &cards[lo], (count - lo) * sizeof(uint64_t));
     cards[lo] = id;
     count++;
+    return true;
 }
 
 void card_mem_del(uint64_t id)

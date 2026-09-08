@@ -37,7 +37,6 @@
 #define PROJECT_VERSION "dev"
 #endif
 
-extern void card_add(uint64_t);
 extern void card_del(uint64_t);
 extern void card_truncate(void);
 // extern char *log_read_all_json(void);
@@ -143,7 +142,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     esp_http_client_config_t config = {
         .url = g_config.url_n33bec,
         .timeout_ms = timeout,
-//        .crt_bundle_attach = esp_crt_bundle_attach,
+        //        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -217,7 +216,7 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
             .event_handler = http_event_handler,
             .keep_alive_enable = true,
             .keep_alive_interval = 5,
-//            .crt_bundle_attach = esp_crt_bundle_attach,
+            //            .crt_bundle_attach = esp_crt_bundle_attach,
         };
 
         handle_send_card = esp_http_client_init(&config);
@@ -225,7 +224,6 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
         esp_http_client_set_method(handle_send_card, HTTP_METHOD_POST);
         esp_http_client_set_header(handle_send_card, "Content-Type", "application/json");
         esp_http_client_set_header(handle_send_card, "User-Agent", "ESP32-HTTP-Client/1.0");
-
     }
     char post_data[384];
 
@@ -446,7 +444,7 @@ esp_err_t get_card_list(void)
 
     while ((read_len = esp_http_client_read(client, (char *)chunk_buf, sizeof(chunk_buf))) > 0)
     {
-        //ESP_LOGD(TAG, "Read %d bytes from HTTP response %s", read_len, chunk_buf);
+        // ESP_LOGD(TAG, "Read %d bytes from HTTP response %s", read_len, chunk_buf);
         ESP_LOGD(TAG, "Read %d bytes", read_len);
         for (int i = 0; i < read_len; i++)
         {
@@ -479,7 +477,9 @@ esp_err_t get_card_list(void)
                 {
                     if (current_num != 0)
                     {
-                        card_mem_add(current_num);
+                        if (!card_mem_add(current_num))
+                            goto goto_end;
+
                         added++;
                     }
                     state = ST_SCAN;
@@ -495,10 +495,11 @@ esp_err_t get_card_list(void)
 
     if (state == ST_READ_NUM && current_num != 0)
     {
-        card_mem_add(current_num);
+        if (!card_mem_add(current_num))
+            goto goto_end;
         added++;
     }
-
+goto_end:
     card_mem_sync();
     int64_t dt_us = esp_timer_get_time() - t_start;
     ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus", added, (long long)dt_us);
@@ -587,7 +588,7 @@ static esp_err_t add_card(httpd_req_t *req)
     buf[len] = 0;
 
     uint64_t id = strtoull(buf, NULL, 10);
-    card_add(id);
+    card_mem_add(id);
     httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
