@@ -143,7 +143,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     esp_http_client_config_t config = {
         .url = g_config.url_n33bec,
         .timeout_ms = timeout,
-        .crt_bundle_attach = esp_crt_bundle_attach,
+//        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -217,7 +217,7 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
             .event_handler = http_event_handler,
             .keep_alive_enable = true,
             .keep_alive_interval = 5,
-            .crt_bundle_attach = esp_crt_bundle_attach,
+//            .crt_bundle_attach = esp_crt_bundle_attach,
         };
 
         handle_send_card = esp_http_client_init(&config);
@@ -379,7 +379,7 @@ esp_err_t get_card_list(void)
         .timeout_ms = timeout,
         .buffer_size = 4096,
         .max_redirection_count = 5,
-        .crt_bundle_attach = esp_crt_bundle_attach,
+        // .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
