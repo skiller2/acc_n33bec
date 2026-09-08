@@ -122,7 +122,7 @@ static void service_mode_task(void *arg);
 typedef struct
 {
     uint8_t event_id;
-    int port_id;
+    uint8_t port_id;
     uint64_t value;
     int64_t ts;
     uint8_t send_retry;
@@ -133,20 +133,13 @@ static QueueHandle_t queue_remote_logs;
 
 #define PENDING_LOG_MAX_RETRIES 10
 
-typedef struct
-{
-    uint8_t event_id;
-    uint8_t port_id;
-    uint64_t value;
-    int64_t ts;
-} pending_log_drain_entry_t;
 
 void log_input_task(void *arg)
 {
     esp_err_t err;
     ESP_LOGI(TAG, "log input task started");
 
-    pending_log_drain_entry_t qevt;
+    input_event_t qevt;
 
     ESP_LOGI(TAG, "waiting for network IP...");
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
@@ -181,7 +174,7 @@ void log_input_task(void *arg)
                 .ts = qevt.ts,
                 .send_retry = 0};
 
-            err = send_json(evt.event_id, evt.port_id, evt.value, 1200);
+            err = send_json(evt.event_id, evt.port_id, evt.value, 1500);
 
             if (err != ESP_OK)
             {
@@ -196,7 +189,7 @@ void log_input_task(void *arg)
                     continue;
                 }
 
-                pending_log_drain_entry_t retry = {
+                input_event_t retry = {
                     .event_id = evt.event_id,
                     .port_id = (uint8_t)evt.port_id,
                     .value = evt.value,
@@ -217,7 +210,7 @@ void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t t
     log_add(event_id, port_id, value, ts);
     if (queue_remote_logs != NULL)
     {
-        pending_log_drain_entry_t evt = {
+        input_event_t evt = {
             .event_id = event_id,
             .port_id = (uint8_t)port_id,
             .value = value,
@@ -256,9 +249,9 @@ void worker(void *p)
             if (g_config.url_n33bec[0] != 0)
             {
 
-                res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
+                res = send_json_card(9, e.port_id, e.card, 1500, &ok, &tipo_habilitacion);
                 if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
-                    res = send_json_card(9, e.port_id, e.card, 2000, &ok, &tipo_habilitacion);
+                    res = send_json_card(9, e.port_id, e.card, 1500, &ok, &tipo_habilitacion);
             }
             int64_t t1 = esp_timer_get_time();
 
@@ -507,6 +500,12 @@ static void keep_alive_task(void *arg)
     ESP_LOGI(TAG, "waiting for network IP...");
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
+            input_event_t evt = {
+                .event_id = 20,
+                .port_id = 0,
+                .value = 1,
+                .ts = 0,
+                .send_retry = 0};
 
     while (1)
     {
@@ -517,6 +516,11 @@ static void keep_alive_task(void *arg)
         {
             // Send a keep-alive JSON packet
             // We'll use event_id 20 for keep-alive, port_id 0 (not associated with a physical port), and value as the device_id
+            
+            
+            xQueueSendToBack(queue_remote_logs, &evt, 0);
+
+/*
             esp_err_t err = send_json(20, 0, 1, 1000);
             if (err != ESP_OK)
             {
@@ -526,6 +530,7 @@ static void keep_alive_task(void *arg)
             {
                 ESP_LOGI(TAG, "Sent keep-alive JSON, interval: %lu secs", g_config.keep_alive_secs);
             }
+*/                
         }
 
         // Wait for the specified interval (convert seconds to milliseconds for vTaskDelay)
@@ -568,7 +573,7 @@ void app_main()
     // Queue
 
     ESP_LOGI(TAG, "Creating input event queue");
-    queue_remote_logs = xQueueCreate(64, sizeof(pending_log_drain_entry_t));
+    queue_remote_logs = xQueueCreate(64, sizeof(input_event_t));
     if (!queue_remote_logs)
     {
         ESP_LOGE(TAG, "Failed to create input event queue");
@@ -701,7 +706,7 @@ void app_main()
     }
 
     ESP_LOGI(TAG, "Creating worker task");
-    if (xTaskCreate(worker, "worker", 4096, NULL, 5, NULL) != pdPASS)
+    if (xTaskCreate(worker, "worker", 8192, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create worker task");
     }
@@ -723,13 +728,11 @@ void app_main()
             ESP_LOGE(TAG, "Failed to create door reader task");
         }
     }
-
-    ESP_LOGI(TAG, "Creating keep alive task");
-    /*
-    if (xTaskCreate(keep_alive_task, "keep_alive_task", 4096, NULL, 5, NULL) != pdPASS)
+    
+    if (xTaskCreate(keep_alive_task, "keep_alive_task", 2048, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
-        */
+    
 
 }

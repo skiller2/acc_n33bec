@@ -13,6 +13,7 @@
 #include "wiegand_local.h"
 #include "beep.h"
 #include "esp_http_client.h"
+#include "esp_crt_bundle.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_system.h"
@@ -142,8 +143,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     esp_http_client_config_t config = {
         .url = g_config.url_n33bec,
         .timeout_ms = timeout,
-        //.event_handler = http_event_handler,
-        //        .skip_cert_common_name_check = true,
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -182,6 +182,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
 
     esp_http_client_set_method(client, HTTP_METHOD_POST);
     esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_header(client, "User-Agent", "ESP32-HTTP-Client/1.0");
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
     esp_err_t err = esp_http_client_perform(client);
@@ -215,14 +216,16 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
             .timeout_ms = timeout,
             .event_handler = http_event_handler,
             .keep_alive_enable = true,
-            .keep_alive_interval = 5
-            //        .skip_cert_common_name_check = true,
+            .keep_alive_interval = 5,
+            .crt_bundle_attach = esp_crt_bundle_attach,
         };
 
         handle_send_card = esp_http_client_init(&config);
 
         esp_http_client_set_method(handle_send_card, HTTP_METHOD_POST);
         esp_http_client_set_header(handle_send_card, "Content-Type", "application/json");
+        esp_http_client_set_header(handle_send_card, "User-Agent", "ESP32-HTTP-Client/1.0");
+
     }
     char post_data[384];
 
@@ -374,6 +377,9 @@ esp_err_t get_card_list(void)
     esp_http_client_config_t config = {
         .url = url,
         .timeout_ms = timeout,
+        .buffer_size = 4096,
+        .max_redirection_count = 5,
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -384,6 +390,8 @@ esp_err_t get_card_list(void)
     }
 
     esp_http_client_set_method(client, HTTP_METHOD_GET);
+    esp_http_client_set_header(client, "Accept", "application/json");
+    esp_http_client_set_header(client, "User-Agent", "ESP32-HTTP-Client/1.0");
 
     ESP_LOGI(TAG, "Fetch card list from %s", url);
 
@@ -391,15 +399,18 @@ esp_err_t get_card_list(void)
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "open failed: %s", esp_err_to_name(err));
-        esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return err;
     }
 
+    ESP_LOGD(TAG, "status=%d, content_length=%d, chunked=%d",
+             esp_http_client_get_status_code(client),
+             esp_http_client_get_content_length(client),
+             esp_http_client_is_chunked_response(client));
+    ESP_LOGD(TAG, "heap=%lu largest=%lu",
+             (unsigned long)esp_get_free_heap_size(),
+             (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
-
-ESP_LOGW(TAG, "status=%d, content_length=%d, chunked=%d", esp_http_client_get_status_code(client), esp_http_client_get_content_length(client), esp_http_client_is_chunked_response(client));
-ESP_LOGI(TAG, "heap=%lu largest=%lu", esp_get_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
     int64_t content_length = esp_http_client_fetch_headers(client);
     if (content_length < 0)
     {
