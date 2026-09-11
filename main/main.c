@@ -172,7 +172,7 @@ void log_input_task(void *arg)
 
             err = send_json(evt.event_id, evt.port_id, evt.value, 1500);
 
-            if (err != ESP_OK)
+            if (err != ESP_OK && evt.event_id!=20)
             {
                 evt.send_retry++;
                 ESP_LOGW(TAG, "send_json failed (%s), requeueing event retry %d",
