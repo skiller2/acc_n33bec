@@ -422,7 +422,7 @@ esp_err_t get_card_list(void)
         esp_http_client_cleanup(client);
         return ESP_FAIL;
     }
-
+card_mem_stream_init();
     int64_t t_start = esp_timer_get_time();
 
     uint8_t chunk_buf[512];
@@ -473,10 +473,16 @@ esp_err_t get_card_list(void)
                 {
                     if (current_num != 0)
                     {
-                        if (!card_mem_add(current_num))
+                        if (!card_mem_stream_add(current_num))
                             goto goto_end;
 
                         added++;
+
+            if (added % 1000 == 0 && added > 0)
+            {
+                ESP_LOGI(TAG, "Added %d cards so far...", added);
+            }
+
                     }
                     state = ST_SCAN;
                     current_num = 0;
@@ -491,16 +497,17 @@ esp_err_t get_card_list(void)
 
     if (state == ST_READ_NUM && current_num != 0)
     {
-        if (!card_mem_add(current_num))
+        if (!card_mem_stream_add(current_num))
             goto goto_end;
         added++;
     }
 goto_end:
-    card_mem_sync();
     int64_t dt_us = esp_timer_get_time() - t_start;
-    ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus", added, (long long)dt_us);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
+    card_mem_stream_flush();
+
+    ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus", added, (long long)dt_us);
     return ESP_OK;
 }
 

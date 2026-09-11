@@ -132,7 +132,6 @@ static QueueHandle_t queue_remote_logs;
 
 #define PENDING_LOG_MAX_RETRIES 10
 
-
 void log_input_task(void *arg)
 {
     esp_err_t err;
@@ -144,16 +143,14 @@ void log_input_task(void *arg)
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
 
-
-    //Load CARDS
+    // Load CARDS
     err = get_card_list();
-//    if (err != ESP_OK)
-//        err = get_card_list();
+    //    if (err != ESP_OK)
+    //        err = get_card_list();
     if (err != ESP_OK)
     {
         ESP_LOGW(TAG, "get_card_list failed: %s", esp_err_to_name(err));
     }
-    
 
     uint32_t drained_count = 0;
     pending_log_load_and_drain(queue_remote_logs, &drained_count);
@@ -248,9 +245,9 @@ void worker(void *p)
             if (g_config.url_n33bec[0] != 0)
             {
 
-                res = send_json_card(9, e.port_id, e.card, 1500, &ok, &tipo_habilitacion);
+                res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
                 if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
-                    res = send_json_card(9, e.port_id, e.card, 1500, &ok, &tipo_habilitacion);
+                    res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
             }
             int64_t t1 = esp_timer_get_time();
 
@@ -499,12 +496,12 @@ static void keep_alive_task(void *arg)
     ESP_LOGI(TAG, "waiting for network IP...");
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
-            input_event_t evt = {
-                .event_id = 20,
-                .port_id = 0,
-                .value = 1,
-                .ts = 0,
-                .send_retry = 0};
+    input_event_t evt = {
+        .event_id = 20,
+        .port_id = 0,
+        .value = 1,
+        .ts = 0,
+        .send_retry = 0};
 
     while (1)
     {
@@ -515,21 +512,20 @@ static void keep_alive_task(void *arg)
         {
             // Send a keep-alive JSON packet
             // We'll use event_id 20 for keep-alive, port_id 0 (not associated with a physical port), and value as the device_id
-            
-            
+
             xQueueSendToBack(queue_remote_logs, &evt, 0);
 
-/*
-            esp_err_t err = send_json(20, 0, 1, 1000);
-            if (err != ESP_OK)
-            {
-                ESP_LOGW(TAG, "keep-alive send failed: %s", esp_err_to_name(err));
-            }
-            else
-            {
-                ESP_LOGI(TAG, "Sent keep-alive JSON, interval: %lu secs", g_config.keep_alive_secs);
-            }
-*/                
+            /*
+                        esp_err_t err = send_json(20, 0, 1, 1000);
+                        if (err != ESP_OK)
+                        {
+                            ESP_LOGW(TAG, "keep-alive send failed: %s", esp_err_to_name(err));
+                        }
+                        else
+                        {
+                            ESP_LOGI(TAG, "Sent keep-alive JSON, interval: %lu secs", g_config.keep_alive_secs);
+                        }
+            */
         }
 
         // Wait for the specified interval (convert seconds to milliseconds for vTaskDelay)
@@ -563,7 +559,6 @@ static void service_mode_task(void *arg)
     }
     vTaskDelete(NULL);
 }
-
 
 void app_main()
 {
@@ -645,8 +640,8 @@ void app_main()
 
     if (wifi_sta_start() != ESP_OK)
     {
-    //  Deshabilitado por ahora
-    // dpp_start();
+        //  Deshabilitado por ahora
+        // dpp_start();
     }
 
 #if !CONFIG_SKIP_WAIT_FOR_RTC
@@ -687,7 +682,6 @@ void app_main()
 
     //=========================================
 
-
     esp_reset_reason_t reason = esp_reset_reason();
     log_add(1, 0, reason, 0);
     ESP_LOGI(TAG, "app_main complete - version %s", PROJECT_VERSION);
@@ -727,11 +721,9 @@ void app_main()
             ESP_LOGE(TAG, "Failed to create door reader task");
         }
     }
-    
+
     if (xTaskCreate(keep_alive_task, "keep_alive_task", 2048, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
-    
-
 }
