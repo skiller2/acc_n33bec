@@ -373,7 +373,7 @@ esp_err_t get_card_list(void)
     esp_http_client_config_t config = {
         .url = url,
         .timeout_ms = timeout,
-        .buffer_size = 4096,
+        //.buffer_size = 4096,
         .max_redirection_count = 5,
         // .crt_bundle_attach = esp_crt_bundle_attach,
     };
@@ -425,7 +425,7 @@ esp_err_t get_card_list(void)
 card_mem_stream_init();
     int64_t t_start = esp_timer_get_time();
 
-    uint8_t chunk_buf[512];
+    uint8_t chunk_buf[2048];
     int read_len;
     int added = 0;
     const char pattern[] = "\"card_number\":";

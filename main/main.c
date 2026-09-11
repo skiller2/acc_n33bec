@@ -168,7 +168,7 @@ void log_input_task(void *arg)
                 .port_id = qevt.port_id,
                 .value = qevt.value,
                 .ts = qevt.ts,
-                .send_retry = 0};
+                .send_retry = qevt.send_retry};
 
             err = send_json(evt.event_id, evt.port_id, evt.value, 1500);
 
@@ -189,7 +189,9 @@ void log_input_task(void *arg)
                     .event_id = evt.event_id,
                     .port_id = (uint8_t)evt.port_id,
                     .value = evt.value,
-                    .ts = evt.ts};
+                    .ts = evt.ts,
+                    .send_retry = evt.send_retry
+                };
                 if (xQueueSendToBack(queue_remote_logs, &retry, 0) != pdTRUE)
                 {
                     ESP_LOGE(TAG, "Failed to requeue event");
