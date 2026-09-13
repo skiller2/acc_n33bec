@@ -45,6 +45,7 @@
   <div id="cards-tab" class="tab-content active">
     <div class="card">
       <h2>Card Storage</h2>
+      <button onclick="loadEnabledCards()" style="margin-bottom: 8px;">Reload</button>
       <div class="sim-row">
         <label>RAW:
           <input type="number" id="cardIdRaw" placeholder="Enter raw card">
@@ -90,6 +91,12 @@
       <button onclick="testRelay('port2')">Test Port 2</button>
     </div>
 
+    <div class="card">
+      <h2>Actions</h2>
+      <button onclick="syncFullCardsAction()">Full Sync Cards</button>
+      <button onclick="sendCardDemo()">Send Demo Card</button>
+    </div>
+
   </div>
 
 
@@ -97,6 +104,7 @@
   <div id="enabled-cards-tab" class="tab-content">
     <div class="card">
       <h2>Enabled Cards <span id="enabled-cards-count" class="logs-count">(0)</span></h2>
+      <button onclick="loadEnabledCards()">Reload</button>
       <div id="enabled-cards-list"></div>
     </div>
   </div>
@@ -120,7 +128,7 @@
           <input type="string" id="url_n33bec" min="0" max="48">
         </label>
       </div>
-      <div class="config-section">
+      <div class="config-section" style="display:none">
         <h3>Tema</h3>
         <label>Tema:
           <input type="string" id="cod_tema" min="0" max="48">
@@ -356,6 +364,12 @@
       <h2>Device Information</h2>
       <div id="device-info">Loading device info...</div>
     </div>
+
+    <div class="card">
+      <h2>Actions</h2>
+      <button onclick="rebroadcastWs()">Rebroadcast WiFi Status</button>
+      <button onclick="formatFs()" style="margin-left: 8px; color: red;">Format LittleFS</button>
+    </div>
   </div>
 
   <div id="wifi-tab" class="tab-content">
@@ -383,6 +397,7 @@
         <button onclick="connectWifi()">Connect</button>
         <button onclick="loadWifiCredentials()">Load saved</button>
         <button onclick="clearWifiCredentials()">Clear saved</button>
+        <button onclick="reconnectWifi()" style="margin-left: 8px;">Reconnect</button>
       </div>
       <div id="wifi-connect-status" style="margin-top: 10px;"></div>
     </div>
@@ -390,6 +405,7 @@
     <div class="card">
       <h2>Available Networks</h2>
       <button onclick="scanWifiNetworks()">Scan</button>
+      <button onclick="scanWifiAction()" style="margin-left: 8px;">Scan via Actions</button>
       <div id="wifi-scan-status" style="margin-top: 8px;"></div>
       <ul id="wifi-scan-results" style="margin-top: 10px; padding-left: 20px;"></ul>
     </div>

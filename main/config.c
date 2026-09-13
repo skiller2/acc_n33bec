@@ -29,9 +29,9 @@ static void set_defaults(config_t *config)
     config->port2_relay2_duration_ms = 2000;
     config->input_debounce_ms = 100;
     config->device_id = 0; // Default device ID, will be set to last byte of MAC if not specified
-    strncpy(config->url_n33bec, "https://pepaofi.efaisa.com.ar/api/v1/movieventos/evento", sizeof(config->url_n33bec) - 1);
+    strncpy(config->url_n33bec, "https://pepaofi.efaisa.com.ar/api/v1", sizeof(config->url_n33bec) - 1);
     config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0';
-    strncpy(config->cod_tema, "demo/acceso", sizeof(config->cod_tema) - 1);
+    strcpy(config->cod_tema, "acceso");
     config->cod_tema[sizeof(config->cod_tema) - 1] = '\0';
     config->keep_alive_secs = 30; // Default keep alive interval to 30 seconds
 }
@@ -120,7 +120,7 @@ esp_err_t config_save(const config_t *config)
         .keep_alive_secs = config->keep_alive_secs
     };
     strcpy(stored.url_n33bec, config->url_n33bec);
-    strcpy(stored.cod_tema, config->cod_tema);
+    strcpy(stored.cod_tema, "acceso");
 
     nvs_handle_t nvs = 0;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs);
@@ -203,7 +203,9 @@ esp_err_t config_load(config_t *config)
     strncpy(config->url_n33bec, stored.url_n33bec, sizeof(config->url_n33bec) - 1);
     config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
     
-    strncpy(config->cod_tema, stored.cod_tema, sizeof(config->cod_tema) - 1);
+    //strncpy(config->cod_tema, stored.cod_tema, sizeof(config->cod_tema) - 1);
+
+    strcpy(config->cod_tema, "acceso");
     config->cod_tema[sizeof(config->cod_tema) - 1] = '\0'; // Ensure null termination
     
     clamp_config(config);

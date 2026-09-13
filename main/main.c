@@ -112,7 +112,7 @@ extern void ws_broadcast_card(uint64_t card, int64_t ts, int ok, char tipo_habil
 extern esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout);
 extern esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion);
 extern void ethernet_register_time_sync_task(TaskHandle_t task_handle);
-extern esp_err_t get_card_list(void);
+extern esp_err_t get_card_list(bool force_full_sync);
 void barrier_task(void *arg);
 void log_input_task(void *arg);
 void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
@@ -144,7 +144,7 @@ void log_input_task(void *arg)
     ESP_LOGI(TAG, "got IP");
 
     // Load CARDS
-    err = get_card_list();
+    err = get_card_list(false);
     //    if (err != ESP_OK)
     //        err = get_card_list();
     if (err != ESP_OK)
@@ -244,16 +244,14 @@ void worker(void *p)
             esp_err_t res = ESP_FAIL;
             now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
             tipo_habilitacion = 'X';
-            if (g_config.url_n33bec[0] != 0)
-            {
+//            if (g_config.url_n33bec[0] != 0)
+//            {
 
-                res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
-                if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
-                    res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
-            }
-            int64_t t1 = esp_timer_get_time();
+//                res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
+//                if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
+//                    res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
+//            }
 
-            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %llu us, tema:%s", ok, tipo_habilitacion, t1 - t0, g_config.cod_tema);
 
             if (res == ESP_OK)
             {
@@ -264,6 +262,11 @@ void worker(void *p)
                 ok = card_mem_exists(e.card) ? 1 : 0;
                 tipo_habilitacion = 'P';
             }
+
+            int64_t t1 = esp_timer_get_time();
+
+            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %llu us, tema:%s", ok, tipo_habilitacion, t1 - t0, g_config.cod_tema);
+
 
             if (ok)
             {

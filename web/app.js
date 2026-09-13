@@ -71,6 +71,111 @@ function addCard() {
     .catch(e => setStatus('Add card error: ' + e, 'error'));
 }
 
+function callAction(action) {
+  return fetch('/actions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: action })
+  })
+    .then(r => r.text())
+    .then(txt => txt);
+}
+
+function sendCardDemo() {
+  setStatus('Sending demo card...', '');
+  callAction('send_card_demo')
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setStatus('Demo card sent: ' + txt, 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Send card demo error: ' + e, 'error'));
+}
+
+function reconnectWifi() {
+  setStatus('Reconnecting WiFi...', '');
+  callAction('wifi_reconnect')
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setStatus('WiFi reconnect requested', 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('WiFi reconnect error: ' + e, 'error'));
+}
+
+function rebroadcastWs() {
+  setStatus('Rebroadcasting status...', '');
+  callAction('ws_rebroadcast')
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setStatus('Status broadcast sent', 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Rebroadcast error: ' + e, 'error'));
+}
+
+function formatFs() {
+  if (!confirm('WARNING: This will erase ALL data on LittleFS (web files, logs, cards). Continue?')) return;
+  setStatus('Formatting LittleFS...', 'error');
+  callAction('format_fs')
+    .then(txt => {
+      setStatus('LittleFS formatted. Rebooting...', 'error');
+    })
+    .catch(e => setStatus('Format error: ' + e, 'error'));
+}
+
+function syncFullCardsAction() {
+  setStatus('Syncing cards...', '');
+  callAction('sync_cards')
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setStatus('Cards synced', 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Sync cards error: ' + e, 'error'));
+}
+
+function scanWifiAction() {
+  const statusDiv = document.getElementById('wifi-scan-status');
+  const list = document.getElementById('wifi-scan-results');
+  statusDiv.innerHTML = '<p class="status">Scanning via actions...</p>';
+  list.innerHTML = '';
+
+  callAction('scan_wifi')
+    .then(txt => {
+      try {
+        const aps = JSON.parse(txt);
+        statusDiv.innerHTML = '<p class="status success">Found ' + aps.length + ' network(s)</p>';
+        aps.sort((a, b) => b.rssi - a.rssi);
+        for (const ap of aps) {
+          const li = document.createElement('li');
+          li.style.marginBottom = '6px';
+          const ssid = (ap.ssid && ap.ssid.length) ? ap.ssid : '(hidden)';
+          const auth = authModeToStr(ap.authmode);
+          const sec = ap.authmode === 0 ? '' : ' 🔒';
+          li.innerHTML = '<strong>' + escapeHtml(ssid) + '</strong>'
+            + sec + ' — ch ' + ap.channel + ', ' + ap.rssi + ' dBm, ' + auth
+            + ' <button style="margin-left:8px; padding:2px 8px;" '
+            + 'onclick="useScanResult(\'' + escapeAttr(ssid) + '\')">Use</button>';
+          list.appendChild(li);
+        }
+      } catch (e) {
+        statusDiv.innerHTML = '<p class="status error">Error parsing: ' + escapeHtml(txt) + '</p>';
+      }
+    })
+    .catch(e => {
+      statusDiv.innerHTML = '<p class="status error">Error: ' + e + '</p>';
+    });
+}
+
 function simulateCardRead() {
   const formattedInput = document.getElementById('simulateCardFormatted');
   const rawInput = document.getElementById('simulateCardId');

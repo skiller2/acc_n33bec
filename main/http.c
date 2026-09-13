@@ -41,6 +41,7 @@
 // extern char *log_read_all_json(void);
 extern esp_err_t log_read_all_json(httpd_req_t *req);
 extern void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
+extern void fs_format(void);
 
 static const char *TAG = "http";
 
@@ -167,7 +168,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
     }
 
     snprintf(post_data, sizeof(post_data),
-             "{\"cod_tema\":\"%s/%lu/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\",\"check_card\":\"%d\"}",
+             "{\"cod_tema\":\"%s/%lu/%d/%d\",\"valor\":\"%s\",\"event_id\":\"%d\",\"check_card\":\"%d\",\"tipo\":\"panel\"}",
              g_config.cod_tema,
              g_config.device_id,
              event_id,
@@ -240,7 +241,7 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
     }
 
     snprintf(post_data, sizeof(post_data),
-             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%llu\",\"event_id\":\"%d\",\"check_card\":\"%d\"}",
+             "{\"cod_tema\":\"%s/%u/%d/%d\",\"valor\":\"%llu\",\"event_id\":\"%d\",\"check_card\":\"%d\",\"tipo\":\"panel\"}",
              g_config.cod_tema,
              (unsigned int)g_config.device_id,
              (int)event_id,
@@ -337,19 +338,14 @@ int64_t getLastSyncId(void)
 {
     nvs_handle_t nvs_h = 0;
     int64_t value = -1;
-
     esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &nvs_h);
     if (err != ESP_OK)
         return value;
-
     err = nvs_get_i64(nvs_h, "lastsyncid", &value);
-
     nvs_close(nvs_h);
-
     if (err == ESP_OK)
         return value;
-
-    return value;
+    return -1;
 }
 
 esp_err_t setLastSyncId(uint64_t id)
@@ -368,13 +364,13 @@ esp_err_t setLastSyncId(uint64_t id)
     return err;
 }
 
-esp_err_t get_card_list(void)
+esp_err_t get_card_list(bool force_full_sync)
 {
     char url[512];
     char encoded_param[128];
     char param_value[300];
     uint32_t timeout = 15000;
-    int64_t lastSyncId = getLastSyncId();
+    int64_t lastSyncId = force_full_sync ? -1 : getLastSyncId();
     const char *base_end = strstr(g_config.url_n33bec, "://");
     if (base_end)
     {
@@ -1583,12 +1579,134 @@ static esp_err_t apply_web_bundle_stream(httpd_req_t *req, size_t content_len)
     return ESP_OK;
 }
 
-static esp_err_t reboot_handler(httpd_req_t *req)
+static esp_err_t actions_handler(httpd_req_t *req)
 {
-    httpd_resp_sendstr(req, "OK: rebooting");
-    vTaskDelay(pdMS_TO_TICKS(500));
-    esp_restart();
-    return ESP_OK;
+    size_t len = req->content_len;
+    if (len == 0 || len > 256)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid content length");
+        return ESP_FAIL;
+    }
+
+    char buf[257];
+    int r = httpd_req_recv(req, buf, len);
+    if (r <= 0)
+    {
+        httpd_resp_sendstr(req, "ERR: recv");
+        return ESP_FAIL;
+    }
+    if (r < 0)
+        r = 0;
+    buf[r] = 0;
+
+    cJSON *json = cJSON_Parse(buf);
+    if (!json)
+    {
+        httpd_resp_sendstr(req, "ERR: invalid json");
+        return ESP_FAIL;
+    }
+
+    cJSON *action_item = cJSON_GetObjectItemCaseSensitive(json, "action");
+    if (!cJSON_IsString(action_item) || action_item->valuestring == NULL)
+    {
+        cJSON_Delete(json);
+        httpd_resp_sendstr(req, "ERR: missing action");
+        return ESP_FAIL;
+    }
+
+    const char *action = action_item->valuestring;
+    cJSON_Delete(json);
+
+    httpd_resp_set_type(req, "text/plain");
+
+    if (strcmp(action, "reboot") == 0)
+    {
+        ESP_LOGI(TAG, "Action: reboot");
+        httpd_resp_sendstr(req, "OK: rebooting");
+        vTaskDelay(pdMS_TO_TICKS(500));
+        esp_restart();
+        return ESP_OK;
+    } else if (strcmp(action, "sync_cards") == 0) {
+        ESP_LOGI(TAG, "Action: sync_cards (lastSyncId=-1)");
+        esp_err_t err = get_card_list(true);
+        if (err == ESP_OK)
+            return httpd_resp_sendstr(req, "OK: cards synced");
+        else
+        {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "ERR: %s", esp_err_to_name(err));
+            return httpd_resp_sendstr(req, buf);
+        }
+        return ESP_OK;
+    } else if (strcmp(action, "scan_wifi") == 0) {
+        ESP_LOGI(TAG, "Action: scan_wifi");
+        char *json = wifi_scan_to_json();
+        if (json)
+        {
+            httpd_resp_set_type(req, "application/json");
+            httpd_resp_sendstr(req, json);
+            free(json);
+        }
+        else
+        {
+            httpd_resp_sendstr(req, "ERR: wifi scan failed");
+        }
+        return ESP_OK;
+    } else if (strcmp(action, "send_card_demo") == 0) {
+        ESP_LOGI(TAG, "Action: send_card_demo");
+        uint64_t demo_card = 12345678ULL;
+        bool ok = false;
+        char tipo_habilitacion = 0;
+        esp_err_t err = send_json_card(9, 1, demo_card, 1300, &ok, &tipo_habilitacion);
+        if (err == ESP_OK)
+        {
+            char resp[128];
+            snprintf(resp, sizeof(resp), "OK: card=%llu ok=%d tipo=%c", demo_card, ok, tipo_habilitacion);
+            return httpd_resp_sendstr(req, resp);
+        }
+        else
+        {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "ERR: %s", esp_err_to_name(err));
+            return httpd_resp_sendstr(req, buf);
+        }
+    } else if (strcmp(action, "wifi_reconnect") == 0) {
+        ESP_LOGI(TAG, "Action: wifi_reconnect");
+        esp_err_t err = wifi_sta_start();
+        if (err == ESP_OK)
+            return httpd_resp_sendstr(req, "OK: wifi reconnecting");
+        else
+        {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "ERR: %s", esp_err_to_name(err));
+            return httpd_resp_sendstr(req, buf);
+        }
+    } else if (strcmp(action, "dpp_bootstrap") == 0) {
+        ESP_LOGI(TAG, "Action: dpp_bootstrap");
+        esp_err_t err = dpp_trigger_bootstrap();
+        if (err == ESP_OK)
+            return httpd_resp_sendstr(req, "OK: dpp bootstrap triggered");
+        else
+        {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "ERR: %s", esp_err_to_name(err));
+            return httpd_resp_sendstr(req, buf);
+        }
+    } else if (strcmp(action, "ws_rebroadcast") == 0) {
+        ESP_LOGI(TAG, "Action: ws_rebroadcast");
+        ws_broadcast_wifi_status_last();
+        return httpd_resp_sendstr(req, "OK: ws broadcast sent");
+    } else if (strcmp(action, "format_fs") == 0) {
+        ESP_LOGI(TAG, "Action: format_fs");
+        fs_format();
+        httpd_resp_sendstr(req, "OK: LittleFS formatted, device will reboot");
+        vTaskDelay(pdMS_TO_TICKS(500));
+        esp_restart();
+    }
+
+    ESP_LOGW(TAG, "Unknown action: %s", action);
+    httpd_resp_sendstr(req, "ERR: unknown action");
+    return ESP_FAIL;
 }
 
 static esp_err_t get_info(httpd_req_t *req)
@@ -1875,7 +1993,7 @@ void http_init(QueueHandle_t qh)
     c.uri_match_fn = httpd_uri_match_wildcard;
 
     c.max_open_sockets = 7;
-    c.max_uri_handlers = 25;
+    c.max_uri_handlers = 26;
     c.lru_purge_enable = true;
 
     c.stack_size = 8192;
@@ -1930,10 +2048,10 @@ void http_init(QueueHandle_t qh)
             .method = HTTP_POST,
             .handler = ota_handler};
 
-        httpd_uri_t reboot_uri = {
-            .uri = "/reboot",
+        httpd_uri_t actions_uri = {
+            .uri = "/actions",
             .method = HTTP_POST,
-            .handler = reboot_handler};
+            .handler = actions_handler};
 
         httpd_uri_t bundle_uri = {
             .uri = "/storage",
@@ -1950,7 +2068,7 @@ void http_init(QueueHandle_t qh)
         httpd_register_uri_handler(s, &get_cfg_uri);
         httpd_register_uri_handler(s, &version_uri);
         httpd_register_uri_handler(s, &ota_uri);
-        httpd_register_uri_handler(s, &reboot_uri);
+        httpd_register_uri_handler(s, &actions_uri);
 
         httpd_uri_t info_uri = {
             .uri = "/info",
