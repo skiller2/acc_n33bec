@@ -71,6 +71,13 @@ static const char *get_content_type(const char *uri)
     return "text/plain";
 }
 
+static void build_event_url(char *dst, size_t dst_size)
+{
+    size_t base_len = strlen(g_config.url_n33bec);
+    const char *sep = (base_len > 0 && g_config.url_n33bec[base_len - 1] == '/') ? "" : "/";
+    snprintf(dst, dst_size, "%s%smovieventos/evento", g_config.url_n33bec, sep);
+}
+
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id)
@@ -139,8 +146,11 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout)
 {
+    char event_url[256];
+    build_event_url(event_url, sizeof(event_url));
+
     esp_http_client_config_t config = {
-        .url = g_config.url_n33bec,
+        .url = event_url,
         .timeout_ms = timeout,
         //        .crt_bundle_attach = esp_crt_bundle_attach,
     };
@@ -177,7 +187,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
              event_id,
              (event_id == 9) ? 1 : 0);
 
-    ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
+    ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", event_url, post_data);
 
     esp_http_client_set_method(client, HTTP_METHOD_POST);
     esp_http_client_set_header(client, "Content-Type", "application/json");
@@ -207,11 +217,14 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
 esp_http_client_handle_t handle_send_card = NULL;
 esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion)
 {
+    char event_url[256];
+    build_event_url(event_url, sizeof(event_url));
+
     if (handle_send_card == NULL)
     {
         *ok = false;
         esp_http_client_config_t config = {
-            .url = g_config.url_n33bec,
+            .url = event_url,
             .timeout_ms = timeout,
             .event_handler = http_event_handler,
             .keep_alive_enable = true,
@@ -250,7 +263,7 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
              (int)event_id,
              (event_id == 9) ? 1 : 0);
 
-    ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", g_config.url_n33bec, post_data);
+    ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", event_url, post_data);
 
     // esp_http_client_set_post_field(handle_send_card, NULL,0);
     esp_http_client_set_post_field(handle_send_card, post_data, strlen(post_data));
@@ -371,36 +384,13 @@ esp_err_t get_card_list(bool force_full_sync)
     char param_value[300];
     uint32_t timeout = 15000;
     int64_t lastSyncId = force_full_sync ? -1 : getLastSyncId();
-    const char *base_end = strstr(g_config.url_n33bec, "://");
-    if (base_end)
-    {
-        base_end += 3;
-        const char *path_start = strchr(base_end, '/');
-        if (path_start)
-            base_end = path_start;
-        else
-            base_end = g_config.url_n33bec + strlen(g_config.url_n33bec);
-    }
-    else
-    {
-        base_end = strchr(g_config.url_n33bec, '/');
-        if (!base_end)
-            base_end = g_config.url_n33bec + strlen(g_config.url_n33bec);
-    }
-
-    size_t base_len = base_end - g_config.url_n33bec;
-    if (base_len >= 256)
-        base_len = 255;
-    char base_url[256];
-    memcpy(base_url, g_config.url_n33bec, base_len);
-    base_url[base_len] = '\0';
 
     snprintf(param_value, sizeof(param_value), "%s/%lu",
              g_config.cod_tema, (unsigned long)g_config.device_id);
     url_encode(param_value, encoded_param, sizeof(encoded_param));
 
-    snprintf(url, sizeof(url), "%s/api/v1/habiaccesos/tema?tema=%s&since=%lld",
-             base_url, encoded_param, lastSyncId);
+    snprintf(url, sizeof(url), "%s/habiaccesos/tema?tema=%s&since=%lld",
+             g_config.url_n33bec, encoded_param, lastSyncId);
 
     esp_http_client_config_t config = {
         .url = url,
@@ -1614,7 +1604,11 @@ static esp_err_t actions_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    const char *action = action_item->valuestring;
+    //const char *action = action_item->valuestring;
+char action[32];
+strncpy(action, action_item->valuestring, sizeof(action) - 1);
+action[sizeof(action) - 1] = '\0';
+
     cJSON_Delete(json);
 
     httpd_resp_set_type(req, "text/plain");

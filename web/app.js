@@ -189,7 +189,7 @@ function simulateCardRead() {
       const facility = parseInt(parts[0], 10);
       const card = parseInt(parts[1], 10);
       if (!isNaN(facility) && !isNaN(card)) {
-        cardId = (facility << 17) | (card << 1);
+        cardId = (facility << 17) | (card << 1) | 1
       }
     }
   }
@@ -531,7 +531,7 @@ function loadInfo() {
       html += '<p><strong>ETH IP:</strong> ' + (data.eth_ip || 'N/A') + '</p>';
       html += '<p><strong>Uptime:</strong> ' + formatUptime(data.uptime_sec) + '</p>';
 
-      infoTitle.innerHTML = (data.is_barrier)? "Access Barrier":"Access Door"
+      infoTitle.innerHTML = (data.is_barrier) ? "Access Barrier" : "Access Door"
       infoContent.innerHTML = html;
     })
     .catch(e => {
@@ -680,7 +680,7 @@ function updateBarrierStatus(io) {
   const ledMap = {
     rex1: { el: 'bar-led-rex1', activeHigh: false },
     rex2: { el: 'bar-led-rex2', activeHigh: false },
-     loop: { el: 'bar-led-loop', activeHigh: !!io.loop_active_high },
+    loop: { el: 'bar-led-loop', activeHigh: !!io.loop_active_high },
     finish_up: { el: 'bar-led-finish-up', activeHigh: false },
     finish_down: { el: 'bar-led-finish-down', activeHigh: false },
     rele1: { el: 'bar-led-rele1', activeHigh: true },
@@ -1107,10 +1107,10 @@ function loadEnabledCards() {
       const container = document.getElementById('enabled-cards-list');
       const countEl = document.getElementById('enabled-cards-count');
       container.innerHTML = '';
-      
+
       const count = Array.isArray(cards) ? cards.length : Object.keys(cards).length;
       if (countEl) countEl.textContent = `(${count})`;
-      
+
       if (Array.isArray(cards)) {
         cards.forEach(row => {
           const div = document.createElement('div');
