@@ -29,6 +29,9 @@ extern "C" {
 
 #define IS_BARRIER false
 
+#define STORAGE_NAMESPACE "storage"
+
+
 typedef struct {
     uint32_t magic;
     uint8_t version;    

@@ -25,10 +25,10 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 #include "time_sync.h"
+#include "config.h"
 
 static const char *TAG = "time_sync";
 static bool _isTimeNTP=false;
-#define STORAGE_NAMESPACE "storage"
 
 #define KEY_TIMESTAMP "timestamp"
 #define KEY_RTC_INIT  "rtc_init"

@@ -32,6 +32,7 @@
 #include "time_sync.h"
 #include "barrier.h"
 #include "card_store.h"
+#include "nvs.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -332,13 +333,48 @@ static void url_encode(const char *src, char *dst, size_t dst_size)
     dst[i] = '\0';
 }
 
+int64_t getLastSyncId(void)
+{
+    nvs_handle_t nvs_h = 0;
+    int64_t value = -1;
+
+    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &nvs_h);
+    if (err != ESP_OK)
+        return value;
+
+    err = nvs_get_i64(nvs_h, "lastsyncid", &value);
+
+    nvs_close(nvs_h);
+
+    if (err == ESP_OK)
+        return value;
+
+    return value;
+}
+
+esp_err_t setLastSyncId(uint64_t id)
+{
+    nvs_handle_t nvs_h = 0;
+
+    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &nvs_h);
+    if (err == ESP_OK)
+        err = nvs_set_i64(nvs_h, "lastsyncid", id);
+
+    if (err == ESP_OK)
+        err = nvs_commit(nvs_h);
+
+    if (nvs_h)
+        nvs_close(nvs_h);
+    return err;
+}
+
 esp_err_t get_card_list(void)
 {
     char url[512];
     char encoded_param[128];
     char param_value[300];
     uint32_t timeout = 15000;
-
+    int64_t lastSyncId = getLastSyncId();
     const char *base_end = strstr(g_config.url_n33bec, "://");
     if (base_end)
     {
@@ -367,8 +403,8 @@ esp_err_t get_card_list(void)
              g_config.cod_tema, (unsigned long)g_config.device_id);
     url_encode(param_value, encoded_param, sizeof(encoded_param));
 
-    snprintf(url, sizeof(url), "%s/api/v1/habiaccesos/tema?tema=%s",
-             base_url, encoded_param);
+    snprintf(url, sizeof(url), "%s/api/v1/habiaccesos/tema?tema=%s&since=%lld",
+             base_url, encoded_param, lastSyncId);
 
     esp_http_client_config_t config = {
         .url = url,
@@ -422,21 +458,39 @@ esp_err_t get_card_list(void)
         esp_http_client_cleanup(client);
         return ESP_FAIL;
     }
-card_mem_stream_init();
+
+    if (lastSyncId == -1)
+        card_mem_stream_init();
+
     int64_t t_start = esp_timer_get_time();
 
     uint8_t chunk_buf[2048];
     int read_len;
     int added = 0;
-    const char pattern[] = "\"card_number\":";
-    size_t pattern_len = sizeof(pattern) - 1;
-    size_t match_pos = 0;
+
+    const char pattern_card[] = "\"c\":";
+    const char pattern_last[] = "\"last_change_id\":";
+    const char pattern_op[] = "\"o\":\"";
     enum
     {
         ST_SCAN,
-        ST_READ_NUM
+        ST_READ_CARD,
+        ST_READ_LAST_ID,
+        ST_READ_OP,
     } state = ST_SCAN;
-    uint64_t current_num = 0;
+
+    size_t match_card = 0;
+    size_t match_last = 0;
+    size_t match_op = 0;
+
+    uint64_t currentCard = 0;
+    uint64_t currentLastId = 0;
+
+    char currentOp[4];
+    int opPos = 0;
+
+    bool haveCard = false;
+    bool haveOp = false;
 
     while ((read_len = esp_http_client_read(client, (char *)chunk_buf, sizeof(chunk_buf))) > 0)
     {
@@ -446,70 +500,148 @@ card_mem_stream_init();
         {
             char c = (char)chunk_buf[i];
 
-            if (state == ST_SCAN)
+            switch (state)
             {
-                if (c == pattern[match_pos])
+            case ST_SCAN:
+                if (c == pattern_card[match_card])
                 {
-                    match_pos++;
-                    if (match_pos == pattern_len)
+                    match_card++;
+                    if (match_card == strlen(pattern_card))
                     {
-                        state = ST_READ_NUM;
-                        current_num = 0;
-                        match_pos = 0;
+                        state = ST_READ_CARD;
+                        currentCard = 0;
+                        match_card = 0;
+                        continue;
                     }
                 }
                 else
                 {
-                    match_pos = 0;
+                    match_card = (c == pattern_card[0]) ? 1 : 0;
                 }
-            }
-            else
-            {
+                if (c == pattern_last[match_last])
+                {
+                    match_last++;
+                    if (match_last == strlen(pattern_last))
+                    {
+                        state = ST_READ_LAST_ID;
+                        currentLastId = 0;
+                        match_last = 0;
+                        continue;
+                    }
+                }
+                else
+                {
+                    match_last = (c == pattern_last[0]) ? 1 : 0;
+                }
+                if (c == pattern_op[match_op])
+                {
+                    match_op++;
+                    if (match_op == strlen(pattern_op))
+                    {
+                        state = ST_READ_OP;
+                        opPos = 0;
+                        memset(currentOp, 0, sizeof(currentOp));
+                        match_op = 0;
+                        continue;
+                    }
+                }
+                else
+                {
+                    match_op = (c == pattern_op[0]) ? 1 : 0;
+                }
+                break;
+            case ST_READ_CARD:
                 if (c >= '0' && c <= '9')
                 {
-                    current_num = current_num * 10 + (uint64_t)(c - '0');
+                    currentCard = currentCard * 10ULL + (uint64_t)(c - '0');
                 }
                 else
                 {
-                    if (current_num != 0)
-                    {
-                        if (!card_mem_stream_add(current_num))
-                            goto goto_end;
-
-                        added++;
-
-            if (added % 1000 == 0 && added > 0)
-            {
-                ESP_LOGI(TAG, "Added %d cards so far...", added);
-            }
-
-                    }
+                    haveCard = true;
                     state = ST_SCAN;
-                    current_num = 0;
-                    if (c == pattern[0])
+                }
+                break;
+            case ST_READ_LAST_ID:
+                if (c >= '0' && c <= '9')
+                {
+                    currentLastId = currentLastId * 10ULL + (uint64_t)(c - '0');
+                }
+                else
+                {
+                    state = ST_SCAN;
+                }
+                break;
+            case ST_READ_OP:
+                if (c != '"' && opPos < 3)
+                {
+                    currentOp[opPos++] = c;
+                }
+                else
+                {
+                    currentOp[opPos] = 0;
+                    haveOp = true;
+                    state = ST_SCAN;
+                }
+                break;
+            }
+            if (haveCard && haveOp)
+            {
+                if (lastSyncId == -1)
+                {
+                    if (strcmp(currentOp, "ADD") == 0)
                     {
-                        match_pos = 1;
+                        if (!card_mem_stream_add(currentCard))
+                            goto goto_end;
+                        added++;
                     }
                 }
+                else
+                {
+                    if (strcmp(currentOp, "ADD") == 0)
+                    {
+                        card_mem_add(currentCard);
+                        added++;
+                    }
+                    else if (strcmp(currentOp, "DEL") == 0)
+                    {
+                        card_mem_del(currentCard);
+                    }
+                }
+                if ((added % 1000) == 0 && added > 0)
+                {
+                    ESP_LOGI(TAG, "Processed %d cards", added);
+                }
+                haveCard = false;
+                haveOp = false;
+                currentCard = 0;
+                memset(currentOp, 0, sizeof(currentOp));
             }
         }
     }
-
+/*
     if (state == ST_READ_NUM && current_num != 0)
     {
         if (!card_mem_stream_add(current_num))
             goto goto_end;
         added++;
     }
+*/
 goto_end:
     int64_t dt_us = esp_timer_get_time() - t_start;
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
-    card_mem_stream_flush();
 
-    ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus", added, (long long)dt_us);
+    if (lastSyncId == -1)
+        card_mem_stream_flush();
+    if (currentLastId > 0 && currentLastId != lastSyncId)
+        setLastSyncId(currentLastId); 
+
+
+
+    ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus,  sync id=%lld", added, (long long)dt_us,currentLastId);
     return ESP_OK;
 }
+
 
 static esp_err_t static_file_handler(httpd_req_t *req)
 {
