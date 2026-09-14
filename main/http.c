@@ -457,6 +457,7 @@ esp_err_t get_card_list(bool force_full_sync)
     uint8_t chunk_buf[2048];
     int read_len;
     int added = 0;
+    int deleted = 0;
 
     const char pattern_card[] = "\"c\":";
     const char pattern_last[] = "\"last_change_id\":";
@@ -597,6 +598,7 @@ esp_err_t get_card_list(bool force_full_sync)
                     {
                         //card_mem_del(currentCard);
                         card_mem_stream_del(currentCard);
+                        deleted++;
                     }
                 }
                 if ((added % 1000) == 0 && added > 0)
@@ -628,7 +630,7 @@ goto_end:
         setLastSyncId(currentLastId); 
 
     int64_t t2= esp_timer_get_time();    
-    card_mem_sync();
+    if (added || deleted) card_mem_sync();
     int64_t snk_us= esp_timer_get_time() - t2;
 
     ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus, sync time=%lldus id=%lld", added, (long long)dt_us,snk_us,currentLastId);
