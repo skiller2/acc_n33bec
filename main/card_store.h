@@ -11,12 +11,12 @@ extern "C" {
 void card_mem_sort(void);
 int card_mem_exists(uint64_t id);
 void card_mem_del(uint64_t id);
-void card_mem_batch_add(const uint64_t *ids, size_t n);
 void card_mem_sync(void);
 bool card_mem_add(uint64_t id);
 /* importación masiva (streaming) */
-void card_mem_stream_init(void);
+void card_mem_stream_empty(void);
 bool card_mem_stream_add(uint64_t id);
+bool card_mem_stream_del(uint64_t id);
 bool card_mem_stream_flush(void);
 /* inicialización */
 void card_store_init(void);

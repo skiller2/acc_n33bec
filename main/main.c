@@ -172,7 +172,12 @@ void log_input_task(void *arg)
 
             err = send_json(evt.event_id, evt.port_id, evt.value, 1500);
 
-            if (err != ESP_OK && evt.event_id!=20)
+            if (err == ESP_OK && evt.event_id == 20)
+            {
+                get_card_list(false);
+            }
+
+            if (err != ESP_OK && evt.event_id != 20)
             {
                 evt.send_retry++;
                 ESP_LOGW(TAG, "send_json failed (%s), requeueing event retry %d",
@@ -190,8 +195,7 @@ void log_input_task(void *arg)
                     .port_id = (uint8_t)evt.port_id,
                     .value = evt.value,
                     .ts = evt.ts,
-                    .send_retry = evt.send_retry
-                };
+                    .send_retry = evt.send_retry};
                 if (xQueueSendToBack(queue_remote_logs, &retry, 0) != pdTRUE)
                 {
                     ESP_LOGE(TAG, "Failed to requeue event");
@@ -244,29 +248,20 @@ void worker(void *p)
             esp_err_t res = ESP_FAIL;
             now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
             tipo_habilitacion = 'X';
-//            if (g_config.url_n33bec[0] != 0)
-//            {
+            //            if (g_config.url_n33bec[0] != 0)
+            //            {
 
-//                res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
-//                if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
-//                    res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
-//            }
+            //                res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
+            //                if (res == ESP_ERR_HTTP_FETCH_HEADER || res == ESP_ERR_HTTP_WRITE_DATA)
+            //                    res = send_json_card(9, e.port_id, e.card, 1300, &ok, &tipo_habilitacion);
+            //            }
 
-
-            if (res == ESP_OK)
-            {
-                // Hago el analisis de la tarjeta y determino si es valida o no, para enviar al log el evento correspondiente
-            }
-            else
-            {
-                ok = card_mem_exists(e.card) ? 1 : 0;
-                tipo_habilitacion = 'P';
-            }
+            ok = card_mem_exists(e.card) ? 1 : 0;
+            tipo_habilitacion = 'P';
 
             int64_t t1 = esp_timer_get_time();
 
-            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %llu us, tema:%s", ok, tipo_habilitacion, t1 - t0, g_config.cod_tema);
-
+            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %llu us", ok, tipo_habilitacion, t1 - t0);
 
             if (ok)
             {
@@ -300,9 +295,9 @@ void worker(void *p)
                 play_melody_async(port_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
                 // heap_caps_check_integrity_all(true);
             }
-            //log_add(event_id, e.port_id, e.card, now);
+            // log_add(event_id, e.port_id, e.card, now);
 
-            dispatch_log_event(event_id,e.port_id,e.card,now);
+            dispatch_log_event(event_id, e.port_id, e.card, now);
 
             ws_broadcast_card(e.card, now, ok, tipo_habilitacion, t1 - t0, e.port_id);
         }

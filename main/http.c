@@ -450,7 +450,7 @@ esp_err_t get_card_list(bool force_full_sync)
     }
 
     if (lastSyncId == -1)
-        card_mem_stream_init();
+        card_mem_stream_empty();
 
     int64_t t_start = esp_timer_get_time();
 
@@ -589,12 +589,14 @@ esp_err_t get_card_list(bool force_full_sync)
                 {
                     if (strcmp(currentOp, "ADD") == 0)
                     {
-                        card_mem_add(currentCard);
+                        //card_mem_add(currentCard);
+                        card_mem_stream_add(currentCard);
                         added++;
                     }
                     else if (strcmp(currentOp, "DEL") == 0)
                     {
-                        card_mem_del(currentCard);
+                        //card_mem_del(currentCard);
+                        card_mem_stream_del(currentCard);
                     }
                 }
                 if ((added % 1000) == 0 && added > 0)
@@ -621,11 +623,11 @@ goto_end:
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
 
-    if (lastSyncId == -1)
-        card_mem_stream_flush();
+//    if (lastSyncId == -1)
     if (currentLastId > 0 && currentLastId != lastSyncId)
         setLastSyncId(currentLastId); 
 
+    card_mem_sync();
 
 
     ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus,  sync id=%lld", added, (long long)dt_us,currentLastId);

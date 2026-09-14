@@ -13,7 +13,7 @@
 
 static const char *TAG = "barrier";
 
-void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
+extern void dispatch_log_event(uint8_t event_id, int port_id, uint64_t value, int64_t ts);
 
 typedef enum
 {

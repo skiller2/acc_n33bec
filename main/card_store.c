@@ -11,13 +11,11 @@
 #include <stdbool.h>
 #include <errno.h>
 
-#define MAX_OPEN_STREAM_FILES SHARD_COUNT
 #define SHARD_COUNT 32
 #define SHARD_BUF_SIZE 48
 
 static const char *TAG = "card_store";
 static const char *SHARD_DIR = "/fs/cards";
-static uint16_t stream_open_count = 0;
 static FILE *stream_files[SHARD_COUNT] = {0};
 
 typedef struct
@@ -69,7 +67,7 @@ static void stream_close_all_files(void)
         }
     }
 
-    stream_open_count = 0;
+    // stream_open_count = 0;
 }
 
 static void shard_path(uint16_t shard, char *path, size_t path_size)
@@ -86,8 +84,15 @@ static bool file_binary_search(const char *path, uint64_t id)
 
     fseek(f, 0, SEEK_END);
 
-    size_t count = ftell(f) / sizeof(uint64_t);
+    long sz = ftell(f);
 
+    if (sz < 0)
+    {
+        fclose(f);
+        return false;
+    }
+
+    size_t count = (size_t)sz / sizeof(uint64_t);
     size_t low = 0;
     size_t high = count;
 
@@ -121,14 +126,176 @@ static bool file_binary_search(const char *path, uint64_t id)
 
     fseek(f, low * sizeof(uint64_t), SEEK_SET);
 
-    fread(&value, sizeof(value), 1, f);
+    if (fread(&value, sizeof(value), 1, f) != 1)
+    {
+        fclose(f);
+        return false;
+    }
 
     fclose(f);
 
     return value == id;
 }
 
-void card_mem_stream_init(void)
+static void apply_delete_log(uint16_t shard)
+{
+    char dat_path[64];
+    char del_path[64];
+    char tmp_path[64];
+
+    snprintf(dat_path,
+             sizeof(dat_path),
+             "/fs/cards/sh%04u.dat",
+             shard);
+
+    snprintf(del_path,
+             sizeof(del_path),
+             "/fs/cards/sh%04u.del",
+             shard);
+
+    snprintf(tmp_path,
+             sizeof(tmp_path),
+             "/fs/cards/sh%04u.tmp",
+             shard);
+
+    FILE *fdel = fopen(del_path, "rb");
+    if (!fdel)
+    {
+        return;
+    }
+
+    fseek(fdel, 0, SEEK_END);
+
+    long sz = ftell(fdel);
+
+    if (sz < 0)
+    {
+        fclose(fdel);
+        return;
+    }
+
+    size_t del_count = (size_t)sz / sizeof(uint64_t);
+
+    fseek(fdel, 0, SEEK_SET);
+
+    if (del_count == 0)
+    {
+        fclose(fdel);
+        unlink(del_path);
+        return;
+    }
+
+    uint64_t *dels = malloc(del_count * sizeof(uint64_t));
+    if (!dels)
+    {
+        fclose(fdel);
+        return;
+    }
+
+    if (fread(dels,
+              sizeof(uint64_t),
+              del_count,
+              fdel) != del_count)
+    {
+        free(dels);
+        fclose(fdel);
+        // unlink(del_path);
+        return;
+    }
+
+    fclose(fdel);
+
+    qsort(dels,
+          del_count,
+          sizeof(uint64_t),
+          card_cmp);
+
+    FILE *fin = fopen(dat_path, "rb");
+
+    if (!fin)
+    {
+        free(dels);
+        ESP_LOGE(TAG,
+                 "cannot open shard %u",
+                 shard);
+        return;
+    }
+
+    unlink(tmp_path);
+    FILE *fout = fopen(tmp_path, "wb");
+
+    if (!fout)
+    {
+        fclose(fin);
+        free(dels);
+        return;
+    }
+
+    uint64_t card;
+    size_t new_count = 0;
+
+    while (fread(&card,
+                 sizeof(card),
+                 1,
+                 fin) == 1)
+    {
+        if (bsearch(&card,
+                    dels,
+                    del_count,
+                    sizeof(uint64_t),
+                    card_cmp))
+        {
+            continue;
+        }
+
+        if (fwrite(&card,
+                   sizeof(card),
+                   1,
+                   fout) != 1)
+        {
+            ESP_LOGE(TAG,
+                     "write failed shard=%u",
+                     shard);
+
+            fclose(fin);
+            fclose(fout);
+
+            unlink(tmp_path);
+
+            free(dels);
+            return;
+        }
+
+        new_count++;
+    }
+
+    fclose(fin);
+    fclose(fout);
+
+    if (new_count == 0)
+    {
+        unlink(tmp_path);
+        unlink(dat_path);
+        unlink(del_path);
+    }
+    else
+    {
+        if (rename(tmp_path, dat_path) == 0)
+        {
+            unlink(del_path);
+        }
+        else
+        {
+            //            ESP_LOGE(...);
+            ESP_LOGE(TAG, "rename failed shard=%u errno=%d", shard, errno);
+            unlink(tmp_path);
+        }
+    }
+
+    free(dels);
+}
+
+void card_mem_stream_empty(void)
 {
     stream_close_all_files();
 
@@ -172,7 +339,15 @@ static void card_mem_sort_shard(uint16_t shard)
 
     fseek(f, 0, SEEK_END);
 
-    size_t count = ftell(f) / sizeof(uint64_t);
+    long sz = ftell(f);
+
+    if (sz < 0)
+    {
+        fclose(f);
+        return;
+    }
+
+    size_t count = (size_t)sz / sizeof(uint64_t);
 
     fseek(f, 0, SEEK_SET);
 
@@ -264,24 +439,26 @@ static FILE *stream_get_file(uint16_t shard)
     if (stream_files[shard])
         return stream_files[shard];
 
-    if (stream_open_count >= MAX_OPEN_STREAM_FILES)
-    {
-        for (int i = 0; i < SHARD_COUNT; i++)
+    /*
+        if (stream_open_count >= MAX_OPEN_STREAM_FILES)
         {
-            if (stream_files[i])
+            for (int i = 0; i < SHARD_COUNT; i++)
             {
-                fflush(stream_files[i]);
+                if (stream_files[i])
+                {
+                    fflush(stream_files[i]);
 
-                fclose(stream_files[i]);
+                    fclose(stream_files[i]);
 
-                stream_files[i] = NULL;
+                    stream_files[i] = NULL;
 
-                stream_open_count--;
+                    stream_open_count--;
 
-                break;
+                    break;
+                }
             }
         }
-    }
+    */
 
     char path[64];
     snprintf(path, sizeof(path), "/fs/cards/sh%04u.dat", shard);
@@ -297,7 +474,7 @@ static FILE *stream_get_file(uint16_t shard)
                 _IOFBF,
                 sizeof(io_bufs[shard]));
 
-        stream_open_count++;
+        // stream_open_count++;
     }
     return stream_files[shard];
 }
@@ -338,6 +515,27 @@ static bool flush_shard(uint16_t shard)
     sb->count = 0;
 
     return true;
+}
+
+bool card_mem_stream_del(uint64_t id)
+{
+    uint16_t shard = card_shard(id);
+
+    char path[64];
+    snprintf(path,
+             sizeof(path),
+             "/fs/cards/sh%04u.del",
+             shard);
+
+    FILE *f = fopen(path, "ab");
+    if (!f)
+        return false;
+
+    bool ok = fwrite(&id, sizeof(id), 1, f) == 1;
+
+    fclose(f);
+
+    return ok;
 }
 
 bool card_mem_stream_add(uint64_t id)
@@ -408,7 +606,17 @@ void card_mem_del(uint64_t id)
         return;
 
     fseek(f, 0, SEEK_END);
-    size_t count = ftell(f) / sizeof(uint64_t);
+
+    long sz = ftell(f);
+
+    if (sz < 0)
+    {
+        fclose(f);
+        return;
+    }
+
+    size_t count = (size_t)sz / sizeof(uint64_t);
+
     if (count == 0)
     {
         fclose(f);
@@ -465,24 +673,6 @@ void card_mem_del(uint64_t id)
     free(cards);
 }
 
-void card_mem_batch_add(const uint64_t *ids, size_t n)
-{
-    for (size_t i = 0; i < n; i++)
-    {
-        uint16_t shard = card_shard(ids[i]);
-
-        char path[64];
-        shard_path(shard, path, sizeof(path));
-
-        FILE *f = fopen(path, "ab");
-        if (!f)
-            continue;
-
-        fwrite(&ids[i], sizeof(uint64_t), 1, f);
-        fclose(f);
-    }
-}
-
 void card_mem_sort(void)
 {
     for (uint16_t shard = 0; shard < SHARD_COUNT; shard++)
@@ -498,7 +688,15 @@ void card_mem_sort(void)
 
         fseek(f, 0, SEEK_END);
 
-        size_t count = ftell(f) / sizeof(uint64_t);
+        long sz = ftell(f);
+
+        if (sz < 0)
+        {
+            fclose(f);
+            continue;
+        }
+
+        size_t count = (size_t)sz / sizeof(uint64_t);
 
         fseek(f, 0, SEEK_SET);
 
@@ -563,6 +761,12 @@ void card_mem_sort(void)
 
 void card_mem_sync(void)
 {
+    card_mem_stream_flush();
+
+    for (uint16_t shard = 0; shard < SHARD_COUNT; shard++)
+    {
+        apply_delete_log(shard);
+    }
     card_mem_sort();
 }
 
@@ -578,6 +782,11 @@ bool card_store_is_empty(void)
     while ((e = readdir(dir)) != NULL)
     {
         if (strncmp(e->d_name, "sh", 2) != 0)
+            continue;
+
+        const char *ext = strrchr(e->d_name, '.');
+
+        if (!ext || strcmp(ext, ".dat") != 0)
             continue;
 
         char path[270];
@@ -612,6 +821,7 @@ void card_store_init(void)
              "card store initialized");
 }
 
+#define SEND_CARDS_BUFFER 4096
 esp_err_t http_send_cards(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "application/json");
@@ -633,7 +843,7 @@ esp_err_t http_send_cards(httpd_req_t *req)
     uint64_t cards[32];
 
     // char outbuf[2048];
-    char *outbuf = malloc(4096);
+    char *outbuf = malloc(SEND_CARDS_BUFFER);
     if (!outbuf)
     {
         closedir(dir);
@@ -647,7 +857,9 @@ esp_err_t http_send_cards(httpd_req_t *req)
         if (strncmp(entry->d_name, "sh", 2) != 0)
             continue;
 
-        if (strstr(entry->d_name, ".tmp"))
+        const char *ext = strrchr(entry->d_name, '.');
+
+        if (!ext || strcmp(ext, ".dat") != 0)
             continue;
 
         char path[PATH_MAX];
@@ -689,7 +901,7 @@ esp_err_t http_send_cards(httpd_req_t *req)
                 if (len <= 0)
                     continue;
 
-                if (outlen + len >= 2048)
+                if (outlen + len >= SEND_CARDS_BUFFER)
                 {
                     err = httpd_resp_send_chunk(
                         req,

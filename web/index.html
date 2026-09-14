@@ -45,7 +45,6 @@
   <div id="cards-tab" class="tab-content active">
     <div class="card">
       <h2>Card Storage</h2>
-      <button onclick="loadEnabledCards()" style="margin-bottom: 8px;">Reload</button>
       <div class="sim-row">
         <label>RAW:
           <input type="number" id="cardIdRaw" placeholder="Enter raw card">
@@ -76,6 +75,7 @@
         </label>
       </div>
       <button onclick="simulateCardRead()">Simulate Read</button>
+      <button onclick="sendCardDemo()">Send Demo Card</button>
     </div>
 
     <div class="card">
@@ -91,11 +91,6 @@
       <button onclick="testRelay('port2')">Test Port 2</button>
     </div>
 
-    <div class="card">
-      <h2>Actions</h2>
-      <button onclick="syncFullCardsAction()">Full Sync Cards</button>
-      <button onclick="sendCardDemo()">Send Demo Card</button>
-    </div>
 
   </div>
 
@@ -105,6 +100,8 @@
     <div class="card">
       <h2>Enabled Cards <span id="enabled-cards-count" class="logs-count">(0)</span></h2>
       <button onclick="loadEnabledCards()">Reload</button>
+      <button onclick="syncFullCardsAction()">Full Sync Cards</button>
+
       <div id="enabled-cards-list"></div>
     </div>
   </div>
