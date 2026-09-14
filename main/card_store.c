@@ -10,6 +10,7 @@
 #include "card_store.h"
 #include <stdbool.h>
 #include <errno.h>
+#include "esp_timer.h"
 
 #define SHARD_COUNT 32
 #define SHARD_BUF_SIZE 48
@@ -17,6 +18,8 @@
 static const char *TAG = "card_store";
 static const char *SHARD_DIR = "/fs/cards";
 static FILE *stream_files[SHARD_COUNT] = {0};
+static bool dirty_add_shard[SHARD_COUNT];
+static bool dirty_del_shard[SHARD_COUNT];
 
 typedef struct
 {
@@ -205,6 +208,10 @@ static void apply_delete_log(uint16_t shard)
 
     fclose(fdel);
 
+    ESP_LOGI(TAG,
+             "shard=%u del_count=%u",
+             shard,
+             (unsigned)del_count);
     qsort(dels,
           del_count,
           sizeof(uint64_t),
@@ -293,6 +300,11 @@ static void apply_delete_log(uint16_t shard)
     }
 
     free(dels);
+    ESP_LOGI(TAG,
+             "shard=%u dels=%u remaining=%u",
+             shard,
+             (unsigned)del_count,
+             (unsigned)new_count);
 }
 
 void card_mem_stream_empty(void)
@@ -325,6 +337,8 @@ void card_mem_stream_empty(void)
     }
 
     closedir(dir);
+    memset(dirty_add_shard, 0, sizeof(dirty_add_shard));
+    memset(dirty_del_shard, 0, sizeof(dirty_del_shard));
 }
 
 static void card_mem_sort_shard(uint16_t shard)
@@ -519,8 +533,9 @@ static bool flush_shard(uint16_t shard)
 
 bool card_mem_stream_del(uint64_t id)
 {
-    uint16_t shard = card_shard(id);
 
+    uint16_t shard = card_shard(id);
+    dirty_del_shard[shard] = true;
     char path[64];
     snprintf(path,
              sizeof(path),
@@ -541,6 +556,8 @@ bool card_mem_stream_del(uint64_t id)
 bool card_mem_stream_add(uint64_t id)
 {
     uint16_t shard = card_shard(id);
+    dirty_add_shard[shard] = true;
+
     shard_buffer_t *sb = &shard_buffers[shard];
 
     if (sb->count >= SHARD_BUF_SIZE)
@@ -765,9 +782,40 @@ void card_mem_sync(void)
 
     for (uint16_t shard = 0; shard < SHARD_COUNT; shard++)
     {
-        apply_delete_log(shard);
+        bool modified =
+            dirty_add_shard[shard] ||
+            dirty_del_shard[shard];
+
+        if (!modified)
+            continue;
+
+        if (dirty_del_shard[shard])
+        {
+            int64_t t = esp_timer_get_time();
+
+            apply_delete_log(shard);
+
+            ESP_LOGI(TAG,
+                     "apply_delete shard=%u time=%lldus",
+                     shard,
+                     esp_timer_get_time() - t);
+        }
+
+        if (dirty_add_shard[shard])
+        {
+
+            uint64_t t = esp_timer_get_time();
+
+            card_mem_sort_shard(shard);
+
+            ESP_LOGI(TAG,
+                     "sort shard=%u time=%lldus",
+                     shard,
+                     esp_timer_get_time() - t);
+        }
+        dirty_add_shard[shard] = false;
+        dirty_del_shard[shard] = false;
     }
-    card_mem_sort();
 }
 
 bool card_store_is_empty(void)

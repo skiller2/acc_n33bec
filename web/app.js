@@ -131,11 +131,13 @@ function formatFs() {
 }
 
 function syncFullCardsAction() {
+  showEnabledCardsLoading();
   setStatus('Syncing cards...', '');
   callAction('sync_cards')
     .then(txt => {
       if (txt.startsWith('OK')) {
         setStatus('Cards synced', 'success');
+        loadEnabledCards();
       } else {
         setStatus('Error: ' + txt, 'error');
       }
@@ -176,6 +178,36 @@ function scanWifiAction() {
     });
 }
 
+function buildWiegand26(facility, card) {
+    // 24 bits de datos
+    const data24 = ((facility & 0xFF) << 16) | (card & 0xFFFF);
+
+    const first12 = (data24 >> 12) & 0xFFF;
+    const last12 = data24 & 0xFFF;
+
+    // Paridad PAR sobre primeros 12 bits
+    let ones1 = 0;
+    for (let i = 0; i < 12; i++) {
+        if (first12 & (1 << i)) ones1++;
+    }
+    const p1 = ones1 & 1; // 1 si cantidad impar
+
+    // Paridad IMPAR sobre últimos 12 bits
+    let ones2 = 0;
+    for (let i = 0; i < 12; i++) {
+        if (last12 & (1 << i)) ones2++;
+    }
+    const p2 = (ones2 & 1) ? 0 : 1;
+
+    // Armar W26 completo
+    return (
+        (p1 << 25) |
+        ((facility & 0xFF) << 17) |
+        ((card & 0xFFFF) << 1) |
+        p2
+    ) >>> 0;
+}
+
 function simulateCardRead() {
   const formattedInput = document.getElementById('simulateCardFormatted');
   const rawInput = document.getElementById('simulateCardId');
@@ -189,7 +221,7 @@ function simulateCardRead() {
       const facility = parseInt(parts[0], 10);
       const card = parseInt(parts[1], 10);
       if (!isNaN(facility) && !isNaN(card)) {
-        cardId = (facility << 17) | (card << 1) | 1
+        cardId = buildWiegand26(facility, card)
       }
     }
   }
@@ -1100,7 +1132,21 @@ function connectWebSocket() {
 // Start connection
 connectWebSocket();
 
+function showEnabledCardsLoading() {
+  const container = document.getElementById('enabled-cards-list');
+  const countEl = document.getElementById('enabled-cards-count');
+  if (countEl) countEl.textContent = '(loading...)';
+  container.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const div = document.createElement('div');
+    div.className = 'card skeleton';
+    div.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line short"></div>';
+    container.appendChild(div);
+  }
+}
+
 function loadEnabledCards() {
+  showEnabledCardsLoading();
   fetch('/cards')
     .then(r => r.json())
     .then(cards => {

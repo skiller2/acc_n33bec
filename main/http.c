@@ -627,10 +627,11 @@ goto_end:
     if (currentLastId > 0 && currentLastId != lastSyncId)
         setLastSyncId(currentLastId); 
 
+    int64_t t2= esp_timer_get_time();    
     card_mem_sync();
+    int64_t snk_us= esp_timer_get_time() - t2;
 
-
-    ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus,  sync id=%lld", added, (long long)dt_us,currentLastId);
+    ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus, sync time=%lldus id=%lld", added, (long long)dt_us,snk_us,currentLastId);
     return ESP_OK;
 }
 
