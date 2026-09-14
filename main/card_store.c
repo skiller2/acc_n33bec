@@ -566,6 +566,39 @@ void card_mem_sync(void)
     card_mem_sort();
 }
 
+bool card_store_is_empty(void)
+{
+    DIR *dir = opendir(SHARD_DIR);
+    if (!dir)
+        return true;
+
+    struct dirent *e;
+    bool empty = true;
+
+    while ((e = readdir(dir)) != NULL)
+    {
+        if (strncmp(e->d_name, "sh", 2) != 0)
+            continue;
+
+        char path[270];
+        snprintf(path,
+                 sizeof(path),
+                 "%s/%s",
+                 SHARD_DIR,
+                 e->d_name);
+
+        struct stat st;
+        if (stat(path, &st) == 0 && st.st_size > 0)
+        {
+            empty = false;
+            break;
+        }
+    }
+
+    closedir(dir);
+    return empty;
+}
+
 void card_store_init(void)
 {
     struct stat st;

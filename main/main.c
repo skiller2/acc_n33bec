@@ -144,7 +144,7 @@ void log_input_task(void *arg)
     ESP_LOGI(TAG, "got IP");
 
     // Load CARDS
-    err = get_card_list(false);
+    err = get_card_list(card_store_is_empty());
     //    if (err != ESP_OK)
     //        err = get_card_list();
     if (err != ESP_OK)
@@ -300,9 +300,9 @@ void worker(void *p)
                 play_melody_async(port_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
                 // heap_caps_check_integrity_all(true);
             }
-            log_add(event_id, e.port_id, e.card, now);
+            //log_add(event_id, e.port_id, e.card, now);
 
-            // dispatch_log_event(event_id,e.port_id,e.card,now);
+            dispatch_log_event(event_id,e.port_id,e.card,now);
 
             ws_broadcast_card(e.card, now, ok, tipo_habilitacion, t1 - t0, e.port_id);
         }

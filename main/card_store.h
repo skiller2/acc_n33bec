@@ -20,6 +20,7 @@ bool card_mem_stream_add(uint64_t id);
 bool card_mem_stream_flush(void);
 /* inicialización */
 void card_store_init(void);
+bool card_store_is_empty(void);
 esp_err_t http_send_cards(httpd_req_t *req);
 
 

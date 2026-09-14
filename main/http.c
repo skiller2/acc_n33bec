@@ -159,18 +159,22 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
 
     char post_data[512];
     char str_value[32];
-
+    int check_card=0;
     if (event_id == 9 || event_id == 10 || event_id == 11)
     {
         uint32_t raw_wiegand = (uint32_t)value;
 
         uint8_t facility = (raw_wiegand >> 17) & 0xFF; // Bits 17 a 24 (8 bits)
         uint16_t card = (raw_wiegand >> 1) & 0xFFFF;   // Bits 1 a 16 (16 bits)
-
+        check_card=1;
+        event_id = 9;
         snprintf(str_value, sizeof(str_value), "%03u-%05u", facility, card);
 
         ESP_LOGI(TAG, "Tarjeta Wiegand26 -> RAW: %llu, FC: %u, Card: %u, String: %s",
                  (unsigned long long)value, facility, card, str_value);
+
+        snprintf(str_value, sizeof(str_value), "%llu", (unsigned long long)value);
+
     }
     else
     {
@@ -185,7 +189,7 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
              port_id,
              str_value,
              event_id,
-             (event_id == 9) ? 1 : 0);
+             check_card);
 
     ESP_LOGI(TAG, "Send to N33BEC %s, content = %s", event_url, post_data);
 
