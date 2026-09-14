@@ -633,7 +633,7 @@ goto_end:
     if (added || deleted) card_mem_sync();
     int64_t snk_us= esp_timer_get_time() - t2;
 
-    ESP_LOGI(TAG, "Card list updated: %d cards added, time=%lldus, sync time=%lldus id=%lld", added, (long long)dt_us,snk_us,currentLastId);
+    ESP_LOGI(TAG, "Card list updated: %d cards added, %d deleted, time=%lldus, sync time=%lldus id=%lld", added, deleted, (long long)dt_us,snk_us,currentLastId);
     return ESP_OK;
 }
 
