@@ -56,6 +56,7 @@ static int parsed_buzzer = 0;
 static int parsed_led = 0;
 static char parsed_tipo_habilitacion[2];
 static char parsed_ind_rechazo[2];
+static bool stressloadcards = false;
 
 static uint32_t bundle_read_u32_le(const uint8_t *p);
 static bool bundle_is_safe_name(const char *name);
@@ -393,8 +394,13 @@ esp_err_t get_card_list(bool force_full_sync)
              g_config.cod_tema, (unsigned long)g_config.device_id);
     url_encode(param_value, encoded_param, sizeof(encoded_param));
 
-    snprintf(url, sizeof(url), "%s/habiaccesos/tema?tema=%s&since=%lld",
-             g_config.url_n33bec, encoded_param, lastSyncId);
+    if (stressloadcards) {
+        snprintf(url, sizeof(url), "%s/habiaccesos/tema?tema=%s&since=%lld&simular=1",
+                 g_config.url_n33bec, encoded_param, lastSyncId);
+    } else {
+        snprintf(url, sizeof(url), "%s/habiaccesos/tema?tema=%s&since=%lld",
+                 g_config.url_n33bec, encoded_param, lastSyncId);
+    }
 
     esp_http_client_config_t config = {
         .url = url,
@@ -1629,6 +1635,14 @@ action[sizeof(action) - 1] = '\0';
         vTaskDelay(pdMS_TO_TICKS(500));
         esp_restart();
         return ESP_OK;
+    } else if (strcmp(action, "enable_stressload") == 0) {
+        ESP_LOGI(TAG, "Action: enable_stressload");
+        stressloadcards = true;
+        return httpd_resp_sendstr(req, "OK: stressload enabled");
+    } else if (strcmp(action, "disable_stressload") == 0) {
+        ESP_LOGI(TAG, "Action: disable_stressload");
+        stressloadcards = false;
+        return httpd_resp_sendstr(req, "OK: stressload disabled");
     } else if (strcmp(action, "sync_cards") == 0) {
         ESP_LOGI(TAG, "Action: sync_cards (lastSyncId=-1)");
         esp_err_t err = get_card_list(true);
