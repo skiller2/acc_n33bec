@@ -139,7 +139,6 @@ void log_input_task(void *arg)
 
     input_event_t qevt;
 
-
     uint32_t drained_count = 0;
     pending_log_load_and_drain(queue_remote_logs, &drained_count);
     if (drained_count > 0)
@@ -228,7 +227,6 @@ void worker(void *p)
             }
 
             uint64_t now;
-            esp_err_t res = ESP_FAIL;
             now = getTimeStamp(); // Get the current timestamp in microseconds since epoch
             tipo_habilitacion = 'X';
             //            if (g_config.url_n33bec[0] != 0)
@@ -244,7 +242,7 @@ void worker(void *p)
 
             int64_t t1 = esp_timer_get_time();
 
-            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %llu us", ok, tipo_habilitacion, t1 - t0);
+            ESP_LOGW(TAG, "Respuesta de tarjeta: %d, tipo habilitacion %c,  en %lld us", ok, tipo_habilitacion, t1 - t0);
 
             if (ok)
             {
@@ -488,31 +486,14 @@ static void keep_alive_task(void *arg)
 
     while (1)
     {
-        // Read the current keep alive interval from global config
+        uint32_t interval = g_config.keep_alive_secs;
 
-        // If interval is zero, we skip sending (but we set a default of 30, so it should be non-zero)
-        if (g_config.keep_alive_secs > 0)
+        if (interval > 0)
         {
-            // Send a keep-alive JSON packet
-            // We'll use event_id 20 for keep-alive, port_id 0 (not associated with a physical port), and value as the device_id
-
             xQueueSendToBack(queue_remote_logs, &evt, 0);
-
-            /*
-                        esp_err_t err = send_json(20, 0, 1, 1000);
-                        if (err != ESP_OK)
-                        {
-                            ESP_LOGW(TAG, "keep-alive send failed: %s", esp_err_to_name(err));
-                        }
-                        else
-                        {
-                            ESP_LOGI(TAG, "Sent keep-alive JSON, interval: %lu secs", g_config.keep_alive_secs);
-                        }
-            */
         }
 
-        // Wait for the specified interval (convert seconds to milliseconds for vTaskDelay)
-        vTaskDelay(pdMS_TO_TICKS(g_config.keep_alive_secs * 1000));
+        vTaskDelay(pdMS_TO_TICKS(interval > 0 ? interval * 1000 : 2000));
     }
 }
 
@@ -555,7 +536,7 @@ static void card_sync_task(void *arg)
 
     ESP_LOGI(TAG, "got IP");
 
-    bool first_sync = true;
+    bool first_sync = card_store_is_empty();
 
     while (1)
     {
@@ -573,11 +554,9 @@ static void card_sync_task(void *arg)
         while (1)
         {
             uint32_t interval = g_config.keep_alive_secs;
-
             if (interval == 0)
             {
                 vTaskDelay(pdMS_TO_TICKS(2000));
-                finished_at = esp_timer_get_time();
                 continue;
             }
 
@@ -593,7 +572,6 @@ static void card_sync_task(void *arg)
         }
     }
 }
-
 
 void app_main()
 {
@@ -760,15 +738,13 @@ void app_main()
     uint32_t delay_ms = esp_random() % 3001; // 0..3000 ms
     vTaskDelay(pdMS_TO_TICKS(delay_ms));
 
-    if (xTaskCreate( card_sync_task, "card_sync", 8192, NULL, 4, NULL ) != pdPASS)
+    if (xTaskCreate(card_sync_task, "card_sync", 8192, NULL, 4, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create card_sync task");
     }
-
 
     if (xTaskCreate(keep_alive_task, "keep_alive_task", 2048, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
 }
-
