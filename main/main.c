@@ -139,18 +139,6 @@ void log_input_task(void *arg)
 
     input_event_t qevt;
 
-    ESP_LOGI(TAG, "waiting for network IP...");
-    xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
-    ESP_LOGI(TAG, "got IP");
-
-    // Load CARDS
-    err = get_card_list(card_store_is_empty());
-    //    if (err != ESP_OK)
-    //        err = get_card_list();
-    if (err != ESP_OK)
-    {
-        ESP_LOGW(TAG, "get_card_list failed: %s", esp_err_to_name(err));
-    }
 
     uint32_t drained_count = 0;
     pending_log_load_and_drain(queue_remote_logs, &drained_count);
@@ -171,11 +159,6 @@ void log_input_task(void *arg)
                 .send_retry = qevt.send_retry};
 
             err = send_json(evt.event_id, evt.port_id, evt.value, 1500);
-
-            if (err == ESP_OK && evt.event_id == 20)
-            {
-                get_card_list(false);
-            }
 
             if (err != ESP_OK && evt.event_id != 20)
             {
@@ -560,6 +543,58 @@ static void service_mode_task(void *arg)
     vTaskDelete(NULL);
 }
 
+static void card_sync_task(void *arg)
+{
+    ESP_LOGI(TAG, "waiting for network IP...");
+    xEventGroupWaitBits(
+        s_ip_event_group,
+        HAVE_IP,
+        pdFALSE,
+        pdFALSE,
+        portMAX_DELAY);
+
+    ESP_LOGI(TAG, "got IP");
+
+    bool first_sync = true;
+
+    while (1)
+    {
+        esp_err_t res = get_card_list(first_sync);
+        first_sync = false;
+
+        if (res != ESP_OK)
+        {
+            ESP_LOGW(TAG, "get_card_list failed: %s",
+                     esp_err_to_name(res));
+        }
+
+        int64_t finished_at = esp_timer_get_time();
+
+        while (1)
+        {
+            uint32_t interval = g_config.keep_alive_secs;
+
+            if (interval == 0)
+            {
+                vTaskDelay(pdMS_TO_TICKS(2000));
+                finished_at = esp_timer_get_time();
+                continue;
+            }
+
+            int64_t elapsed =
+                (esp_timer_get_time() - finished_at) / 1000000LL;
+
+            if (elapsed >= interval)
+            {
+                break;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+    }
+}
+
+
 void app_main()
 {
 
@@ -722,8 +757,18 @@ void app_main()
         }
     }
 
+    uint32_t delay_ms = esp_random() % 3001; // 0..3000 ms
+    vTaskDelay(pdMS_TO_TICKS(delay_ms));
+
+    if (xTaskCreate( card_sync_task, "card_sync", 8192, NULL, 4, NULL ) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create card_sync task");
+    }
+
+
     if (xTaskCreate(keep_alive_task, "keep_alive_task", 2048, NULL, 5, NULL) != pdPASS)
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
 }
+
