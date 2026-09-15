@@ -1354,20 +1354,6 @@ static esp_err_t wifi_clear_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-static esp_err_t wifi_scan_handler(httpd_req_t *req)
-{
-    char *json = wifi_scan_to_json();
-    if (!json)
-    {
-        httpd_resp_set_type(req, "application/json");
-        httpd_resp_sendstr(req, "[]");
-        return ESP_OK;
-    }
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, json);
-    free(json);
-    return ESP_OK;
-}
 
 #define UPDATE_BUNDLE_MAGIC "ACN2"
 #define UPDATE_BUNDLE_VERSION 1
@@ -1838,7 +1824,7 @@ static esp_err_t get_device_info(httpd_req_t *req)
 
     char device_info_json[1024];
     snprintf(device_info_json, sizeof(device_info_json),
-             "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\",\"rtc_time_ts\":%.0f,\"sntp_time_ts\":%.0f,\"system_time_ts\":%.0f,\"is_barrier\":%d}",
+              "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\",\"rtc_time_ts\":%.0f,\"sntp_time_ts\":%.0f,\"system_time_ts\":%.0f,\"is_barrier\":%d,\"last_sync_id\":%lld}",
              mac_str,
              (chip_info.model == CHIP_ESP32) ? "ESP32" : (chip_info.model == CHIP_ESP32S2) ? "ESP32S2"
                                                      : (chip_info.model == CHIP_ESP32S3)   ? "ESP32S3"
@@ -1854,10 +1840,11 @@ static esp_err_t get_device_info(httpd_req_t *req)
              (unsigned long)flash_size,
              flash_speed_str,
              flash_mode_str,
-             rtc_time_ts,
-             sntp_time_ts,
-             system_time_ts,
-             IS_BARRIER);
+              rtc_time_ts,
+              sntp_time_ts,
+              system_time_ts,
+              IS_BARRIER,
+              (long long)getLastSyncId());
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, device_info_json);
@@ -2127,9 +2114,6 @@ void http_init(QueueHandle_t qh)
 
         httpd_uri_t dpp_bs_uri = {.uri = "/dpp/bootstrap", .method = HTTP_POST, .handler = dpp_bootstrap_handler};
         httpd_register_uri_handler(s, &dpp_bs_uri);
-
-        httpd_uri_t wifi_scan_uri = {.uri = "/wifi/scan", .method = HTTP_GET, .handler = wifi_scan_handler};
-        httpd_register_uri_handler(s, &wifi_scan_uri);
 
         httpd_uri_t wifi_conn_uri = {.uri = "/wifi/connect", .method = HTTP_POST, .handler = wifi_connect_handler};
         httpd_register_uri_handler(s, &wifi_conn_uri);

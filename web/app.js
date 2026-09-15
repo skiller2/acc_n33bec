@@ -612,6 +612,7 @@ function loadDeviceInfo() {
       html += '<p><strong>RTC Time:</strong> ' + (data.rtc_time_ts ? new Date(data.rtc_time_ts * 1000).toLocaleString() : 'Error') + '</p>';
       //html += '<p><strong>SNTP Time:</strong> ' + (data.sntp_time_ts ? new Date(data.sntp_time_ts * 1000).toLocaleString() : 'Timeout') + '</p>';
       html += '<p><strong>System Time:</strong> ' + (data.system_time_ts ? new Date(data.system_time_ts * 1000).toLocaleString() : 'N/A') + '</p>';
+      html += '<p><strong>Last Sync Id:</strong> ' + (data.last_sync_id !== undefined ? data.last_sync_id : 'N/A') + '</p>';
 
       infoDiv.innerHTML = html;
     })
@@ -821,35 +822,6 @@ function authModeToStr(m) {
     5: 'WPA2_ENTERPRISE', 6: 'WPA3_PSK', 7: 'WPA2_WPA3_PSK'
   };
   return map[m] || ('AUTH_' + m);
-}
-
-function scanWifiNetworks() {
-  const statusDiv = document.getElementById('wifi-scan-status');
-  const list = document.getElementById('wifi-scan-results');
-  statusDiv.innerHTML = '<p class="status">Scanning...</p>';
-  list.innerHTML = '';
-
-  fetch('/wifi/scan')
-    .then(r => r.json())
-    .then(aps => {
-      statusDiv.innerHTML = '<p class="status success">Found ' + aps.length + ' network(s)</p>';
-      aps.sort((a, b) => b.rssi - a.rssi);
-      for (const ap of aps) {
-        const li = document.createElement('li');
-        li.style.marginBottom = '6px';
-        const ssid = (ap.ssid && ap.ssid.length) ? ap.ssid : '(hidden)';
-        const auth = authModeToStr(ap.authmode);
-        const sec = ap.authmode === 0 ? '' : ' 🔒';
-        li.innerHTML = '<strong>' + escapeHtml(ssid) + '</strong>'
-          + sec + ' — ch ' + ap.channel + ', ' + ap.rssi + ' dBm, ' + auth
-          + ' <button style="margin-left:8px; padding:2px 8px;" '
-          + 'onclick="useScanResult(\'' + escapeAttr(ssid) + '\')">Use</button>';
-        list.appendChild(li);
-      }
-    })
-    .catch(e => {
-      statusDiv.innerHTML = '<p class="status error">Error: ' + e + '</p>';
-    });
 }
 
 function useScanResult(ssid) {
