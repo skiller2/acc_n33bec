@@ -81,6 +81,19 @@ function callAction(action) {
     .then(txt => txt);
 }
 
+function toggleStressload(checkbox) {
+  const action = checkbox.checked ? 'enable_stressload' : 'disable_stressload';
+  callAction(action)
+    .then(txt => {
+      if (txt.startsWith('OK')) {
+        setStatus('Stressload ' + (checkbox.checked ? 'enabled' : 'disabled'), 'success');
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Stressload toggle error: ' + e, 'error'));
+}
+
 function sendCardDemo() {
   setStatus('Sending demo card...', '');
   callAction('send_card_demo')

@@ -101,12 +101,9 @@
       <h2>Enabled Cards <span id="enabled-cards-count" class="logs-count">(0)</span></h2>
       <button onclick="loadEnabledCards()">Reload</button>
       <button onclick="syncFullCardsAction()">Full Sync Cards</button>
-
-      <div id="enabled-cards-list"></div>
-    </div>
-  </div>
-
-  <!-- Logs Tab -->
+        <label style="margin-left: 20px;">
+          <input type="checkbox" id="stressloadCheckbox" onchange="toggleStressload(this)"> Stress Load Cards (adds simular=1)
+        </label>
   <div id="logs-tab" class="tab-content">
     <div class="card">
       <h2>General Logs <span id="logs-count" class="logs-count">(0)</span></h2>
