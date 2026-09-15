@@ -1783,7 +1783,8 @@ static esp_err_t get_device_info(httpd_req_t *req)
 
     // heap_caps_print_heap_info
     uint32_t free_heap = esp_get_free_heap_size();
-    uint32_t min_free_heap = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
+    uint32_t min_free_heap = esp_get_minimum_free_heap_size();
+    uint32_t largest_free_heap = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
     // Tamaño de la flash
 
     uint32_t flash_size = 0;
@@ -1824,7 +1825,7 @@ static esp_err_t get_device_info(httpd_req_t *req)
 
     char device_info_json[1024];
     snprintf(device_info_json, sizeof(device_info_json),
-              "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\",\"rtc_time_ts\":%.0f,\"sntp_time_ts\":%.0f,\"system_time_ts\":%.0f,\"is_barrier\":%d,\"last_sync_id\":%lld}",
+              "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"largest_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\",\"rtc_time_ts\":%.0f,\"sntp_time_ts\":%.0f,\"system_time_ts\":%.0f,\"is_barrier\":%d,\"last_sync_id\":%lld}",
              mac_str,
              (chip_info.model == CHIP_ESP32) ? "ESP32" : (chip_info.model == CHIP_ESP32S2) ? "ESP32S2"
                                                      : (chip_info.model == CHIP_ESP32S3)   ? "ESP32S3"
@@ -1837,6 +1838,7 @@ static esp_err_t get_device_info(httpd_req_t *req)
              esp_get_idf_version(),
              (unsigned long)free_heap,
              (unsigned long)min_free_heap,
+             (unsigned long)largest_free_heap,
              (unsigned long)flash_size,
              flash_speed_str,
              flash_mode_str,

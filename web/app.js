@@ -606,6 +606,7 @@ function loadDeviceInfo() {
       html += '<p><strong>SDK Version:</strong> ' + (data.sdk_version || 'N/A') + '</p>';
       html += '<p><strong>Free Heap:</strong> ' + formatBytes(data.free_heap || 0) + '</p>';
       html += '<p><strong>Minimum Free Heap:</strong> ' + formatBytes(data.min_free_heap || 0) + '</p>';
+      html += '<p><strong>Largest Free Heap:</strong> ' + formatBytes(data.largest_free_heap || 0) + '</p>';
       html += '<p><strong>Flash Size:</strong> ' + formatBytes(data.flash_size || 0) + '</p>';
       html += '<p><strong>Flash Speed:</strong> ' + (data.flash_speed || 'N/A') + 'Hz</p>';
       html += '<p><strong>Flash Mode:</strong> ' + (data.flash_mode || 'N/A') + '</p>';
