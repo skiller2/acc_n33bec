@@ -1147,7 +1147,7 @@ function loadEnabledCards() {
         cards.forEach(row => {
           const div = document.createElement('div');
           div.className = 'card';
-          div.innerText = wiegand26ToFcCard(row.card);
+          div.innerText = wiegand26ToFcCard(row.card) + ' (' + row.card + ')';
           container.appendChild(div);
         });
       } else {
