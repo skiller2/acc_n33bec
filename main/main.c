@@ -33,14 +33,16 @@ static const char *TAG = "main";
 
 EventGroupHandle_t s_ip_event_group;
 
-tone_t melody_ok[] = {
+/*
+static const tone_t melody_ok[] = {
     {1200, 120, 30},
     {1600, 120, 30},
     {2000, 180, 60},
     {0, 50, 0}, // pause
     {1800, 250, 0}};
+*/
 
-tone_t mario[] = {
+static const tone_t mario[] = {
     {660, 100, 50},
     {660, 100, 150},
     {660, 100, 150},
@@ -71,7 +73,8 @@ tone_t mario[] = {
     {480, 80, 200},
 };
 
-tone_t darth_vader[] = {
+/*
+static const tone_t darth_vader[] = {
     {440, 500, 100},
     {440, 500, 100},
     {440, 500, 100},
@@ -98,8 +101,9 @@ tone_t darth_vader[] = {
 
     {440, 1000, 200},
 };
+*/
 
-tone_t access_denied[] = {
+static const tone_t access_denied[] = {
     {700, 120, 20},
     {500, 120, 20},
     {300, 250, 0},
