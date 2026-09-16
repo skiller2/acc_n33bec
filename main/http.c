@@ -47,6 +47,7 @@ static const char *TAG = "http";
 
 static QueueHandle_t event_queue = NULL;
 
+
 static char response_buffer[512];
 static int response_len = 0;
 static int parsed_rele1 = 0;
@@ -350,36 +351,6 @@ static void url_encode(const char *src, char *dst, size_t dst_size)
         }
     }
     dst[i] = '\0';
-}
-
-int64_t getLastSyncId(void)
-{
-    nvs_handle_t nvs_h = 0;
-    int64_t value = -1;
-    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &nvs_h);
-    if (err != ESP_OK)
-        return value;
-    err = nvs_get_i64(nvs_h, "lastsyncid", &value);
-    nvs_close(nvs_h);
-    if (err == ESP_OK)
-        return value;
-    return -1;
-}
-
-esp_err_t setLastSyncId(uint64_t id)
-{
-    nvs_handle_t nvs_h = 0;
-
-    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &nvs_h);
-    if (err == ESP_OK)
-        err = nvs_set_i64(nvs_h, "lastsyncid", id);
-
-    if (err == ESP_OK)
-        err = nvs_commit(nvs_h);
-
-    if (nvs_h)
-        nvs_close(nvs_h);
-    return err;
 }
 
 esp_err_t get_card_list(bool force_full_sync)
@@ -1631,15 +1602,8 @@ action[sizeof(action) - 1] = '\0';
         return httpd_resp_sendstr(req, "OK: stressload disabled");
     } else if (strcmp(action, "sync_cards") == 0) {
         ESP_LOGI(TAG, "Action: sync_cards (lastSyncId=-1)");
-        esp_err_t err = get_card_list(true);
-        if (err == ESP_OK)
-            return httpd_resp_sendstr(req, "OK: cards synced");
-        else
-        {
-            char buf[128];
-            snprintf(buf, sizeof(buf), "ERR: %s", esp_err_to_name(err));
-            return httpd_resp_sendstr(req, buf);
-        }
+        setLastSyncId(-1);
+        return httpd_resp_sendstr(req, "OK: sync trigger");
         return ESP_OK;
     } else if (strcmp(action, "scan_wifi") == 0) {
         ESP_LOGI(TAG, "Action: scan_wifi");

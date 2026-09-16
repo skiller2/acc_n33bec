@@ -33,6 +33,7 @@ static const char *TAG = "main";
 
 EventGroupHandle_t s_ip_event_group;
 
+
 /*
 static const tone_t melody_ok[] = {
     {1200, 120, 30},
@@ -539,13 +540,11 @@ static void card_sync_task(void *arg)
         portMAX_DELAY);
 
     ESP_LOGI(TAG, "got IP");
-
-    bool first_sync = card_store_is_empty();
-
+    if (card_store_is_empty())
+        setLastSyncId(-1);
     while (1)
     {
-        esp_err_t res = get_card_list(first_sync);
-        first_sync = false;
+        esp_err_t res = get_card_list(getLastSyncId()==-1?true:false);
 
         if (res != ESP_OK)
         {

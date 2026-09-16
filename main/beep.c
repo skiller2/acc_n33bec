@@ -84,7 +84,7 @@ static void melody_task(void *arg)
     // melody_ctx_t *ctx = (melody_ctx_t *)arg;
     uint32_t ulNotificationValue;
     gpio_set_direction(ctx.gpio, GPIO_MODE_OUTPUT);
-    gpio_set_level(ctx.gpio, 0);
+    gpio_set_level(ctx.gpio, 1);
 
     for (int i = 0; i < ctx.length; i++)
     {
@@ -120,7 +120,8 @@ static void melody_task(void *arg)
             }
             // Stop tone
             ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
-            gpio_reset_pin(ctx.gpio);
+            gpio_set_level(ctx.gpio,1);
+
         }
         ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].pause * ctx.incdur));
         if (ulNotificationValue > 0)
@@ -130,8 +131,14 @@ static void melody_task(void *arg)
         }
     }
     ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
-    gpio_reset_pin(ctx.gpio);
+    gpio_set_level(ctx.gpio,1);
     ESP_LOGI(TAG, "melody finish");
+
+//FIX 
+
+    gpio_set_level(PORT1_BUZZER,1);
+    gpio_set_level(PORT2_BUZZER,1);
+
     vTaskDelete(NULL); // kill task when done
     vTaskSuspend(NULL);
 }

@@ -67,6 +67,9 @@ esp_err_t config_load(config_t *config);
 esp_err_t config_save(const config_t *config);
 esp_err_t barrier_config_load(barrier_config_t *config);
 esp_err_t barrier_config_save(const barrier_config_t *config);
+int64_t getLastSyncId(void);
+esp_err_t setLastSyncId(int64_t id);
+
 extern barrier_config_t g_barrier_config;
 extern config_t g_config;
 

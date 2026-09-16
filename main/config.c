@@ -304,5 +304,36 @@ esp_err_t barrier_config_save(const barrier_config_t *cfg)
     return ESP_OK;
 }
 
+int64_t getLastSyncId(void)
+{
+    nvs_handle_t nvs_h = 0;
+    int64_t value = -1;
+    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &nvs_h);
+    if (err != ESP_OK)
+        return value;
+    err = nvs_get_i64(nvs_h, "lastsyncid", &value);
+    nvs_close(nvs_h);
+    if (err == ESP_OK)
+        return value;
+    return -1;
+}
+
+esp_err_t setLastSyncId(int64_t id)
+{
+    nvs_handle_t nvs_h = 0;
+
+    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &nvs_h);
+    if (err == ESP_OK)
+        err = nvs_set_i64(nvs_h, "lastsyncid", id);
+
+    if (err == ESP_OK)
+        err = nvs_commit(nvs_h);
+
+    if (nvs_h)
+        nvs_close(nvs_h);
+    return err;
+}
+
+
 barrier_config_t g_barrier_config;
 config_t g_config;
