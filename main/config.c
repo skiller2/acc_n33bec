@@ -44,7 +44,7 @@ static bool valid_relay_number(uint8_t relay)
 static void clamp_config(config_t *config)
 {
     uint8_t mac[6];
-    esp_read_mac(mac, ESP_MAC_ETH);
+    esp_read_mac(mac, ESP_MAC_EFUSE_FACTORY);
 
     if (!valid_relay_number(config->rex1_relay_number)) {
         config->rex1_relay_number = 1;
@@ -86,7 +86,7 @@ static void clamp_config(config_t *config)
         config->input_debounce_ms = 100;
     }
     if (config->keep_alive_secs == 0) {
-        config->keep_alive_secs = 10; // Use the last byte of the MAC address as the device ID    
+        config->keep_alive_secs = 10; // Seconds to send keepalive    
     }
 
     if (config->device_id == 0) {
