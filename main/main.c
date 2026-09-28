@@ -482,6 +482,9 @@ static void keep_alive_task(void *arg)
     ESP_LOGI(TAG, "waiting for network IP...");
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
+
+    play_melody_async(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+
     input_event_t evt = {
         .event_id = 20,
         .port_id = 0,
@@ -660,6 +663,8 @@ void app_main()
         // dpp_start();
     }
 
+
+
 #if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();
 #endif
@@ -701,9 +706,6 @@ void app_main()
     esp_reset_reason_t reason = esp_reset_reason();
     log_add(1, 0, reason, 0);
     ESP_LOGI(TAG, "app_main complete - version %s", PROJECT_VERSION);
-
-    // play_melody(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.2);
-    // play_melody_async(PORT2_BUZZER, darth_vader, sizeof(darth_vader) / sizeof(tone_t),1.3);
 
     //=========================================
     // Creating Tasks

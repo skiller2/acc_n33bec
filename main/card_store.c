@@ -78,6 +78,55 @@ static void shard_path(uint16_t shard, char *path, size_t path_size)
     snprintf(path, path_size, "/fs/cards/sh%04u.dat", shard);
 }
 
+
+static bool file_binary_search_slow(const char *path, uint64_t id)
+{
+    FILE *f = fopen(path, "rb");
+    ESP_LOGI(TAG, "Searching.. shard=%s card=%llu", path, id);
+
+    if (!f)
+        return false;
+
+    fseek(f, 0, SEEK_END);
+
+    long sz = ftell(f);
+
+    if (sz < 0)
+    {
+        fclose(f);
+        return false;
+    }
+    rewind(f);
+
+    uint64_t buf[512];
+    size_t base = 0;
+    uint64_t last = 0;
+    size_t n =0;
+    bool found = false;
+    bool unsorted = false;
+    while ((n = fread(buf, sizeof(uint64_t), 512, f)) > 0)
+    {
+        for (size_t i = 0; i < n; i++)
+        {
+            if (base + i > 0 && buf[i] < last)
+            {
+                unsorted=true;
+            }
+            if (buf[i]==id)
+                found=true;
+
+            last = buf[i];
+        }
+
+        base += n;
+    }
+
+    ESP_LOGI(TAG, "Finish shard=%s card=%llu result=%d, unsorted=%d", path, id,found,unsorted);
+
+    fclose(f);
+    return found;
+}
+
 static bool file_binary_search(const char *path, uint64_t id)
 {
     FILE *f = fopen(path, "rb");
@@ -601,9 +650,10 @@ static bool card_exists(uint64_t id)
         path,
         sizeof(path));
 
-    return file_binary_search(
-        path,
-        id);
+    if (!file_binary_search(path, id))
+        return file_binary_search_slow(path, id);
+    return true;
+
 }
 
 int card_mem_exists(uint64_t id)

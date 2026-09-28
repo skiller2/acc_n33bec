@@ -28,14 +28,16 @@ static TimerHandle_t gpio_timers[GPIO_NUM_MAX] = {0};
 
 void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
 {
-    if (duration_ms == 0) {
+    if (duration_ms == 0)
+    {
         gpio_set_level(gpio, 0);
         return;
     }
 
     gpio_set_level(gpio, 1);
 
-    if (gpio_timers[gpio] == NULL) {
+    if (gpio_timers[gpio] == NULL)
+    {
         gpio_timers[gpio] = xTimerCreate(
             "pulse",
             pdMS_TO_TICKS(duration_ms),
@@ -44,7 +46,8 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
             output_off_cb);
     }
 
-    if (gpio_timers[gpio]) {
+    if (gpio_timers[gpio])
+    {
         xTimerStop(gpio_timers[gpio], 0);
         xTimerChangePeriod(
             gpio_timers[gpio],
@@ -52,8 +55,6 @@ void pulse_output(gpio_num_t gpio, uint32_t duration_ms)
             0);
     }
 }
-
-
 
 void pulse_output_by_relay(uint8_t relay_number, uint32_t duration_ms)
 {
@@ -63,84 +64,89 @@ void pulse_output_by_relay(uint8_t relay_number, uint32_t duration_ms)
     gpio_num_t gpio;
     switch (relay_number)
     {
-        case 1: gpio = RELE1_GPIO; break;
-        case 2: gpio = RELE2_GPIO; break;
-        case 3: gpio = RELE3_GPIO; break;
-        default: return;
+    case 1:
+        gpio = RELE1_GPIO;
+        break;
+    case 2:
+        gpio = RELE2_GPIO;
+        break;
+    case 3:
+        gpio = RELE3_GPIO;
+        break;
+    default:
+        return;
     }
 
     heap_caps_check_integrity_all(true);
     pulse_output(gpio, duration_ms);
     heap_caps_check_integrity_all(true);
-
 }
 
 static void melody_task(void *arg)
 {
     melody_ctx_t ctx;
-    memcpy(&ctx, (melody_ctx_t *)arg, sizeof(ctx));
+    memcpy(&ctx, arg, sizeof(ctx));
+
     ESP_LOGI(TAG, "melody start");
 
-    // melody_ctx_t *ctx = (melody_ctx_t *)arg;
     uint32_t ulNotificationValue;
-    gpio_set_direction(ctx.gpio, GPIO_MODE_OUTPUT);
-    gpio_set_level(ctx.gpio, 1);
+
+    ledc_channel_config_t channel = {
+        .gpio_num = ctx.gpio,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0,
+        .intr_type = LEDC_INTR_DISABLE,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = 0,
+        .hpoint = 0,
+    };
+
+    ESP_ERROR_CHECK(ledc_channel_config(&channel));
+
+    ledc_timer_config_t timer = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .timer_num = LEDC_TIMER_0,
+        .duty_resolution = LEDC_TIMER_10_BIT,
+        .freq_hz = 1000,
+        .clk_cfg = LEDC_AUTO_CLK};
+
+    ESP_ERROR_CHECK(ledc_timer_config(&timer));
 
     for (int i = 0; i < ctx.length; i++)
     {
         if (ctx.melody[i].freq > 0)
         {
-            // heap_caps_check_integrity_all(true);
-            ledc_timer_config_t timer = {
-                .duty_resolution = LEDC_TIMER_10_BIT,
-                .freq_hz = ctx.melody[i].freq,
-                .speed_mode = LEDC_LOW_SPEED_MODE,
-                .timer_num = LEDC_TIMER_0,
-                .clk_cfg = LEDC_AUTO_CLK};
-            ledc_timer_config(&timer);
-            ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
+            ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0, ctx.melody[i].freq);
 
-            // Configure channel
-            ledc_channel_config_t channel = {
-                .gpio_num = ctx.gpio,
-                .speed_mode = LEDC_LOW_SPEED_MODE,
-                .channel = LEDC_CHANNEL_0,
-                .intr_type = LEDC_INTR_DISABLE,
-                .timer_sel = LEDC_TIMER_0,
-                .duty = 900, // louder than 512
-                .hpoint = 0};
-            ledc_channel_config(&channel);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 900);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 
-            // Play tone
             ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].duration * ctx.incdur));
-            if (ulNotificationValue > 0)
+
+            if (ulNotificationValue)
             {
-                ESP_LOGI(TAG, "kill my self");
+                ESP_LOGI(TAG, "melody cancelled");
                 break;
             }
-            // Stop tone
-            ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
-            gpio_set_level(ctx.gpio,1);
 
-        }
-        ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].pause * ctx.incdur));
-        if (ulNotificationValue > 0)
-        {
-            ESP_LOGI(TAG, "kill my self");
-            break;
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].pause));
+            if (ulNotificationValue)
+            {
+                ESP_LOGI(TAG, "melody cancelled");
+                break;
+            }
         }
     }
+
     ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
-    gpio_set_level(ctx.gpio,1);
+
     ESP_LOGI(TAG, "melody finish");
+    gpio_set_level(PORT1_BUZZER, 1);
+    gpio_set_level(PORT2_BUZZER, 1);
 
-//FIX 
-
-    gpio_set_level(PORT1_BUZZER,1);
-    gpio_set_level(PORT2_BUZZER,1);
-
-    vTaskDelete(NULL); // kill task when done
-    vTaskSuspend(NULL);
+    vTaskDelete(NULL);
 }
 
 void play_melody_async(gpio_num_t gpio,
