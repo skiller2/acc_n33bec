@@ -129,7 +129,7 @@ static void melody_task(void *arg)
                 break;
             }
 
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1023);
             ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
             ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].pause));
             if (ulNotificationValue)
@@ -143,6 +143,8 @@ static void melody_task(void *arg)
     ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
 
     ESP_LOGI(TAG, "melody finish");
+    gpio_reset_pin(ctx.gpio);
+
     gpio_set_level(PORT1_BUZZER, 1);
     gpio_set_level(PORT2_BUZZER, 1);
 
