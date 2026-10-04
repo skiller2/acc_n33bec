@@ -75,7 +75,11 @@
         </label>
       </div>
       <button onclick="simulateCardRead()">Simulate Read</button>
-      <button onclick="sendCardDemo()">Send Demo Card</button>
+      <div style="margin-top:8px;">
+        <label>Interval (ms): <input type="number" id="demoInterval" value="2000" min="100" max="3600000" style="width:100px;"></label>
+        <button id="demoBtn" onclick="toggleDemoCards()">Send Demo Card</button>
+        <span id="demoStatus" style="margin-left:8px;"></span>
+      </div>
     </div>
 
     <div class="card">
@@ -112,7 +116,8 @@
   <div id="logs-tab" class="tab-content">
     <div class="card">
       <h2>General Logs <span id="logs-count" class="logs-count">(0)</span></h2>
-      <button onclick="loadLogs()">Refresh</button>
+      <button id="logsRefreshBtn" onclick="loadLogs()">Refresh</button>
+      <span id="logs-loading" style="margin-left:8px; display:none;">Loading...</span>
       <div id="logs-list"></div>
     </div>
   </div>

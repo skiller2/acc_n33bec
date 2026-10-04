@@ -82,8 +82,8 @@ static void shard_path(uint16_t shard, char *path, size_t path_size)
 static bool file_binary_search_slow(const char *path, uint64_t id)
 {
     FILE *f = fopen(path, "rb");
-    ESP_LOGI(TAG, "Searching.. shard=%s card=%llu", path, id);
 
+    
     if (!f)
         return false;
 
@@ -257,10 +257,7 @@ static void apply_delete_log(uint16_t shard)
 
     fclose(fdel);
 
-    ESP_LOGI(TAG,
-             "shard=%u del_count=%u",
-             shard,
-             (unsigned)del_count);
+    ESP_LOGI(TAG, "shard=%u del_count=%u", shard, (unsigned)del_count);
     qsort(dels,
           del_count,
           sizeof(uint64_t),
@@ -349,11 +346,7 @@ static void apply_delete_log(uint16_t shard)
     }
 
     free(dels);
-    ESP_LOGI(TAG,
-             "shard=%u dels=%u remaining=%u",
-             shard,
-             (unsigned)del_count,
-             (unsigned)new_count);
+    ESP_LOGI(TAG, "shard=%u dels=%u remaining=%u", shard, (unsigned)del_count, (unsigned)new_count);
 }
 
 void card_mem_stream_empty(void)
@@ -845,10 +838,7 @@ void card_mem_sync(void)
 
             apply_delete_log(shard);
 
-            ESP_LOGI(TAG,
-                     "apply_delete shard=%u time=%lldus",
-                     shard,
-                     esp_timer_get_time() - t);
+            ESP_LOGI(TAG, "apply_delete shard=%u time=%lldus", shard, esp_timer_get_time() - t);
         }
 
         if (dirty_add_shard[shard])
@@ -858,10 +848,7 @@ void card_mem_sync(void)
 
             card_mem_sort_shard(shard);
 
-            ESP_LOGI(TAG,
-                     "sort shard=%u time=%lldus",
-                     shard,
-                     esp_timer_get_time() - t);
+            ESP_LOGI(TAG, "sort shard=%u time=%lldus", shard, esp_timer_get_time() - t);
         }
         dirty_add_shard[shard] = false;
         dirty_del_shard[shard] = false;
@@ -915,8 +902,7 @@ void card_store_init(void)
         mkdir("/fs/cards", 0777);
     }
 
-    ESP_LOGI(TAG,
-             "card store initialized");
+    ESP_LOGI(TAG, "card store initialized");
 }
 
 #define SEND_CARDS_BUFFER 4096

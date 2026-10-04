@@ -1,3 +1,5 @@
+let g_cards_list = [];
+
 function switchTab(tab, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -94,17 +96,76 @@ function toggleStressload(checkbox) {
     .catch(e => setStatus('Stressload toggle error: ' + e, 'error'));
 }
 
-function sendCardDemo() {
-  setStatus('Sending demo card...', '');
-  callAction('send_card_demo')
+let demoTimer = null;
+let demoCounter = 0;
+
+function toggleDemoCards() {
+  const btn = document.getElementById('demoBtn');
+  const statusEl = document.getElementById('demoStatus');
+  const intervalInput = document.getElementById('demoInterval');
+  const readerSelect = document.getElementById('simulateReader');
+
+  if (demoTimer) {
+    // Stop
+    clearInterval(demoTimer);
+    demoTimer = null;
+    btn.textContent = 'Send Demo Card';
+    btn.style.background = '';
+    if (statusEl) statusEl.textContent = 'Stopped';
+    intervalInput.disabled = false;
+    return;
+  }
+
+  // Start
+  const intervalMs = Math.max(100, parseInt(intervalInput.value) || 2000);
+  intervalInput.value = intervalMs;
+
+  demoCounter = 0;
+  btn.textContent = 'Stop Demo';
+  btn.style.background = '#c0392b';
+  intervalInput.disabled = true;
+  if (statusEl) statusEl.textContent = 'Running (every ' + intervalMs + 'ms)';
+
+  const reader = readerSelect ? Number(readerSelect.value) : 1;
+
+  // Send first immediately
+  sendOneDemoCard(reader);
+
+  demoTimer = setInterval(() => {
+    sendOneDemoCard(reader);
+  }, intervalMs);
+}
+
+function sendOneDemoCard(reader) {
+  demoCounter++;
+  let cardId;
+  const useExisting = (Math.random() < 0.5) && g_cards_list && g_cards_list.length > 0;
+
+  if (useExisting) {
+    const idx = Math.floor(Math.random() * g_cards_list.length);
+    cardId = g_cards_list[idx].card;
+  } else {
+    const facility = Math.floor(Math.random() * 256);
+    const card = Math.floor(Math.random() * 65536);
+    cardId = buildWiegand26(facility, card);
+  }
+
+  fetch('/simulate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card: cardId, reader: reader })
+  })
+    .then(r => r.text())
     .then(txt => {
-      if (txt.startsWith('OK')) {
-        setStatus('Demo card sent: ' + txt, 'success');
-      } else {
-        setStatus('Error: ' + txt, 'error');
+      const statusEl = document.getElementById('demoStatus');
+      if (statusEl) {
+        statusEl.textContent = 'Sent #' + demoCounter + ' (' + txt + ')';
       }
     })
-    .catch(e => setStatus('Send card demo error: ' + e, 'error'));
+    .catch(e => {
+      const statusEl = document.getElementById('demoStatus');
+      if (statusEl) statusEl.textContent = 'Error: ' + e;
+    });
 }
 
 function reconnectWifi() {
@@ -1136,6 +1197,7 @@ function loadEnabledCards() {
   fetch('/cards')
     .then(r => r.json())
     .then(cards => {
+      g_cards_list=cards;
       const container = document.getElementById('enabled-cards-list');
       const countEl = document.getElementById('enabled-cards-count');
       container.innerHTML = '';
@@ -1225,12 +1287,17 @@ function wiegand26ToFcCard(value) {
 }
 
 function loadLogs() {
+  const btn = document.getElementById('logsRefreshBtn');
+  const loadingEl = document.getElementById('logs-loading');
+  const container = document.getElementById('logs-list');
+
+  if (btn) btn.disabled = true;
+  if (loadingEl) { loadingEl.style.display = 'inline'; loadingEl.textContent = 'Loading...'; }
+  if (container) container.innerHTML = '';
+
   fetch('/logs')
     .then(r => r.json())
     .then(logs => {
-      const container = document.getElementById('logs-list');
-      container.innerHTML = '';
-
       const sorted = logs.sort((a, b) => b.ts - a.ts);
       const countEl = document.getElementById('logs-count');
       if (countEl) countEl.textContent = `(${sorted.length})`;
@@ -1277,6 +1344,11 @@ function loadLogs() {
         });
     })
     .catch(e => {
-      document.getElementById('logs-list').innerText = 'Error loading logs: ' + e;
+      const container = document.getElementById('logs-list');
+      container.innerText = 'Error loading logs: ' + e;
+    })
+    .finally(() => {
+      if (btn) btn.disabled = false;
+      if (loadingEl) loadingEl.style.display = 'none';
     });
 }

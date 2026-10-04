@@ -98,6 +98,5 @@ add_custom_target(generate_web_bundle ALL
 
 add_custom_target(generate_full_firmware ALL
     DEPENDS 
-      ${FULL_FW}
       ${WEB_BUNDLE}
 )

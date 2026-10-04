@@ -108,6 +108,13 @@ static const tone_t access_denied[] = {
     {300, 250, 0},
 };
 
+static const tone_t access_granted[] = {
+    {523, 80, 15},
+    {659, 80, 15},
+    {784, 80, 15},
+    {1047, 220, 0},
+};
+
 extern void fs_init();
 extern void http_init(QueueHandle_t qh);
 extern void log_store_init();
@@ -267,7 +274,7 @@ void worker(void *p)
                         pulse_output_by_relay(g_config.port2_relay2_number, g_config.port2_relay2_duration_ms);
                     }
                 }
-                play_melody_async(port_buzzer_gpio, mario, sizeof(mario) / sizeof(tone_t), 1.3);
+                play_melody_async(port_buzzer_gpio, access_granted, sizeof(access_granted) / sizeof(tone_t), 1.3);
                 event_id = 10; // CARD PASS
             }
             else
@@ -667,8 +674,6 @@ void app_main()
     wait_for_valid_time();
 #endif
 
-
-
     //=========================================
 
     // initialize_sntp();
@@ -722,7 +727,6 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
 
-
     if (IS_BARRIER)
     {
         ESP_LOGI(TAG, "Creating barrier task");
@@ -754,5 +758,4 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
     set_led_color(100, 100, 0);
-
 }
