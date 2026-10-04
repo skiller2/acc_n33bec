@@ -7,6 +7,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <led_strip.h>
 
 #define DOOR1_GPIO GPIO_NUM_21
 #define DOOR2_GPIO GPIO_NUM_17
@@ -69,9 +70,13 @@ esp_err_t barrier_config_load(barrier_config_t *config);
 esp_err_t barrier_config_save(const barrier_config_t *config);
 int64_t getLastSyncId(void);
 esp_err_t setLastSyncId(int64_t id);
+void init_led(void);
+void set_led_color(uint32_t red, uint32_t green, uint32_t blue);
+
 
 extern barrier_config_t g_barrier_config;
 extern config_t g_config;
+
 
 #ifdef __cplusplus
 }

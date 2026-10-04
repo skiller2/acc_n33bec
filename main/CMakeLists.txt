@@ -1,4 +1,4 @@
-idf_component_register(SRCS "barrier.c" "main.c" "rtc.c" "config.c" "beep.c" "connect.c" "eth_connect.c" "card_store.c"
+idf_component_register(SRCS "led.c" "barrier.c" "main.c" "rtc.c" "config.c" "beep.c" "connect.c" "eth_connect.c" "card_store.c"
                             "fs.c"
                             "http.c"
                             "log_store.c"
@@ -34,5 +34,3 @@ littlefs_create_partition_image(storage ../web FLASH_IN_PROJECT)
 #            --clobber
 #    DEPENDS ${CMAKE_BINARY_DIR}/acc_n33bec.bin
 #)
-
-

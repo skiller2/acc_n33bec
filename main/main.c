@@ -30,9 +30,7 @@
 #endif
 
 static const char *TAG = "main";
-
 EventGroupHandle_t s_ip_event_group;
-
 
 /*
 static const tone_t melody_ok[] = {
@@ -483,7 +481,7 @@ static void keep_alive_task(void *arg)
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
 
-    play_melody_async(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t),1.3);
+    play_melody_async(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t), 1.3);
 
     input_event_t evt = {
         .event_id = 20,
@@ -547,7 +545,7 @@ static void card_sync_task(void *arg)
         setLastSyncId(-1);
     while (1)
     {
-        esp_err_t res = get_card_list(getLastSyncId()==-1?true:false);
+        esp_err_t res = get_card_list(getLastSyncId() == -1 ? true : false);
 
         if (res != ESP_OK)
         {
@@ -581,6 +579,8 @@ static void card_sync_task(void *arg)
 
 void app_main()
 {
+    init_led();
+    set_led_color(0, 110, 110);
 
     // =====================================
     // Queue
@@ -663,11 +663,11 @@ void app_main()
         // dpp_start();
     }
 
-
-
 #if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();
 #endif
+
+
 
     //=========================================
 
@@ -722,6 +722,7 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create worker task");
     }
 
+
     if (IS_BARRIER)
     {
         ESP_LOGI(TAG, "Creating barrier task");
@@ -752,4 +753,6 @@ void app_main()
     {
         ESP_LOGE(TAG, "Failed to create keep_alive_task");
     }
+    set_led_color(100, 100, 0);
+
 }

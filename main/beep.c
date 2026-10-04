@@ -96,19 +96,23 @@ static void melody_task(void *arg)
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .channel = LEDC_CHANNEL_0,
         .intr_type = LEDC_INTR_DISABLE,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = 0,
+        .timer_sel = LEDC_TIMER_1,
+        .duty = 1023,  //0
         .hpoint = 0,
+        .flags = {1}
     };
 
     ESP_ERROR_CHECK(ledc_channel_config(&channel));
 
     ledc_timer_config_t timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .timer_num = LEDC_TIMER_0,
+        .timer_num = LEDC_TIMER_1,
         .duty_resolution = LEDC_TIMER_10_BIT,
         .freq_hz = 1000,
-        .clk_cfg = LEDC_AUTO_CLK};
+        .clk_cfg = LEDC_AUTO_CLK
+        
+    };
+
 
     ESP_ERROR_CHECK(ledc_timer_config(&timer));
 
@@ -116,9 +120,9 @@ static void melody_task(void *arg)
     {
         if (ctx.melody[i].freq > 0)
         {
-            ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0, ctx.melody[i].freq);
+            ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, ctx.melody[i].freq);
 
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 900);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 500);
             ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 
             ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].duration * ctx.incdur));
@@ -129,7 +133,7 @@ static void melody_task(void *arg)
                 break;
             }
 
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1023);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);   //1023
             ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
             ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].pause));
             if (ulNotificationValue)

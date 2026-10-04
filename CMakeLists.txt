@@ -76,7 +76,10 @@ add_custom_command(
 
 
 add_custom_command(
-    OUTPUT ${FULL_FW}
+    TARGET app
+    
+    #OUTPUT ${FULL_FW}
+    POST_BUILD
     COMMAND ${python}
             ${CMAKE_CURRENT_LIST_DIR}/tools/make_update_bundle.py
             ${FULL_FW}
@@ -94,5 +97,7 @@ add_custom_target(generate_web_bundle ALL
 )
 
 add_custom_target(generate_full_firmware ALL
-    DEPENDS ${FULL_FW}
+    DEPENDS 
+      ${FULL_FW}
+      ${WEB_BUNDLE}
 )

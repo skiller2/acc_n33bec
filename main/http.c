@@ -149,6 +149,9 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout)
 {
     char event_url[256];
+    set_led_color(110, 110, 0);
+
+
     build_event_url(event_url, sizeof(event_url));
 
     esp_http_client_config_t config = {
@@ -214,8 +217,16 @@ esp_err_t send_json(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t 
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
     }
 
+
+
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
+
+
+    if (err != ESP_OK)
+        set_led_color(110, 0, 0);
+    else
+        set_led_color(0, 110, 0);
 
     return err;
 }
@@ -224,6 +235,10 @@ esp_http_client_handle_t handle_send_card = NULL;
 esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint32_t timeout, bool *ok, char *tipo_habilitacion)
 {
     char event_url[256];
+
+    set_led_color(110, 110, 0);
+
+
     build_event_url(event_url, sizeof(event_url));
 
     if (handle_send_card == NULL)
@@ -323,6 +338,13 @@ esp_err_t send_json_card(uint8_t event_id, uint8_t port_id, uint64_t value, uint
         vTaskDelay(pdMS_TO_TICKS(1));
         handle_send_card = NULL;
     }
+
+
+    if (err != ESP_OK)
+        set_led_color(110, 0, 0);
+    else
+        set_led_color(0, 110, 0);
+
     return err;
 }
 

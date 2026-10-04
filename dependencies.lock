@@ -161,6 +161,16 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.2.0
+  espressif/led_strip:
+    component_hash: 28621486f77229aaf81c71f5e15d6fbf36c2949cf11094e07090593e659e7639
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 3.0.3
   espressif/network_provisioning:
     component_hash: 555eb2a32ed8db0e9996dfc781efc15e637bfc14335006b9be68e6fd3b1ca06c
     dependencies:
@@ -211,9 +221,10 @@ dependencies:
 direct_dependencies:
 - esp-idf-lib/wiegand
 - espressif/ethernet_init
+- espressif/led_strip
 - espressif/network_provisioning
 - espressif/qrcode
 - joltwallet/littlefs
-manifest_hash: 25e8ab29ad19fb2b7810733bf63bc930547e8daf369627e4c4d3fa8a021ad9ec
+manifest_hash: fe2ee1f78dd397b28bd927c1034be0a5cb92f035d3e8af3856ce11290133cedc
 target: esp32s3
 version: 3.0.0
