@@ -162,7 +162,6 @@ void log_store_init(void)
 
         fwrite(&hdr, sizeof(hdr), 1, f);
         fflush(f);
-
         fclose(f);
 
         ESP_LOGI(TAG, "New log file created");
@@ -583,7 +582,7 @@ void pending_log_load_and_drain(QueueHandle_t q, uint32_t *drained_count)
             .event_id = e.event_id,
             .port_id = e.port_id,
             .value = e.value,
-            .ts = (int64_t)e.ts};
+            .ts = e.ts};
         if (xQueueSendToBack(q, &entry, 0) != pdTRUE)
         {
             ESP_LOGE(TAG, "Failed to enqueue pending log");
