@@ -19,6 +19,7 @@ function switchTab(tab, btn) {
   if (tab === 'cards') {
     //loadCards();
   } else if (tab === 'enabled-cards') {
+    if (!g_cards_list || g_cards_list.length === 0)
     loadEnabledCards();
   } else if (tab === 'logs') {
     loadLogs();
@@ -45,13 +46,13 @@ function addCard() {
       const facility = parseInt(parts[0], 10);
       const card = parseInt(parts[1], 10);
       if (!isNaN(facility) && !isNaN(card)) {
-        id = (facility << 17) | (card << 1);
+        id = buildWiegand26(facility, card);
       }
     }
   }
 
   if (id === null && rawInput && rawInput.value.trim()) {
-    id = rawInput.value.trim();
+    id = Number(rawInput.value.trim());
   }
 
   if (id === null) {
@@ -59,7 +60,7 @@ function addCard() {
     return;
   }
 
-  fetch('/card', { method: 'PUT', body: id })
+  fetch('/card', { method: 'PUT', body: String(id) })
     .then(r => r.text())
     .then(txt => {
       if (txt === 'OK') {
@@ -71,6 +72,50 @@ function addCard() {
       }
     })
     .catch(e => setStatus('Add card error: ' + e, 'error'));
+}
+
+function delCard() {
+  const formattedInput = document.getElementById('cardIdFormatted');
+  const rawInput = document.getElementById('cardIdRaw');
+
+  let id = null;
+
+  if (formattedInput && formattedInput.value.trim()) {
+    const parts = formattedInput.value.trim().split('-');
+    if (parts.length === 2) {
+      const facility = parseInt(parts[0], 10);
+      const card = parseInt(parts[1], 10);
+      if (!isNaN(facility) && !isNaN(card)) {
+        id = buildWiegand26(facility, card);
+      }
+    }
+  }
+
+  if (id === null && rawInput && rawInput.value.trim()) {
+    id = Number(rawInput.value.trim());
+  }
+
+  if (id === null) {
+    setStatus('Enter a card ID (raw or FC-CARD)', 'error');
+    return;
+  }
+
+  fetch('/card', { method: 'DELETE', body: String(id) })
+    .then(r => r.text())
+    .then(txt => {
+      if (txt === 'OK') {
+        setStatus('Card deleted!', 'success');
+        if (rawInput) rawInput.value = '';
+        if (formattedInput) formattedInput.value = '';
+        // Remove from local list
+        if (Array.isArray(g_cards_list)) {
+          g_cards_list = g_cards_list.filter(c => c.card !== id);
+        }
+      } else {
+        setStatus('Error: ' + txt, 'error');
+      }
+    })
+    .catch(e => setStatus('Delete card error: ' + e, 'error'));
 }
 
 function callAction(action) {
