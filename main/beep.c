@@ -97,10 +97,9 @@ static void melody_task(void *arg)
         .channel = LEDC_CHANNEL_0,
         .intr_type = LEDC_INTR_DISABLE,
         .timer_sel = LEDC_TIMER_1,
-        .duty = 1023,  //0
+        .duty = 1023, // 0
         .hpoint = 0,
-        .flags = {1}
-    };
+        .flags = {1}};
 
     ESP_ERROR_CHECK(ledc_channel_config(&channel));
 
@@ -110,9 +109,8 @@ static void melody_task(void *arg)
         .duty_resolution = LEDC_TIMER_10_BIT,
         .freq_hz = 1000,
         .clk_cfg = LEDC_AUTO_CLK
-        
-    };
 
+    };
 
     ESP_ERROR_CHECK(ledc_timer_config(&timer));
 
@@ -133,7 +131,7 @@ static void melody_task(void *arg)
                 break;
             }
 
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);   //1023
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0); // 1023
             ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
             ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].pause));
             if (ulNotificationValue)
@@ -148,7 +146,7 @@ static void melody_task(void *arg)
 
     ESP_LOGI(TAG, "melody finish");
     gpio_reset_pin(ctx.gpio);
-
+    gpio_set_direction(ctx.gpio, GPIO_MODE_INPUT_OUTPUT);
     gpio_set_level(PORT1_BUZZER, 1);
     gpio_set_level(PORT2_BUZZER, 1);
 
