@@ -183,9 +183,6 @@ static void wiegand_tsk(void *arg)
     
     decode_packet(&p);
 
-
-
-
     while (1)
     {
         ESP_LOGI(TAG, "Waiting for Wiegand data (reader %d)...", task_args->port_id);
@@ -216,7 +213,14 @@ static void wiegand_tsk(void *arg)
             if (task_args->event_queue)
             {
                 uint64_t card_value = decode_packet(&p);
+
                 //uint64_t card_value = decode_wiegand26_auto(&p);
+                if (card_value == 0)
+                {
+                    ESP_LOGW(TAG, "wiegand_tsk: failed to decode card value");
+                    continue;
+                }
+
                 evt_t e = {.card = card_value, .port_id = task_args->port_id};
 
                 if (xQueueSendToBack(task_args->event_queue, &e, 0) != pdTRUE)
