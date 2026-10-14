@@ -1377,7 +1377,7 @@ function loadLogs() {
             }
 
             if (log.event_id == 10 || log.event_id == 11) {
-              valueDisplay = wiegand26ToFcCard(log.value);
+              valueDisplay = `${wiegand26ToFcCard(log.value)} (${log.value})`;
             }
 
             div.innerText = `${readableTime} - ${eventDisplay} - Port${log.port_id} - ${valueDisplay}`;
