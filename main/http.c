@@ -1809,30 +1809,33 @@ static esp_err_t get_device_info(httpd_req_t *req)
         rtc_time_ts = (double)rtc_now;
     }
 
+esp_reset_reason_t reset_reason = esp_reset_reason();
+
     char device_info_json[1024];
     snprintf(device_info_json, sizeof(device_info_json),
-              "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"largest_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\",\"rtc_time_ts\":%.0f,\"sntp_time_ts\":%.0f,\"system_time_ts\":%.0f,\"is_barrier\":%d,\"last_sync_id\":%lld}",
-             mac_str,
-             (chip_info.model == CHIP_ESP32) ? "ESP32" : (chip_info.model == CHIP_ESP32S2) ? "ESP32S2"
-                                                     : (chip_info.model == CHIP_ESP32S3)   ? "ESP32S3"
-                                                     : (chip_info.model == CHIP_ESP32C3)   ? "ESP32C3"
-                                                     : (chip_info.model == CHIP_ESP32C2)   ? "ESP32C2"
-                                                     : (chip_info.model == CHIP_ESP32C6)   ? "ESP32C6"
-                                                                                           : "Unknown",
-             chip_info.cores,
-             chip_info.revision,
-             esp_get_idf_version(),
-             (unsigned long)free_heap,
-             (unsigned long)min_free_heap,
-             (unsigned long)largest_free_heap,
-             (unsigned long)flash_size,
-             flash_speed_str,
-             flash_mode_str,
-              rtc_time_ts,
-              sntp_time_ts,
-              system_time_ts,
-              IS_BARRIER,
-              (long long)getLastSyncId());
+              "{\"mac\":\"%s\",\"chip_model\":\"%s\",\"chip_cores\":%d,\"chip_revision\":%d,\"sdk_version\":\"%s\",\"free_heap\":%lu,\"min_free_heap\":%lu,\"largest_free_heap\":%lu,\"flash_size\":%lu,\"flash_speed\":\"%s\",\"flash_mode\":\"%s\",\"rtc_time_ts\":%.0f,\"sntp_time_ts\":%.0f,\"system_time_ts\":%.0f,\"is_barrier\":%d,\"last_sync_id\":%lld,\"reset_reason\":%d}",
+              mac_str,
+              (chip_info.model == CHIP_ESP32) ? "ESP32" : (chip_info.model == CHIP_ESP32S2) ? "ESP32S2"
+                                                      : (chip_info.model == CHIP_ESP32S3)   ? "ESP32S3"
+                                                      : (chip_info.model == CHIP_ESP32C3)   ? "ESP32C3"
+                                                      : (chip_info.model == CHIP_ESP32C2)   ? "ESP32C2"
+                                                      : (chip_info.model == CHIP_ESP32C6)   ? "ESP32C6"
+                                                                                            : "Unknown",
+              chip_info.cores,
+              chip_info.revision,
+              esp_get_idf_version(),
+              (unsigned long)free_heap,
+              (unsigned long)min_free_heap,
+              (unsigned long)largest_free_heap,
+              (unsigned long)flash_size,
+              flash_speed_str,
+              flash_mode_str,
+               rtc_time_ts,
+               sntp_time_ts,
+               system_time_ts,
+               IS_BARRIER,
+               (long long)getLastSyncId(),
+               (int)reset_reason);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, device_info_json);

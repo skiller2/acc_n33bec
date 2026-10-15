@@ -720,6 +720,7 @@ function loadDeviceInfo() {
       //html += '<p><strong>SNTP Time:</strong> ' + (data.sntp_time_ts ? new Date(data.sntp_time_ts * 1000).toLocaleString() : 'Timeout') + '</p>';
       html += '<p><strong>System Time:</strong> ' + (data.system_time_ts ? new Date(data.system_time_ts * 1000).toLocaleString() : 'N/A') + '</p>';
       html += '<p><strong>Last Sync Id:</strong> ' + (data.last_sync_id !== undefined ? data.last_sync_id : 'N/A') + '</p>';
+      html += '<p><strong>Reset Reason:</strong> ' + (data.reset_reason !== undefined ? resetReasonToStr(data.reset_reason) : 'N/A') + '</p>';
 
       infoDiv.innerHTML = html;
     })
