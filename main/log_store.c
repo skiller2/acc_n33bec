@@ -13,7 +13,7 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 
-#define MAX_LOGS 1000
+#define MAX_LOGS 100
 #define PENDING_LOG_MAX 512
 #define PENDING_LOG_PATH "/fs/pending.dat"
 
@@ -21,7 +21,7 @@ static const char *TAG = "logs";
 static SemaphoreHandle_t s_log_mutex = NULL;
 static SemaphoreHandle_t s_pending_mutex = NULL;
 
-#define LOG_MAGIC 0x4C4F4731UL // "LOG1"
+#define LOG_MAGIC 0x4C4F4732UL // "LOG2"
 #define LOG_VERSION 1
 #define PENDING_LOG_MAGIC 0x504E4431UL // "PND1"
 #define PENDING_LOG_VERSION 1
@@ -135,8 +135,8 @@ void log_store_init(void)
             }
             else
             {
-                ESP_LOGW(TAG,
-                         "Invalid log header. Recreating file");
+                ESP_LOGW(TAG, "Invalid log header. Recreating file");
+                unlink("/fs/logs.dat");
             }
         }
 
