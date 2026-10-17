@@ -1038,6 +1038,14 @@ static esp_err_t post_config(httpd_req_t *req)
     if (cJSON_IsNumber(item))
         cfg.door_alarm_secs = (uint32_t)item->valuedouble;
 
+    item = cJSON_GetObjectItemCaseSensitive(json, "invert_door1");
+    if (cJSON_IsNumber(item))
+        cfg.invert_door1 = (uint8_t)item->valuedouble;
+
+    item = cJSON_GetObjectItemCaseSensitive(json, "invert_door2");
+    if (cJSON_IsNumber(item))
+        cfg.invert_door2 = (uint8_t)item->valuedouble;
+
     cJSON_Delete(json);
 
     if (config_save(&cfg) != ESP_OK)
@@ -1200,6 +1208,8 @@ static esp_err_t get_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "device_id", g_config.device_id);
     cJSON_AddNumberToObject(json, "keep_alive_secs", g_config.keep_alive_secs);
     cJSON_AddNumberToObject(json, "door_alarm_secs", g_config.door_alarm_secs);
+    cJSON_AddNumberToObject(json, "invert_door1", g_config.invert_door1);
+    cJSON_AddNumberToObject(json, "invert_door2", g_config.invert_door2);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);

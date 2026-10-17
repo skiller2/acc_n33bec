@@ -130,6 +130,11 @@ static const tone_t access_granted[] = {
     {1319, 180, 0},
 };
 
+static const tone_t door_open_alarm[] = {
+    {2000, 100, 50},
+    {2000, 100, 50},
+    {2000, 100, 700},
+};
 
 extern void fs_init();
 extern void http_init(QueueHandle_t qh);
@@ -356,13 +361,13 @@ static void door_reader_task(void *arg)
 
     int64_t door1_open_since = 0;
     int64_t door2_open_since = 0;
-    bool door1_alarm_sent = false;
-    bool door2_alarm_sent = false;
 
     while (1)
     {
-        int door1 = gpio_get_level(DOOR1_GPIO);
-        int door2 = gpio_get_level(DOOR2_GPIO);
+        int door1_raw = gpio_get_level(DOOR1_GPIO);
+        int door2_raw = gpio_get_level(DOOR2_GPIO);
+        int door1 = g_config.invert_door1 ? !door1_raw : door1_raw;
+        int door2 = g_config.invert_door2 ? !door2_raw : door2_raw;
         int rex1 = gpio_get_level(REX1_GPIO);
         int rex2 = gpio_get_level(REX2_GPIO);
         int bat = gpio_get_level(BAT_GPIO);
@@ -386,13 +391,11 @@ static void door_reader_task(void *arg)
             if (!door1)
             {
                 door1_open_since = esp_timer_get_time();
-                door1_alarm_sent = false;
             }
             else
             {
                 dispatch_log_event(7, 1, 1, 0);
                 door1_open_since = 0;
-                door1_alarm_sent = false;
             }
             last_door1 = door1;
         }
@@ -404,13 +407,11 @@ static void door_reader_task(void *arg)
             if (!door2)
             {
                 door2_open_since = esp_timer_get_time();
-                door2_alarm_sent = false;
             }
             else
             {
                 dispatch_log_event(7, 2, 1, 0);
                 door2_open_since = 0;
-                door2_alarm_sent = false;
             }
             last_door2 = door2;
         }
@@ -461,7 +462,7 @@ static void door_reader_task(void *arg)
         last_rele3 = rele3;
 
         // Check door open alarm timeout
-        if (door1==0 && door1_open_since > 0 && !door1_alarm_sent)
+        if (door1==0 && door1_open_since > 0 )
         {
             int64_t now_us = esp_timer_get_time();
             int64_t elapsed_ms = (now_us - door1_open_since) / 1000;
@@ -469,11 +470,14 @@ static void door_reader_task(void *arg)
             {
                 ESP_LOGW(TAG, "Door1 open for more than %u seconds, dispatching alarm", g_config.door_alarm_secs);
                 dispatch_log_event(7, 1, 0, 0);
-                door1_alarm_sent = true;
+                door1_open_since = 0;
+
+                play_melody_async(PORT1_BUZZER, door_open_alarm, sizeof(door_open_alarm) / sizeof(tone_t), 1.0);
+//                door1_alarm_sent = true;
             }
         }
 
-        if (door2==0 && door2_open_since > 0 && !door2_alarm_sent)
+        if (door2==0 && door2_open_since > 0)
         {
             int64_t now_us = esp_timer_get_time();
             int64_t elapsed_ms = (now_us - door2_open_since) / 1000;
@@ -481,7 +485,8 @@ static void door_reader_task(void *arg)
             {
                 ESP_LOGW(TAG, "Door2 open for more than %u seconds, dispatching alarm", g_config.door_alarm_secs);
                 dispatch_log_event(7, 2, 0, 0);
-                door2_alarm_sent = true;
+                door2_open_since = 0;
+                play_melody_async(PORT2_BUZZER, door_open_alarm, sizeof(door_open_alarm) / sizeof(tone_t), 1.0);
             }
         }
 

@@ -35,6 +35,8 @@ static void set_defaults(config_t *config)
     config->cod_tema[sizeof(config->cod_tema) - 1] = '\0';
     config->keep_alive_secs = 30; // Default keep alive interval to 30 seconds
     config->door_alarm_secs = 8; // Default door alarm timeout in seconds
+    config->invert_door1 = 0;   // Default: DOOR1_GPIO not inverted
+    config->invert_door2 = 0;   // Default: DOOR2_GPIO not inverted
 }
 
 static bool valid_relay_number(uint8_t relay)
@@ -92,6 +94,7 @@ static void clamp_config(config_t *config)
     if (config->door_alarm_secs == 0) {
         config->door_alarm_secs = 8; // Default door alarm timeout in seconds
     }
+    // invert_door1 / invert_door2 are uint8_t, 0 or 1; no clamp needed beyond that
 
     if (config->device_id == 0) {
         config->device_id = mac[4]*256+ mac[5]; // Use the last byte of the MAC address as the device ID    
@@ -122,7 +125,9 @@ esp_err_t config_save(const config_t *config)
         .input_debounce_ms = config->input_debounce_ms,
         .device_id = config->device_id,
         .keep_alive_secs = config->keep_alive_secs,
-        .door_alarm_secs = config->door_alarm_secs
+        .door_alarm_secs = config->door_alarm_secs,
+        .invert_door1 = config->invert_door1,
+        .invert_door2 = config->invert_door2
     };
     strcpy(stored.url_n33bec, config->url_n33bec);
     strcpy(stored.cod_tema, "acceso");
@@ -206,6 +211,8 @@ esp_err_t config_load(config_t *config)
     config->device_id = stored.device_id;
     config->keep_alive_secs = stored.keep_alive_secs;
     config->door_alarm_secs = stored.door_alarm_secs;
+    config->invert_door1 = stored.invert_door1;
+    config->invert_door2 = stored.invert_door2;
     strncpy(config->url_n33bec, stored.url_n33bec, sizeof(config->url_n33bec) - 1);
     config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
     

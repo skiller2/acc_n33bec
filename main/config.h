@@ -54,6 +54,8 @@ typedef struct {
     char cod_tema[256]; // URL for N33-BEC server
     uint32_t keep_alive_secs; // Keep alive interval in seconds
     uint32_t door_alarm_secs; // Door open alarm timeout in seconds
+    uint8_t invert_door1;     // 1 = invert DOOR1_GPIO level (active-high sensor)
+    uint8_t invert_door2;     // 1 = invert DOOR2_GPIO level (active-high sensor)
 } config_t;
 
 typedef struct {
