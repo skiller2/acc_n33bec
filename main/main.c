@@ -401,7 +401,7 @@ static void door_reader_task(void *arg)
         {
             ESP_LOGI(TAG, "Door2: %s", door2 ? "CLOSED" : "OPEN");
             dispatch_log_event(5, 2, door2, 0);
-            if (door2)
+            if (!door2)
             {
                 door2_open_since = esp_timer_get_time();
                 door2_alarm_sent = false;
