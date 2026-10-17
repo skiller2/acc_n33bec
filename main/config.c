@@ -34,6 +34,7 @@ static void set_defaults(config_t *config)
     strcpy(config->cod_tema, "acceso");
     config->cod_tema[sizeof(config->cod_tema) - 1] = '\0';
     config->keep_alive_secs = 30; // Default keep alive interval to 30 seconds
+    config->door_alarm_secs = 8; // Default door alarm timeout in seconds
 }
 
 static bool valid_relay_number(uint8_t relay)
@@ -88,6 +89,9 @@ static void clamp_config(config_t *config)
     if (config->keep_alive_secs == 0) {
         config->keep_alive_secs = 10; // Seconds to send keepalive    
     }
+    if (config->door_alarm_secs == 0) {
+        config->door_alarm_secs = 8; // Default door alarm timeout in seconds
+    }
 
     if (config->device_id == 0) {
         config->device_id = mac[4]*256+ mac[5]; // Use the last byte of the MAC address as the device ID    
@@ -117,7 +121,8 @@ esp_err_t config_save(const config_t *config)
         .port2_relay2_duration_ms = config->port2_relay2_duration_ms,
         .input_debounce_ms = config->input_debounce_ms,
         .device_id = config->device_id,
-        .keep_alive_secs = config->keep_alive_secs
+        .keep_alive_secs = config->keep_alive_secs,
+        .door_alarm_secs = config->door_alarm_secs
     };
     strcpy(stored.url_n33bec, config->url_n33bec);
     strcpy(stored.cod_tema, "acceso");
@@ -200,6 +205,7 @@ esp_err_t config_load(config_t *config)
     config->input_debounce_ms = stored.input_debounce_ms;
     config->device_id = stored.device_id;
     config->keep_alive_secs = stored.keep_alive_secs;
+    config->door_alarm_secs = stored.door_alarm_secs;
     strncpy(config->url_n33bec, stored.url_n33bec, sizeof(config->url_n33bec) - 1);
     config->url_n33bec[sizeof(config->url_n33bec) - 1] = '\0'; // Ensure null termination
     

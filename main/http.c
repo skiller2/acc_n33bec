@@ -1034,6 +1034,10 @@ static esp_err_t post_config(httpd_req_t *req)
     if (cJSON_IsNumber(item))
         cfg.keep_alive_secs = (uint32_t)item->valuedouble;
 
+    item = cJSON_GetObjectItemCaseSensitive(json, "door_alarm_secs");
+    if (cJSON_IsNumber(item))
+        cfg.door_alarm_secs = (uint32_t)item->valuedouble;
+
     cJSON_Delete(json);
 
     if (config_save(&cfg) != ESP_OK)
@@ -1195,6 +1199,7 @@ static esp_err_t get_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "input_debounce_ms", g_config.input_debounce_ms);
     cJSON_AddNumberToObject(json, "device_id", g_config.device_id);
     cJSON_AddNumberToObject(json, "keep_alive_secs", g_config.keep_alive_secs);
+    cJSON_AddNumberToObject(json, "door_alarm_secs", g_config.door_alarm_secs);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);

@@ -53,6 +53,7 @@ typedef struct {
     char url_n33bec[256]; // URL for N33-BEC server
     char cod_tema[256]; // URL for N33-BEC server
     uint32_t keep_alive_secs; // Keep alive interval in seconds
+    uint32_t door_alarm_secs; // Door open alarm timeout in seconds
 } config_t;
 
 typedef struct {

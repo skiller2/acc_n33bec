@@ -439,6 +439,7 @@ function loadConfig() {
       document.getElementById('input_debounce_ms').value = cfg.input_debounce_ms;
       document.getElementById('device_id').value = cfg.device_id;
       document.getElementById('keep_alive_secs').value = cfg.keep_alive_secs;
+      document.getElementById('door_alarm_secs').value = cfg.door_alarm_secs;
       setStatus('Config loaded', 'success');
     })
     .catch(e => setStatus('Load error: ' + e, 'error'));
@@ -462,7 +463,8 @@ function saveConfig() {
     port2_relay2_duration_ms: parseInt(document.getElementById('port2_relay2_duration_ms').value),
     input_debounce_ms: parseInt(document.getElementById('input_debounce_ms').value),
     device_id: parseInt(document.getElementById('device_id').value),
-    keep_alive_secs: parseInt(document.getElementById('keep_alive_secs').value)
+    keep_alive_secs: parseInt(document.getElementById('keep_alive_secs').value),
+    door_alarm_secs: parseInt(document.getElementById('door_alarm_secs').value)
   };
 
   fetch('/config', {
