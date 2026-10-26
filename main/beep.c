@@ -6,6 +6,7 @@
 #include <driver/ledc.h>
 #include <soc/gpio_num.h>
 #include "config.h"
+#include "esp_timer.h"
 
 static const char *TAG = "melody";
 
@@ -15,6 +16,7 @@ typedef struct
     const tone_t *melody;
     int length;
     float incdur;
+    int loop_secs;
 } melody_ctx_t;
 
 static void output_off_cb(TimerHandle_t xTimer)
@@ -114,33 +116,47 @@ static void melody_task(void *arg)
 
     ESP_ERROR_CHECK(ledc_timer_config(&timer));
 
-    for (int i = 0; i < ctx.length; i++)
+    int64_t start_us = esp_timer_get_time();
+
+    for (;;)
     {
-        if (ctx.melody[i].freq > 0)
+        for (int i = 0; i < ctx.length; i++)
         {
-            ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, ctx.melody[i].freq);
-
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 500);
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-
-            ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].duration * ctx.incdur));
-
-            if (ulNotificationValue)
+            if (ctx.melody[i].freq > 0)
             {
-                ESP_LOGI(TAG, "melody cancelled");
-                break;
-            }
+                ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, ctx.melody[i].freq);
 
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0); // 1023
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-            ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].pause));
-            if (ulNotificationValue)
-            {
-                ESP_LOGI(TAG, "melody cancelled");
-                break;
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 500);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+
+                ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].duration * ctx.incdur));
+
+                if (ulNotificationValue)
+                {
+                    ESP_LOGI(TAG, "melody cancelled");
+                    goto exit_melody;
+
+                }
+
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0); // 1023
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+                ulNotificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ctx.melody[i].pause));
+                if (ulNotificationValue)
+                {
+                    ESP_LOGI(TAG, "melody cancelled");
+                    goto exit_melody;
+                }
             }
         }
+
+        if (ctx.loop_secs <= 0)
+            break;
+
+        int64_t elapsed_us = esp_timer_get_time() - start_us;
+        if (elapsed_us >= (int64_t)(ctx.loop_secs * 1000000LL))
+            break;
     }
+exit_melody:
 
     ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 1);
 
@@ -156,7 +172,8 @@ static void melody_task(void *arg)
 void play_melody_async(gpio_num_t gpio,
                        const tone_t *melody,
                        int length,
-                       float incdur)
+                       float incdur,
+                       int loop_secs)
 {
     static TaskHandle_t melody_task_handle = NULL;
     static melody_ctx_t ctx;
@@ -185,7 +202,9 @@ void play_melody_async(gpio_num_t gpio,
     ctx.melody = melody;
     ctx.length = length;
     ctx.incdur = incdur;
-
+    ctx.loop_secs = loop_secs;
+    if (gpio>0){
+        
     xTaskCreate(
         melody_task,
         "melody_task",
@@ -193,4 +212,7 @@ void play_melody_async(gpio_num_t gpio,
         &ctx,
         5,
         &melody_task_handle);
+    } else {
+        ESP_LOGE(TAG, " GPIO=0 Force Silence");
+    }
 }

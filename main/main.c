@@ -295,7 +295,7 @@ void worker(void *p)
                         pulse_output_by_relay(g_config.port2_relay2_number, g_config.port2_relay2_duration_ms);
                     }
                 }
-                play_melody_async(port_buzzer_gpio, access_granted, sizeof(access_granted) / sizeof(tone_t), 1.3);
+                play_melody_async(port_buzzer_gpio, access_granted, sizeof(access_granted) / sizeof(tone_t), 1.3, 0);
                 event_id = 10; // CARD PASS
             }
             else
@@ -304,7 +304,7 @@ void worker(void *p)
 
                 // ESP_LOGE(TAG,"worker: card=%llu does not exist, access denied", e.card);
                 // heap_caps_check_integrity_all(true);
-                play_melody_async(port_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3);
+                play_melody_async(port_buzzer_gpio, access_denied, sizeof(access_denied) / sizeof(tone_t), 1.3, 0);
                 // heap_caps_check_integrity_all(true);
             }
             // log_add(event_id, e.port_id, e.card, now);
@@ -395,7 +395,9 @@ static void door_reader_task(void *arg)
             else
             {
                 dispatch_log_event(7, 1, 1, 0);
-                door1_open_since = 0;
+                door1_open_since = 0;  //NO ALARM
+                play_melody_async(0, door_open_alarm, sizeof(door_open_alarm) / sizeof(tone_t), 1.0, 60);
+
             }
             last_door1 = door1;
         }
@@ -404,14 +406,15 @@ static void door_reader_task(void *arg)
         {
             ESP_LOGI(TAG, "Door2: %s", door2 ? "CLOSED" : "OPEN");
             dispatch_log_event(5, 2, door2, 0);
-            if (!door2)
+            if (door2==0)  //OPEN
             {
                 door2_open_since = esp_timer_get_time();
             }
             else
             {
-                dispatch_log_event(7, 2, 1, 0);
+                dispatch_log_event(7, 2, 1, 0);  //NO ALARM
                 door2_open_since = 0;
+                play_melody_async(0, door_open_alarm, sizeof(door_open_alarm) / sizeof(tone_t), 1.0, 60);
             }
             last_door2 = door2;
         }
@@ -462,34 +465,33 @@ static void door_reader_task(void *arg)
         last_rele3 = rele3;
 
         // Check door open alarm timeout
-        if (door1==0 && door1_open_since > 0 )
+        if (door1==0 && door1_open_since == 0 && g_config.door_alarm_secs >0)
         {
             int64_t now_us = esp_timer_get_time();
             int64_t elapsed_ms = (now_us - door1_open_since) / 1000;
             if (elapsed_ms >= (int64_t)g_config.door_alarm_secs * 1000)
             {
                 ESP_LOGW(TAG, "Door1 open for more than %u seconds, dispatching alarm", g_config.door_alarm_secs);
-                dispatch_log_event(7, 1, 0, 0);
+                dispatch_log_event(7, 1, 1, 0);  //Trigger ALARM
                 door1_open_since = 0;
 
-                play_melody_async(PORT1_BUZZER, door_open_alarm, sizeof(door_open_alarm) / sizeof(tone_t), 1.0);
+                play_melody_async(PORT1_BUZZER, door_open_alarm, sizeof(door_open_alarm) / sizeof(tone_t), 1.0, 60);
 //                door1_alarm_sent = true;
             }
         }
 
-        if (door2==0 && door2_open_since > 0)
+        if (door2==0 && door2_open_since > 0 && g_config.door_alarm_secs >0)
         {
             int64_t now_us = esp_timer_get_time();
             int64_t elapsed_ms = (now_us - door2_open_since) / 1000;
             if (elapsed_ms >= (int64_t)g_config.door_alarm_secs * 1000)
             {
                 ESP_LOGW(TAG, "Door2 open for more than %u seconds, dispatching alarm", g_config.door_alarm_secs);
-                dispatch_log_event(7, 2, 0, 0);
+                dispatch_log_event(7, 2, 1, 0);  //ARAM DOOR2 TRIGGER
                 door2_open_since = 0;
-                play_melody_async(PORT2_BUZZER, door_open_alarm, sizeof(door_open_alarm) / sizeof(tone_t), 1.0);
+                play_melody_async(PORT2_BUZZER, door_open_alarm, sizeof(door_open_alarm) / sizeof(tone_t), 1.0, 60);
             }
         }
-
         vTaskDelay(pdMS_TO_TICKS(g_config.input_debounce_ms));
     }
 }
@@ -561,7 +563,7 @@ static void keep_alive_task(void *arg)
     xEventGroupWaitBits(s_ip_event_group, HAVE_IP, pdFALSE, pdFALSE, portMAX_DELAY);
     ESP_LOGI(TAG, "got IP");
 
-    play_melody_async(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t), 1.3);
+    play_melody_async(PORT1_BUZZER, mario, sizeof(mario) / sizeof(tone_t), 1.3, 0);
 
     input_event_t evt = {
         .event_id = 20,
