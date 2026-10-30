@@ -24,6 +24,7 @@
 #include "driver/gpio.h"
 #include "esp_system.h"
 #include "card_store.h"
+#include "motor.h"
 
 #ifndef PROJECT_VERSION
 #define PROJECT_VERSION "dev"
@@ -744,6 +745,11 @@ void app_main()
         //  Deshabilitado por ahora
         // dpp_start();
     }
+
+motor_init();
+
+    //=========================================
+    // Wait for valid time from NTP or RTC
 
 #if !CONFIG_SKIP_WAIT_FOR_RTC
     wait_for_valid_time();

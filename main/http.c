@@ -1707,6 +1707,15 @@ action[sizeof(action) - 1] = '\0';
         httpd_resp_sendstr(req, "OK: LittleFS formatted, device will reboot");
         vTaskDelay(pdMS_TO_TICKS(500));
         esp_restart();
+    
+    } else if (strcmp(action, "motor_fwd") == 0) {
+        ESP_LOGI(TAG, "Action: motor_fwd");
+        move_fwd();
+        return httpd_resp_sendstr(req, "OK: motor fwd");
+    } else if (strcmp(action, "motor_bck") == 0) {
+        ESP_LOGI(TAG, "Action: motor_bck");
+        move_bck();
+        return httpd_resp_sendstr(req, "OK: motor bck");
     }
 
     ESP_LOGW(TAG, "Unknown action: %s", action);

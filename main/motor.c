@@ -2,6 +2,7 @@
 #include "config.h"
 #include <driver/ledc.h>
 #include <esp_err.h>
+#include "esp_log.h"
 
 #define SERVO_TIMER LEDC_TIMER_0
 #define SERVO_CHANNEL LEDC_CHANNEL_0
@@ -12,7 +13,7 @@
 static void servo_set_pulse_us(uint32_t pulse_us)
 {
     uint32_t period_us = 1000000 / SERVO_FREQ_HZ;
-    uint32_t duty = (pulse_us * ((1 << 16) - 1)) / period_us;
+    uint32_t duty = (pulse_us * ((1 << 14) - 1)) / period_us;
     ledc_set_duty(SERVO_MODE, SERVO_CHANNEL, duty);
     ledc_update_duty(SERVO_MODE, SERVO_CHANNEL);
 }
@@ -42,10 +43,12 @@ void motor_init(void)
 
 void move_fwd(void)
 {
+    ESP_LOGI("MOTOR", "Moving forward");
     servo_set_pulse_us(2000);
 }
 
 void move_bck(void)
 {
+    ESP_LOGI("MOTOR", "Moving backward");
     servo_set_pulse_us(1000);
 }
