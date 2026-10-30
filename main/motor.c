@@ -10,10 +10,22 @@ static mcpwm_gen_handle_t generator = NULL;
 static mcpwm_oper_handle_t oper = NULL;
 static mcpwm_timer_handle_t timer = NULL;
 
+static uint32_t last_pulse_us = 2000;
+
 static void motor_set_pulse_us(uint32_t pulse_us)
 {
     if (pulse_us < 500) pulse_us = 500;
     if (pulse_us > 2500) pulse_us = 2500;
+    /* For 360 continuous rotation servo - never stop, keep running */
+    if (pulse_us > 1450 && pulse_us < 1550) {
+        /* Near neutral - keep running at minimum speed in last direction */
+        if (last_pulse_us >= 1500) {
+            pulse_us = 1550; /* minimum forward */
+        } else {
+            pulse_us = 1450; /* minimum backward */
+        }
+    }
+    last_pulse_us = pulse_us;
     if (comparator) {
         ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(comparator, pulse_us));
     }
@@ -57,19 +69,20 @@ void motor_init(void)
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(generator,
                         MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, comparator, MCPWM_GEN_ACTION_LOW)));
 
-    ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(comparator, 1500));
+    ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(comparator, 1520));
+
+    last_pulse_us = 1520;
 
     ESP_ERROR_CHECK(mcpwm_timer_enable(timer));
     ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));
-}
-
+    }
 void move_fwd(void)
 {
     if (!timer) {
         motor_init();
     }
     ESP_LOGI(TAG, "Moving forward");
-    motor_set_pulse_us(2000);
+    motor_set_pulse_us(1800);
 }
 
 void move_bck(void)
@@ -78,7 +91,7 @@ void move_bck(void)
         motor_init();
     }
     ESP_LOGI(TAG, "Moving backward");
-    motor_set_pulse_us(1000);
+    motor_set_pulse_us(1200);
 }
 
 void motor_stp(void)
@@ -87,5 +100,10 @@ void motor_stp(void)
         motor_init();
     }
     ESP_LOGI(TAG, "Stopping motor");
-    motor_set_pulse_us(1500);
+    /* Keep running for 360 continuous rotation servo - go to minimum speed */
+    if (last_pulse_us >= 1500) {
+        motor_set_pulse_us(1520);
+    } else {
+        motor_set_pulse_us(1480);
+    }
 }

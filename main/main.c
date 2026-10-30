@@ -748,6 +748,8 @@ void app_main()
 
 //motor_init();
 
+    motor_init();
+
     //=========================================
     // Wait for valid time from NTP or RTC
 
