@@ -31,6 +31,7 @@
 #include "rtc.h"
 #include "time_sync.h"
 #include "barrier.h"
+#include "motor.h"
 #include "card_store.h"
 #include "nvs.h"
 

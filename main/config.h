@@ -28,6 +28,8 @@ extern "C" {
 #define RELE2_GPIO GPIO_NUM_39
 #define RELE3_GPIO GPIO_NUM_33
 
+#define PWMSERVO_GPIO GPIO_NUM_48
+
 #define IS_BARRIER false
 
 #define STORAGE_NAMESPACE "storage"
