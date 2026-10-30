@@ -1716,10 +1716,14 @@ action[sizeof(action) - 1] = '\0';
         ESP_LOGI(TAG, "Action: motor_bck");
         move_bck();
         return httpd_resp_sendstr(req, "OK: motor bck");
+    } else if (strcmp(action, "motor_stp") == 0) {
+        ESP_LOGI(TAG, "Action: motor_stp");
+        motor_stp();
+        return httpd_resp_sendstr(req, "OK: motor stp");
     }
-
     ESP_LOGW(TAG, "Unknown action: %s", action);
     httpd_resp_sendstr(req, "ERR: unknown action");
+    
     return ESP_FAIL;
 }
 

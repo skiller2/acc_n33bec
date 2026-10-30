@@ -9,6 +9,7 @@ extern "C" {
 void motor_init(void);
 void move_fwd(void);
 void move_bck(void);
+void motor_stp(void);
 
 #ifdef __cplusplus
 }

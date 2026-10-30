@@ -52,3 +52,9 @@ void move_bck(void)
     ESP_LOGI("MOTOR", "Moving backward");
     servo_set_pulse_us(1000);
 }
+
+void motor_stp(void)
+{
+    ESP_LOGI("MOTOR", "Stopping motor");
+    servo_set_pulse_us(1500);
+}
