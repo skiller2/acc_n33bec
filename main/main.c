@@ -746,7 +746,7 @@ void app_main()
         // dpp_start();
     }
 
-motor_init();
+//motor_init();
 
     //=========================================
     // Wait for valid time from NTP or RTC
