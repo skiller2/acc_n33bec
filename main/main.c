@@ -732,7 +732,7 @@ void app_main()
 
     if (wifi_init() != ESP_OK)
     {
-        ESP_LOGE(TAG, "WiFi/DPP initialization failed");
+        ESP_LOGE(TAG, "WiFi initialization failed");
     }
 
     if (xTaskCreate(service_mode_task, "service_mode", 2048, NULL, 3, NULL) != pdPASS)
@@ -740,10 +740,11 @@ void app_main()
         ESP_LOGE(TAG, "Failed to create service_mode task");
     }
 
+
+    dpp_start();
+
     if (wifi_sta_start() != ESP_OK)
     {
-        //  Deshabilitado por ahora
-        // dpp_start();
     }
 
 

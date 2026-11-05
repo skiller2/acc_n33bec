@@ -128,6 +128,23 @@ function callAction(action) {
     .then(txt => txt);
 }
 
+function callMotorAction(action) {
+  const speedInput = document.getElementById('motor_speed');
+  let speed = speedInput ? parseInt(speedInput.value, 10) : 8;
+  if (isNaN(speed)) speed = 8;
+  if (speed < 1) speed = 1;
+  if (speed > 100) speed = 100;
+  if (speedInput) speedInput.value = speed;
+
+  return fetch('/actions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: action, speed: speed })
+  })
+    .then(r => r.text())
+    .then(txt => txt);
+}
+
 function toggleStressload(checkbox) {
   const action = checkbox.checked ? 'enable_stressload' : 'disable_stressload';
   callAction(action)
@@ -797,7 +814,10 @@ function handleWifiUpdate(data) {
       uriDiv.textContent = data.dpp_uri;
       dppStatusDiv.innerHTML = '';
     } else {
-      qrDiv.innerHTML = '<p>No DPP URI available yet. DPP enrollee is ' + (data.status === 'dpp_listening') ? 'listening for bootstrap...' : 'waiting for bootstrap.)</p>';
+      const waitingMsg = (data.status === 'dpp_listening')
+        ? 'listening for bootstrap...'
+        : 'waiting for bootstrap.';
+      qrDiv.innerHTML = '<p>No DPP URI available yet. DPP enrollee is ' + waitingMsg + '</p>';
       uriDiv.textContent = '';
       if (data.status === 'dpp_failed') {
         dppStatusDiv.innerHTML = '<p class="status error">DPP authentication failed.</p>';

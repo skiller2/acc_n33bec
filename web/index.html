@@ -306,8 +306,11 @@
             <button id="btn-loop" onclick="toggleBarrier('loop')">Simulate LOOP</button>
             <button id="btn-finish-up" onclick="toggleBarrier('finish_up')">Simulate FINISH UP</button>
             <button id="btn-finish-down" onclick="toggleBarrier('finish_down')">Simulate FINISH DOWN</button>
-            <button onclick="callAction('motor_fwd')">Motor FWD</button>
-            <button onclick="callAction('motor_bck')">Motor BCK</button>
+            <label>Speed (%):
+              <input type="number" id="motor_speed" min="1" max="100" value="8" style="width: 64px;">
+            </label>
+            <button onclick="callMotorAction('motor_fwd')">Motor FWD</button>
+            <button onclick="callMotorAction('motor_bck')">Motor BCK</button>
             <button onclick="callAction('motor_stp')">Motor STP</button>
           </div>
           <div class="barrier-info">

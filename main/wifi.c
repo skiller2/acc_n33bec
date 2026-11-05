@@ -16,12 +16,15 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
-#include "esp_dpp.h"
 #include "esp_wifi_types.h"
 #include "esp_system.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "cJSON.h"
+
+#if defined(CONFIG_ESP_WIFI_DPP_SUPPORT) || defined(CONFIG_WPA_DPP_SUPPORT)
+#include "esp_dpp.h"
+#endif
 
 #ifdef CONFIG_ESP_DPP_ENABLE_QRCODE
 #include "qrcode.h"
@@ -266,6 +269,10 @@ static void wifi_retry_timer_cb(void *arg)
 
 static void dpp_bootstrap_generate(void)
 {
+#if !(defined(CONFIG_ESP_WIFI_DPP_SUPPORT) || defined(CONFIG_WPA_DPP_SUPPORT))
+    ESP_LOGW(TAG, "DPP support is not enabled in sdkconfig");
+    return;
+#else
     esp_err_t ret = ESP_ERR_INVALID_STATE;
     size_t key_len = strlen(DPP_BOOTSTRAPPING_KEY ? DPP_BOOTSTRAPPING_KEY : "");
     char *key = NULL;
@@ -289,8 +296,8 @@ static void dpp_bootstrap_generate(void)
         }
     }
 
-    //esp_err_t ret = esp_supp_dpp_bootstrap_gen(DPP_LISTEN_CHANNEL_LIST, DPP_BOOTSTRAP_QR_CODE,
-    //                                           key, DPP_DEVICE_INFO);
+    ret = esp_supp_dpp_bootstrap_gen(DPP_LISTEN_CHANNEL_LIST, DPP_BOOTSTRAP_QR_CODE,
+                                     key, DPP_DEVICE_INFO);
     if (key)
     {
         free(key);
@@ -299,6 +306,7 @@ static void dpp_bootstrap_generate(void)
     {
         ESP_LOGE(TAG, "DPP bootstrap generation failed: %s", esp_err_to_name(ret));
     }
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -470,6 +478,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 
         strcpy(s_status, "WIFI_EVENT_STA_GOT_IP");
         ws_broadcast_wifi_status(s_status, ssid, s_ip_str, s_dpp_uri);
+    esp_supp_dpp_stop_listen();
+    esp_supp_dpp_deinit();
+
     }
 }
 
@@ -539,9 +550,15 @@ esp_err_t wifi_sta_start(void)
 
 esp_err_t dpp_start(void)
 {
+#if !(defined(CONFIG_ESP_WIFI_DPP_SUPPORT) || defined(CONFIG_WPA_DPP_SUPPORT))
+    ESP_LOGW(TAG, "DPP support is not enabled in sdkconfig");
+    return ESP_ERR_NOT_SUPPORTED;
+#else
+    esp_err_t ret;
+
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 
-    esp_err_t ret = esp_supp_dpp_init();
+    ret = esp_supp_dpp_init();
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to init DPP: %s", esp_err_to_name(ret));
@@ -549,10 +566,26 @@ esp_err_t dpp_start(void)
     }
 
     dpp_bootstrap_generate();
-    ret = esp_wifi_start();
 
+    ret = esp_wifi_start();
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to start WiFi for DPP: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    ret = esp_supp_dpp_start_listen();
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to start DPP listen: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    strcpy(s_status, "WIFI_EVENT_DPP_LISTENING");
+    ws_broadcast_wifi_status(s_status, ssid, s_ip_str, s_dpp_uri);
     ESP_LOGI(TAG, "DPP listening on channel(s): %s", DPP_LISTEN_CHANNEL_LIST);
-    return ret;
+    return ESP_OK;
+#endif
 }
 
 esp_err_t wifi_init(void)
@@ -590,11 +623,12 @@ esp_err_t wifi_init(void)
 
 void wifi_stop(void)
 {
-    //esp_supp_dpp_stop_listen();
-    //esp_supp_dpp_deinit();
+#if defined(CONFIG_ESP_WIFI_DPP_SUPPORT) || defined(CONFIG_WPA_DPP_SUPPORT)
+    esp_supp_dpp_stop_listen();
+    esp_supp_dpp_deinit();
+#endif
     esp_wifi_stop();
 
-    // esp_wifi_deinit();
     if (s_wifi_retry_timer)
     {
         esp_timer_stop(s_wifi_retry_timer);
@@ -609,21 +643,32 @@ void wifi_stop(void)
 
 esp_err_t dpp_trigger_bootstrap(void)
 {
-    esp_err_t err =  ESP_ERR_INVALID_STATE;
+#if !(defined(CONFIG_ESP_WIFI_DPP_SUPPORT) || defined(CONFIG_WPA_DPP_SUPPORT))
+    ESP_LOGW(TAG, "DPP support is not enabled in sdkconfig");
+    return ESP_ERR_NOT_SUPPORTED;
+#else
+    esp_err_t err;
+
     ESP_LOGI(TAG, "Triggering DPP bootstrap regeneration");
 
-    //err = esp_supp_dpp_deinit();
-    if (err != ESP_OK)
+    esp_supp_dpp_stop_listen();
+    err = esp_supp_dpp_deinit();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
     {
         ESP_LOGW(TAG, "DPP deinit returned %s", esp_err_to_name(err));
     }
 
-    //ESP_ERROR_CHECK(esp_dpp_deinit());
+    err = esp_supp_dpp_init();
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to init DPP: %s", esp_err_to_name(err));
+        return err;
+    }
 
     dpp_bootstrap_generate();
 
-    //err = esp_supp_dpp_start_listen();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+    err = esp_supp_dpp_start_listen();
+    if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to restart DPP listen: %s", esp_err_to_name(err));
         return err;
@@ -632,6 +677,7 @@ esp_err_t dpp_trigger_bootstrap(void)
     strcpy(s_status, "WIFI_EVENT_DPP_TRIGGERED");
     ws_broadcast_wifi_status(s_status, ssid, s_ip_str, s_dpp_uri);
     return ESP_OK;
+#endif
 }
 
 esp_err_t wifi_get_dpp_uri(char *buf, size_t len)
@@ -647,7 +693,6 @@ esp_err_t wifi_get_dpp_uri(char *buf, size_t len)
     strncpy(buf, s_dpp_uri, len - 1);
     buf[len - 1] = '\0';
     return ESP_OK;
-    return ESP_ERR_TIMEOUT;
 }
 
 /* -------------------------------------------------------------------------- */

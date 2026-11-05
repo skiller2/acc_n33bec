@@ -1614,10 +1614,18 @@ static esp_err_t actions_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    //const char *action = action_item->valuestring;
-char action[32];
-strncpy(action, action_item->valuestring, sizeof(action) - 1);
-action[sizeof(action) - 1] = '\0';
+    char action[32];
+    strncpy(action, action_item->valuestring, sizeof(action) - 1);
+    action[sizeof(action) - 1] = '\0';
+
+    int motor_speed = -1;
+    cJSON *speed_item = cJSON_GetObjectItemCaseSensitive(json, "speed");
+    if (cJSON_IsNumber(speed_item))
+    {
+        motor_speed = (int)speed_item->valuedouble;
+        if (motor_speed < 1) motor_speed = 1;
+        if (motor_speed > 100) motor_speed = 100;
+    }
 
     cJSON_Delete(json);
 
@@ -1707,15 +1715,17 @@ action[sizeof(action) - 1] = '\0';
         httpd_resp_sendstr(req, "OK: LittleFS formatted, device will reboot");
         vTaskDelay(pdMS_TO_TICKS(500));
         esp_restart();
-    
+        return ESP_OK;
     } else if (strcmp(action, "motor_fwd") == 0) {
-        ESP_LOGI(TAG, "Action: motor_fwd");
-        motor_set_speed(8);
+        uint8_t speed = (motor_speed > 0) ? (uint8_t)motor_speed : 8;
+        ESP_LOGI(TAG, "Action: motor_fwd speed=%u", speed);
+        motor_set_speed(speed);
         move_fwd();
         return httpd_resp_sendstr(req, "OK: motor fwd");
     } else if (strcmp(action, "motor_bck") == 0) {
-        ESP_LOGI(TAG, "Action: motor_bck");
-        motor_set_speed(8);
+        uint8_t speed = (motor_speed > 0) ? (uint8_t)motor_speed : 8;
+        ESP_LOGI(TAG, "Action: motor_bck speed=%u", speed);
+        motor_set_speed(speed);
         move_bck();
         return httpd_resp_sendstr(req, "OK: motor bck");
     } else if (strcmp(action, "motor_stp") == 0) {
@@ -1725,7 +1735,7 @@ action[sizeof(action) - 1] = '\0';
     }
     ESP_LOGW(TAG, "Unknown action: %s", action);
     httpd_resp_sendstr(req, "ERR: unknown action");
-    
+
     return ESP_FAIL;
 }
 
