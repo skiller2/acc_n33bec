@@ -746,10 +746,11 @@ void app_main()
         // dpp_start();
     }
 
-//motor_init();
 
-    motor_init();
+motor_init();
 
+motor_set_speed(6);
+move_fwd();
     //=========================================
     // Wait for valid time from NTP or RTC
 
