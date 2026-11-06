@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "driver/gpio.h"
+#include "motor.h"
 #include "config.h"
 #include "beep.h"
 #include "ws.h"
@@ -77,6 +78,10 @@ static void barrier_set_relays(bool up, bool down)
     {
         gpio_set_level(RELE1_GPIO, 0);
         gpio_set_level(RELE2_GPIO, 0);
+
+        motor_stp();
+
+
         s_relay_switch_time = now;
         s_relay_switch_pending = true;
 
@@ -95,6 +100,13 @@ static void barrier_set_relays(bool up, bool down)
 
     gpio_set_level(RELE1_GPIO, up ? 1 : 0);
     gpio_set_level(RELE2_GPIO, down ? 1 : 0);
+
+    if (up)
+        move_fwd();
+    if (down)
+        move_bck();
+
+
     s_last_up = up;
     s_last_down = down;
     s_relay_switch_time = now;
@@ -105,6 +117,8 @@ static void barrier_stop_relays(void)
 {
     gpio_set_level(RELE1_GPIO, 0);
     gpio_set_level(RELE2_GPIO, 0);
+    motor_stp();
+
     s_last_up = false;
     s_last_down = false;
     s_relay_switch_pending = false;
