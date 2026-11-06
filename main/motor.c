@@ -24,7 +24,7 @@ static mcpwm_oper_handle_t oper = NULL;
 static mcpwm_timer_handle_t timer = NULL;
 
 /*
- * Motor control task.
+ * Motor-control task.
  */
 static TaskHandle_t motor_control_task_handle = NULL;
 
@@ -49,64 +49,61 @@ static portMUX_TYPE motor_lock = portMUX_INITIALIZER_UNLOCKED;
  * Neutral:
  *   1500 us = stopped
  */
-#define MOTOR_FWD_MAX_PULSE_US          1000U
-#define MOTOR_FWD_START_PULSE_US        1430U
+#define MOTOR_FWD_MAX_PULSE_US              1000U
+#define MOTOR_FWD_START_PULSE_US            1430U
 
-#define MOTOR_STOP_PULSE_US             1500U
+#define MOTOR_STOP_PULSE_US                 1500U
 
-#define MOTOR_BCK_START_PULSE_US        1541U
-#define MOTOR_BCK_MAX_PULSE_US          2000U
+#define MOTOR_BCK_START_PULSE_US            1541U
+#define MOTOR_BCK_MAX_PULSE_US              2000U
 
 /*
  * Burst pulses.
  *
- * These pulses are intentionally stronger than the minimum
- * continuous movement pulses.
- *
- * The stronger pulse helps overcome:
- *
- * - Static friction
- * - Gearbox friction
- * - Mechanical load
- * - Restarting after neutral frames
- *
- * Tune these values if necessary.
+ * These values are intentionally stronger than the minimum
+ * continuous movement pulses. This helps to overcome static
+ * friction and restart after neutral frames.
  */
-#define MOTOR_FWD_BURST_PULSE_US        1380U
-#define MOTOR_BCK_BURST_PULSE_US        1590U
+#define MOTOR_FWD_BURST_PULSE_US            1380U
+#define MOTOR_BCK_BURST_PULSE_US            1590U
 
 /*
- * Standard servo signal:
+ * Standard DS04-NFC servo signal:
  *
  * 20 ms = 50 Hz.
  */
-#define MOTOR_PWM_PERIOD_US             20000U
-#define MOTOR_CONTROL_PERIOD_MS         20U
+#define MOTOR_PWM_PERIOD_US                 20000U
+#define MOTOR_CONTROL_PERIOD_MS             20U
 
 /*
  * Speeds from 1% through 20% use burst packets.
  *
- * Speeds from 21% through 100% use continuous pulses.
+ * Speeds from 21% through 100% use continuous pulse-width control.
  */
-#define MOTOR_BURST_MAX_SPEED_PERCENT   20U
+#define MOTOR_BURST_MAX_SPEED_PERCENT       20U
 
 /*
  * Number of consecutive movement frames in each burst packet.
  *
- * Each frame lasts 20 ms:
- *
  * 3 frames x 20 ms = 60 ms movement packet.
- *
- * Raise this to 4 or 5 if the motor cannot overcome its load.
- * Lower it to 2 if the movement is too abrupt.
  */
-#define MOTOR_BURST_MOVE_FRAMES         3U
+#define MOTOR_BURST_MOVE_FRAMES             3U
+
+/*
+ * Neutral time when changing direction.
+ *
+ * 4 frames x 20 ms = 80 ms at 1500 us.
+ *
+ * Reduce to 3U for 60 ms if 80 ms feels too slow.
+ * Increase to 5U if the mechanism still kicks during reversal.
+ */
+#define MOTOR_DIRECTION_CHANGE_STOP_FRAMES  4U
 
 /*
  * Motor task configuration.
  */
-#define MOTOR_CONTROL_TASK_STACK_SIZE   3072U
-#define MOTOR_CONTROL_TASK_PRIORITY     5U
+#define MOTOR_CONTROL_TASK_STACK_SIZE       3072U
+#define MOTOR_CONTROL_TASK_PRIORITY         5U
 
 typedef enum
 {
@@ -123,12 +120,19 @@ typedef enum
 
 } motor_burst_phase_t;
 
+typedef enum
+{
+    MOTOR_TRANSITION_NONE = 0,
+    MOTOR_TRANSITION_NEUTRAL
+
+} motor_transition_t;
+
 /*
- * Current requested motor state.
+ * Current command requested by the application.
  *
- * If direction is STOPPED but speed is greater than zero,
- * speed has been preset and will be used by the next call to
- * move_fwd() or move_bck().
+ * When requested_direction is STOPPED and speed is greater than
+ * zero, the speed is only preset. It will be used by the next
+ * move_fwd() or move_bck() call.
  */
 static motor_direction_t requested_direction =
     MOTOR_DIRECTION_STOPPED;
@@ -136,9 +140,22 @@ static motor_direction_t requested_direction =
 static uint8_t requested_speed_percent = 0U;
 
 /*
+ * Clamp a percentage to the valid public range.
+ */
+static uint8_t motor_clamp_speed(uint8_t speed_percent)
+{
+    if (speed_percent > 100U)
+    {
+        return 100U;
+    }
+
+    return speed_percent;
+}
+
+/*
  * Set the MCPWM comparator value.
  *
- * With a timer resolution of 1 MHz:
+ * MCPWM timer resolution is 1 MHz:
  *
  *   1 tick = 1 us
  */
@@ -156,7 +173,7 @@ static void motor_set_pulse_us(uint32_t pulse_us)
 }
 
 /*
- * Allow MCPWM events to control the output.
+ * Allow MCPWM events to control the output GPIO.
  */
 static void motor_pwm_enable(void)
 {
@@ -175,10 +192,10 @@ static void motor_pwm_enable(void)
 /*
  * Force the output LOW.
  *
- * Only used during initialization.
+ * This is only used during initialization.
  *
- * During normal operation, the servo must be stopped by sending
- * its neutral pulse continuously.
+ * During normal operation, the servo is stopped by continuously
+ * sending its calibrated neutral pulse.
  */
 static void motor_pwm_disable(void)
 {
@@ -225,10 +242,7 @@ static void motor_store_requested_state(
 }
 
 /*
- * Wake the motor-control task after a command changes.
- *
- * The notification causes the task to reload the command and reset
- * its current burst packet immediately.
+ * Wake the motor-control task after changing the command.
  */
 static void motor_notify_control_task(void)
 {
@@ -239,7 +253,22 @@ static void motor_notify_control_task(void)
 }
 
 /*
- * Return the calibrated movement pulse used during a burst packet.
+ * Return true only for a direct forward/backward reversal.
+ *
+ * STOPPED -> FORWARD and STOPPED -> BACKWARD are not reversals.
+ */
+static bool motor_is_reversal(
+    motor_direction_t current_direction,
+    motor_direction_t requested_direction_value)
+{
+    return
+        (current_direction != MOTOR_DIRECTION_STOPPED) &&
+        (requested_direction_value != MOTOR_DIRECTION_STOPPED) &&
+        (current_direction != requested_direction_value);
+}
+
+/*
+ * Return the pulse used during a low-speed movement packet.
  */
 static uint32_t motor_get_burst_pulse(
     motor_direction_t direction)
@@ -261,10 +290,10 @@ static uint32_t motor_get_burst_pulse(
 /*
  * Calculate the pulse width for continuous operation.
  *
- * Input range:
+ * Input mapping:
  *
- *   21%  -> minimum continuous movement pulse
- *   100% -> maximum movement pulse
+ *   21%  -> minimum reliable continuous movement
+ *   100% -> maximum movement
  */
 static uint32_t motor_calculate_continuous_pulse(
     motor_direction_t direction,
@@ -276,16 +305,15 @@ static uint32_t motor_calculate_continuous_pulse(
         return MOTOR_STOP_PULSE_US;
     }
 
-    if (speed_percent > 100U)
-    {
-        speed_percent = 100U;
-    }
+    speed_percent = motor_clamp_speed(speed_percent);
 
     const uint32_t continuous_min_speed =
         MOTOR_BURST_MAX_SPEED_PERCENT + 1U;
 
     /*
-     * 21..100 contains 80 command values and 79 intervals.
+     * For the current configuration:
+     *
+     *   100 - 21 = 79 interpolation intervals.
      */
     const uint32_t input_range =
         100U - continuous_min_speed;
@@ -299,8 +327,9 @@ static uint32_t motor_calculate_continuous_pulse(
             MOTOR_FWD_START_PULSE_US -
             MOTOR_FWD_MAX_PULSE_US;
 
-        return MOTOR_FWD_START_PULSE_US -
-               ((pulse_range * position) / input_range);
+        return
+            MOTOR_FWD_START_PULSE_US -
+            ((pulse_range * position) / input_range);
     }
 
     if (direction == MOTOR_DIRECTION_BACKWARD)
@@ -309,24 +338,25 @@ static uint32_t motor_calculate_continuous_pulse(
             MOTOR_BCK_MAX_PULSE_US -
             MOTOR_BCK_START_PULSE_US;
 
-        return MOTOR_BCK_START_PULSE_US +
-               ((pulse_range * position) / input_range);
+        return
+            MOTOR_BCK_START_PULSE_US +
+            ((pulse_range * position) / input_range);
     }
 
     return MOTOR_STOP_PULSE_US;
 }
 
 /*
- * Convert the low-speed command into an effective burst duty cycle.
+ * Convert the low-speed command into burst duty.
  *
- * Requested speed:
+ * Mapping:
  *
- *   1%  -> 5% packet duty
- *   2%  -> 10% packet duty
- *   5%  -> 25% packet duty
- *   10% -> 50% packet duty
- *   12% -> 60% packet duty
- *   20% -> 100% packet duty
+ *   1%  ->   5% duty
+ *   2%  ->  10% duty
+ *   5%  ->  25% duty
+ *   10% ->  50% duty
+ *   12% ->  60% duty
+ *   20% -> 100% duty
  */
 static uint32_t motor_calculate_burst_density(
     uint8_t speed_percent)
@@ -347,33 +377,16 @@ static uint32_t motor_calculate_burst_density(
 }
 
 /*
- * Calculate how many neutral frames must follow each movement packet.
+ * Calculate how many neutral frames must follow each movement
+ * packet.
  *
  * Formula:
  *
  *   total_frames =
- *       ceil(move_frames * 100 / density_percent)
+ *       ceil(move_frames * 100 / density)
  *
  *   stop_frames =
  *       total_frames - move_frames
- *
- * Examples with 3 movement frames:
- *
- *   Speed  1%, density   5%:
- *       total = ceil(3 * 100 / 5) = 60
- *       stop  = 60 - 3 = 57 frames
- *
- *   Speed 10%, density  50%:
- *       total = ceil(3 * 100 / 50) = 6
- *       stop  = 6 - 3 = 3 frames
- *
- *   Speed 12%, density  60%:
- *       total = ceil(3 * 100 / 60) = 5
- *       stop  = 5 - 3 = 2 frames
- *
- *   Speed 20%, density 100%:
- *       total = 3
- *       stop  = 0 frames
  */
 static uint32_t motor_calculate_burst_stop_frames(
     uint8_t speed_percent)
@@ -386,14 +399,14 @@ static uint32_t motor_calculate_burst_stop_frames(
         return 0U;
     }
 
-    /*
-     * Integer ceiling division:
-     *
-     * ceil(numerator / denominator)
-     */
     const uint32_t numerator =
         MOTOR_BURST_MOVE_FRAMES * 100U;
 
+    /*
+     * Integer ceiling division:
+     *
+     *   ceil(numerator / density)
+     */
     const uint32_t total_frames =
         (numerator + density - 1U) / density;
 
@@ -406,7 +419,7 @@ static uint32_t motor_calculate_burst_stop_frames(
 }
 
 /*
- * Log the calculated low-speed packet timing.
+ * Log the selected burst configuration.
  */
 static void motor_log_burst_configuration(
     motor_direction_t direction,
@@ -440,34 +453,68 @@ static void motor_log_burst_configuration(
 }
 
 /*
+ * Reset a burst sequence so the next frame starts a complete
+ * movement packet.
+ */
+static void motor_reset_burst_sequence(
+    motor_burst_phase_t *burst_phase,
+    uint32_t *burst_frames_remaining)
+{
+    *burst_phase = MOTOR_BURST_PHASE_MOVE;
+    *burst_frames_remaining = MOTOR_BURST_MOVE_FRAMES;
+}
+
+/*
  * Motor-control task.
  *
- * This task runs once for every 20 ms servo frame.
+ * This task owns the direction actually being applied to the servo.
  *
- * Low speeds:
+ * For low speeds:
  *
  *   MOVE MOVE MOVE STOP STOP ...
  *
- * High speeds:
+ * For high speeds:
  *
- *   Continuous movement pulse.
+ *   continuous movement pulse
+ *
+ * For a direction reversal:
+ *
+ *   current direction
+ *   -> 1500 us for 80 ms
+ *   -> opposite direction
  */
 static void motor_control_task(void *arg)
 {
     (void)arg;
 
-    motor_direction_t active_direction =
+    /*
+     * Direction currently allowed to reach the servo.
+     *
+     * This is intentionally separate from requested_direction.
+     */
+    motor_direction_t applied_direction =
         MOTOR_DIRECTION_STOPPED;
 
-    uint8_t active_speed_percent = 0U;
+    uint8_t applied_speed_percent = 0U;
 
     motor_burst_phase_t burst_phase =
         MOTOR_BURST_PHASE_MOVE;
 
-    uint32_t burst_frames_remaining = 0U;
+    uint32_t burst_frames_remaining =
+        MOTOR_BURST_MOVE_FRAMES;
 
-    TickType_t last_wake_time =
-        xTaskGetTickCount();
+    motor_transition_t transition =
+        MOTOR_TRANSITION_NONE;
+
+    uint32_t transition_frames_remaining = 0U;
+
+    /*
+     * Destination command saved while neutral transition is active.
+     */
+    motor_direction_t transition_target_direction =
+        MOTOR_DIRECTION_STOPPED;
+
+    uint8_t transition_target_speed = 0U;
 
     while (true)
     {
@@ -478,55 +525,221 @@ static void motor_control_task(void *arg)
             &direction,
             &speed_percent);
 
+        speed_percent = motor_clamp_speed(speed_percent);
+
+        /*
+         * A zero-speed request is always considered STOPPED.
+         */
+        if (speed_percent == 0U)
+        {
+            direction = MOTOR_DIRECTION_STOPPED;
+        }
+
+        /*
+         * ========================================================
+         * HANDLE A COMMAND WHILE NEUTRAL TRANSITION IS ACTIVE
+         * ========================================================
+         */
+        if (transition == MOTOR_TRANSITION_NEUTRAL)
+        {
+            /*
+             * Always track the newest command.
+             *
+             * If the application changes its mind while the motor
+             * is neutral, the newest command becomes the target.
+             */
+            transition_target_direction = direction;
+            transition_target_speed = speed_percent;
+
+            /*
+             * A real STOP cancels the direction transition.
+             */
+            if ((direction == MOTOR_DIRECTION_STOPPED) ||
+                (speed_percent == 0U))
+            {
+                transition = MOTOR_TRANSITION_NONE;
+                transition_frames_remaining = 0U;
+
+                applied_direction =
+                    MOTOR_DIRECTION_STOPPED;
+
+                applied_speed_percent = 0U;
+
+                motor_reset_burst_sequence(
+                    &burst_phase,
+                    &burst_frames_remaining);
+
+                motor_set_pulse_us(
+                    MOTOR_STOP_PULSE_US);
+
+                ulTaskNotifyTake(
+                    pdTRUE,
+                    pdMS_TO_TICKS(
+                        MOTOR_CONTROL_PERIOD_MS));
+
+                continue;
+            }
+
+            /*
+             * Keep neutral for the configured number of complete
+             * control frames.
+             */
+            motor_set_pulse_us(
+                MOTOR_STOP_PULSE_US);
+
+            if (transition_frames_remaining > 0U)
+            {
+                transition_frames_remaining--;
+            }
+
+            if (transition_frames_remaining == 0U)
+            {
+                transition =
+                    MOTOR_TRANSITION_NONE;
+
+                applied_direction =
+                    transition_target_direction;
+
+                applied_speed_percent =
+                    transition_target_speed;
+
+                motor_reset_burst_sequence(
+                    &burst_phase,
+                    &burst_frames_remaining);
+
+                ESP_LOGI(
+                    TAG,
+                    "Direction transition complete: "
+                    "direction=%d, speed=%u%%",
+                    (int)applied_direction,
+                    (unsigned)applied_speed_percent);
+            }
+
+            ulTaskNotifyTake(
+                pdTRUE,
+                pdMS_TO_TICKS(
+                    MOTOR_CONTROL_PERIOD_MS));
+
+            continue;
+        }
+
+        /*
+         * ========================================================
+         * DETECT A NEW DIRECTION REVERSAL
+         * ========================================================
+         */
+        if (motor_is_reversal(
+                applied_direction,
+                direction))
+        {
+            transition =
+                MOTOR_TRANSITION_NEUTRAL;
+
+            transition_frames_remaining =
+                MOTOR_DIRECTION_CHANGE_STOP_FRAMES;
+
+            transition_target_direction =
+                direction;
+
+            transition_target_speed =
+                speed_percent;
+
+            /*
+             * From this point, no movement direction is considered
+             * applied. Only neutral is sent.
+             */
+            const motor_direction_t old_direction =
+                applied_direction;
+
+            applied_direction =
+                MOTOR_DIRECTION_STOPPED;
+
+            applied_speed_percent = 0U;
+
+            motor_reset_burst_sequence(
+                &burst_phase,
+                &burst_frames_remaining);
+
+            motor_set_pulse_us(
+                MOTOR_STOP_PULSE_US);
+
+            ESP_LOGI(
+                TAG,
+                "Direction reversal %d -> %d: "
+                "neutral for %u ms",
+                (int)old_direction,
+                (int)direction,
+                (unsigned)(
+                    MOTOR_DIRECTION_CHANGE_STOP_FRAMES *
+                    MOTOR_CONTROL_PERIOD_MS));
+
+            ulTaskNotifyTake(
+                pdTRUE,
+                pdMS_TO_TICKS(
+                    MOTOR_CONTROL_PERIOD_MS));
+
+            continue;
+        }
+
+        /*
+         * ========================================================
+         * NORMAL COMMAND CHANGE
+         * ========================================================
+         */
         const bool command_changed =
-            (direction != active_direction) ||
-            (speed_percent != active_speed_percent);
+            (direction != applied_direction) ||
+            (speed_percent != applied_speed_percent);
 
         if (command_changed)
         {
-            active_direction = direction;
-            active_speed_percent = speed_percent;
+            applied_direction = direction;
+            applied_speed_percent = speed_percent;
 
-            /*
-             * Every new low-speed command starts with a full
-             * movement packet.
-             */
-            burst_phase = MOTOR_BURST_PHASE_MOVE;
-            burst_frames_remaining =
-                MOTOR_BURST_MOVE_FRAMES;
+            motor_reset_burst_sequence(
+                &burst_phase,
+                &burst_frames_remaining);
         }
 
-        uint32_t pulse_us = MOTOR_STOP_PULSE_US;
+        uint32_t pulse_us =
+            MOTOR_STOP_PULSE_US;
 
-        if ((direction == MOTOR_DIRECTION_STOPPED) ||
-            (speed_percent == 0U))
+        /*
+         * ========================================================
+         * STOPPED
+         * ========================================================
+         */
+        if ((applied_direction ==
+             MOTOR_DIRECTION_STOPPED) ||
+            (applied_speed_percent == 0U))
         {
             pulse_us = MOTOR_STOP_PULSE_US;
 
-            burst_phase = MOTOR_BURST_PHASE_MOVE;
-            burst_frames_remaining =
-                MOTOR_BURST_MOVE_FRAMES;
+            motor_reset_burst_sequence(
+                &burst_phase,
+                &burst_frames_remaining);
         }
-        else if (speed_percent <=
+
+        /*
+         * ========================================================
+         * BURST-PACKET MODE
+         * ========================================================
+         */
+        else if (applied_speed_percent <=
                  MOTOR_BURST_MAX_SPEED_PERCENT)
         {
-            /*
-             * Low-speed burst-packet operation.
-             */
             if (burst_frames_remaining == 0U)
             {
-                if (burst_phase == MOTOR_BURST_PHASE_MOVE)
+                if (burst_phase ==
+                    MOTOR_BURST_PHASE_MOVE)
                 {
                     const uint32_t stop_frames =
                         motor_calculate_burst_stop_frames(
-                            speed_percent);
+                            applied_speed_percent);
 
                     if (stop_frames == 0U)
                     {
                         /*
                          * At 20%, burst density is 100%.
-                         * Restart another movement packet
-                         * immediately.
                          */
                         burst_phase =
                             MOTOR_BURST_PHASE_MOVE;
@@ -553,14 +766,17 @@ static void motor_control_task(void *arg)
                 }
             }
 
-            if (burst_phase == MOTOR_BURST_PHASE_MOVE)
+            if (burst_phase ==
+                MOTOR_BURST_PHASE_MOVE)
             {
                 pulse_us =
-                    motor_get_burst_pulse(direction);
+                    motor_get_burst_pulse(
+                        applied_direction);
             }
             else
             {
-                pulse_us = MOTOR_STOP_PULSE_US;
+                pulse_us =
+                    MOTOR_STOP_PULSE_US;
             }
 
             if (burst_frames_remaining > 0U)
@@ -568,65 +784,55 @@ static void motor_control_task(void *arg)
                 burst_frames_remaining--;
             }
         }
+
+        /*
+         * ========================================================
+         * CONTINUOUS MODE
+         * ========================================================
+         */
         else
         {
-            /*
-             * Continuous pulse-width operation.
-             */
             pulse_us =
                 motor_calculate_continuous_pulse(
-                    direction,
-                    speed_percent);
+                    applied_direction,
+                    applied_speed_percent);
 
-            burst_phase = MOTOR_BURST_PHASE_MOVE;
-            burst_frames_remaining =
-                MOTOR_BURST_MOVE_FRAMES;
+            motor_reset_burst_sequence(
+                &burst_phase,
+                &burst_frames_remaining);
         }
 
         motor_set_pulse_us(pulse_us);
 
         /*
-         * Wait until the next 20 ms control point.
-         *
-         * A task notification interrupts the wait when the command
-         * changes. In that case, reset the timing reference and
-         * process the new command immediately.
+         * Wait one servo frame or wake immediately after a command
+         * notification.
          */
-        const uint32_t notified =
-            ulTaskNotifyTake(
-                pdTRUE,
-                pdMS_TO_TICKS(MOTOR_CONTROL_PERIOD_MS));
-
-        if (notified != 0U)
-        {
-            last_wake_time = xTaskGetTickCount();
-            continue;
-        }
-
-        /*
-         * Keep the variable synchronized for subsequent command
-         * notifications. The actual periodic wait is performed by
-         * ulTaskNotifyTake().
-         */
-        last_wake_time = xTaskGetTickCount();
+        ulTaskNotifyTake(
+            pdTRUE,
+            pdMS_TO_TICKS(
+                MOTOR_CONTROL_PERIOD_MS));
     }
 }
 
 /*
- * Store and apply a motor command.
+ * Store a new motor command.
+ *
+ * The control task is the only code that applies movement pulses.
+ * This prevents motor_apply_command() and the task from writing
+ * conflicting pulses during a direction change.
  */
 static void motor_apply_command(
     motor_direction_t direction,
     uint8_t speed_percent)
 {
-    if (speed_percent > 100U)
-    {
-        speed_percent = 100U;
-    }
+    speed_percent =
+        motor_clamp_speed(speed_percent);
 
     if (speed_percent == 0U)
     {
-        direction = MOTOR_DIRECTION_STOPPED;
+        direction =
+            MOTOR_DIRECTION_STOPPED;
     }
 
     motor_store_requested_state(
@@ -634,33 +840,17 @@ static void motor_apply_command(
         speed_percent);
 
     /*
-     * Apply a safe initial pulse immediately.
+     * Do not directly apply a movement pulse here.
      *
-     * The task continues controlling subsequent frames.
+     * Applying it here would bypass the neutral reversal sequence.
      */
-    uint32_t initial_pulse_us = MOTOR_STOP_PULSE_US;
-
-    if ((direction != MOTOR_DIRECTION_STOPPED) &&
-        (speed_percent > 0U))
+    if (direction == MOTOR_DIRECTION_STOPPED)
     {
-        if (speed_percent <=
-            MOTOR_BURST_MAX_SPEED_PERCENT)
-        {
-            initial_pulse_us =
-                motor_get_burst_pulse(direction);
-        }
-        else
-        {
-            initial_pulse_us =
-                motor_calculate_continuous_pulse(
-                    direction,
-                    speed_percent);
-        }
+        motor_set_pulse_us(
+            MOTOR_STOP_PULSE_US);
     }
 
-    motor_set_pulse_us(initial_pulse_us);
     motor_pwm_enable();
-
     motor_notify_control_task();
 
     if (direction == MOTOR_DIRECTION_STOPPED)
@@ -679,13 +869,18 @@ static void motor_apply_command(
     }
     else
     {
+        const uint32_t pulse_us =
+            motor_calculate_continuous_pulse(
+                direction,
+                speed_percent);
+
         ESP_LOGI(
             TAG,
-            "Direction=%d, speed=%u%%, mode=CONTINUOUS, "
-            "pulse=%lu us",
+            "Direction=%d, speed=%u%%, "
+            "mode=CONTINUOUS, pulse=%lu us",
             (int)direction,
             (unsigned)speed_percent,
-            (unsigned long)initial_pulse_us);
+            (unsigned long)pulse_us);
     }
 }
 
@@ -737,8 +932,10 @@ void motor_init(void)
             timer));
 
     /*
-     * Comparator changes are applied when the timer reaches zero.
-     * This prevents pulse changes in the middle of a PWM frame.
+     * Apply comparator changes at timer-empty.
+     *
+     * This prevents the pulse width from changing in the middle
+     * of a servo frame.
      */
     const mcpwm_comparator_config_t comparator_config = {
         .flags.update_cmp_on_tez = true,
@@ -761,7 +958,7 @@ void motor_init(void)
             &generator));
 
     /*
-     * Set GPIO HIGH at the beginning of every PWM frame.
+     * GPIO HIGH at the beginning of each PWM frame.
      */
     ESP_ERROR_CHECK(
         mcpwm_generator_set_action_on_timer_event(
@@ -772,7 +969,7 @@ void motor_init(void)
                 MCPWM_GEN_ACTION_HIGH)));
 
     /*
-     * Set GPIO LOW when the comparator value is reached.
+     * GPIO LOW when the comparator is reached.
      */
     ESP_ERROR_CHECK(
         mcpwm_generator_set_action_on_compare_event(
@@ -783,7 +980,7 @@ void motor_init(void)
                 MCPWM_GEN_ACTION_LOW)));
 
     /*
-     * Initialize at the neutral pulse.
+     * Start at the calibrated neutral pulse.
      */
     ESP_ERROR_CHECK(
         mcpwm_comparator_set_compare_value(
@@ -801,7 +998,7 @@ void motor_init(void)
             MCPWM_TIMER_START_NO_STOP));
 
     /*
-     * Start sending neutral pulses.
+     * Start sending neutral servo frames.
      */
     motor_pwm_enable();
 
@@ -828,10 +1025,14 @@ void motor_init(void)
 
     ESP_LOGI(
         TAG,
-        "Motor initialized: period=%u us, frequency=50 Hz, "
-        "neutral=%u us",
+        "Motor initialized: period=%u us, "
+        "frequency=50 Hz, neutral=%u us, "
+        "reversal neutral=%u ms",
         (unsigned)MOTOR_PWM_PERIOD_US,
-        (unsigned)MOTOR_STOP_PULSE_US);
+        (unsigned)MOTOR_STOP_PULSE_US,
+        (unsigned)(
+            MOTOR_DIRECTION_CHANGE_STOP_FRAMES *
+            MOTOR_CONTROL_PERIOD_MS));
 }
 
 void move_fwd(void)
@@ -845,12 +1046,13 @@ void move_fwd(void)
 
     portENTER_CRITICAL(&motor_lock);
 
-    speed_percent = requested_speed_percent;
+    speed_percent =
+        requested_speed_percent;
 
     portEXIT_CRITICAL(&motor_lock);
 
     /*
-     * If no speed was previously configured, start at 10%.
+     * If no speed was configured, start at 10%.
      */
     if (speed_percent == 0U)
     {
@@ -873,12 +1075,13 @@ void move_bck(void)
 
     portENTER_CRITICAL(&motor_lock);
 
-    speed_percent = requested_speed_percent;
+    speed_percent =
+        requested_speed_percent;
 
     portEXIT_CRITICAL(&motor_lock);
 
     /*
-     * If no speed was previously configured, start at 10%.
+     * If no speed was configured, start at 10%.
      */
     if (speed_percent == 0U)
     {
@@ -897,10 +1100,8 @@ void motor_set_speed(uint8_t speed_percent)
         motor_init();
     }
 
-    if (speed_percent > 100U)
-    {
-        speed_percent = 100U;
-    }
+    speed_percent =
+        motor_clamp_speed(speed_percent);
 
     motor_direction_t direction;
     uint8_t current_speed;
@@ -918,8 +1119,7 @@ void motor_set_speed(uint8_t speed_percent)
     }
 
     /*
-     * When stopped, save the requested speed as a preset without
-     * moving the servo.
+     * When stopped, save the speed as a preset without moving.
      */
     if (direction == MOTOR_DIRECTION_STOPPED)
     {
@@ -927,9 +1127,10 @@ void motor_set_speed(uint8_t speed_percent)
             MOTOR_DIRECTION_STOPPED,
             speed_percent);
 
-        motor_set_pulse_us(MOTOR_STOP_PULSE_US);
-        motor_pwm_enable();
+        motor_set_pulse_us(
+            MOTOR_STOP_PULSE_US);
 
+        motor_pwm_enable();
         motor_notify_control_task();
 
         ESP_LOGI(
@@ -951,7 +1152,8 @@ uint8_t motor_get_speed(void)
 
     portENTER_CRITICAL(&motor_lock);
 
-    speed_percent = requested_speed_percent;
+    speed_percent =
+        requested_speed_percent;
 
     portEXIT_CRITICAL(&motor_lock);
 
@@ -966,9 +1168,7 @@ void motor_stp(void)
     }
 
     /*
-     * Store STOP before updating the comparator. This prevents the
-     * control task from intentionally applying another movement
-     * pulse after seeing the old command.
+     * Store STOP before applying neutral.
      */
     motor_store_requested_state(
         MOTOR_DIRECTION_STOPPED,
@@ -977,11 +1177,14 @@ void motor_stp(void)
     /*
      * Apply neutral immediately.
      */
-    motor_set_pulse_us(MOTOR_STOP_PULSE_US);
+    motor_set_pulse_us(
+        MOTOR_STOP_PULSE_US);
+
     motor_pwm_enable();
 
     /*
-     * Wake the control task so it reloads STOP immediately.
+     * Wake the control task so any burst or reversal transition
+     * is cancelled immediately.
      */
     motor_notify_control_task();
 

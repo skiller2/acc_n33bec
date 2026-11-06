@@ -535,7 +535,7 @@ function loadBarrierConfig() {
         document.getElementById('loop_no_object_threshold_secs').value = cfg.loop_no_object_threshold_secs;
       }
       if (cfg.motor_speed_percent !== undefined) {
-        document.getElementById('motor_speed_cfg').value = cfg.motor_speed_percent;
+        document.getElementById('motor_speed_percent').value = cfg.motor_speed_percent;
       }
       setStatus('Barrier config loaded', 'success');
     })
@@ -549,7 +549,7 @@ function saveBarrierConfig() {
     barrier_open_ms: parseInt(document.getElementById('barrier_open_ms').value),
     loop_active_high: parseInt(document.getElementById('loop_active_high').value),
     loop_no_object_threshold_secs: parseInt(document.getElementById('loop_no_object_threshold_secs').value),
-    motor_speed_percent: parseInt(document.getElementById('motor_speed_cfg').value)
+    motor_speed_percent: parseInt(document.getElementById('motor_speed_percent').value)
   };
 
   fetch('/barrier_config', {
