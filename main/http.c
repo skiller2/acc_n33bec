@@ -1073,6 +1073,8 @@ static esp_err_t get_barrier_config(httpd_req_t *req)
     cJSON_AddNumberToObject(json, "barrier_closing_ms", g_barrier_config.barrier_closing_ms);
     cJSON_AddNumberToObject(json, "barrier_open_ms", g_barrier_config.barrier_open_ms);
     cJSON_AddNumberToObject(json, "loop_active_high", g_barrier_config.loop_active_high);
+    cJSON_AddNumberToObject(json, "loop_no_object_threshold_secs", g_barrier_config.loop_no_object_threshold_secs);
+    cJSON_AddNumberToObject(json, "motor_speed_percent", g_barrier_config.motor_speed_percent);
 
     char *s = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
@@ -1143,6 +1145,14 @@ static esp_err_t post_barrier_config(httpd_req_t *req)
     item = cJSON_GetObjectItemCaseSensitive(json, "loop_active_high");
     if (cJSON_IsNumber(item))
         cfg.loop_active_high = (uint8_t)(item->valuedouble ? 1 : 0);
+
+    item = cJSON_GetObjectItemCaseSensitive(json, "loop_no_object_threshold_secs");
+    if (cJSON_IsNumber(item))
+        cfg.loop_no_object_threshold_secs = (uint32_t)item->valuedouble;
+
+    item = cJSON_GetObjectItemCaseSensitive(json, "motor_speed_percent");
+    if (cJSON_IsNumber(item))
+        cfg.motor_speed_percent = (uint8_t)item->valuedouble;
 
     cJSON_Delete(json);
 
@@ -1618,13 +1628,13 @@ static esp_err_t actions_handler(httpd_req_t *req)
     strncpy(action, action_item->valuestring, sizeof(action) - 1);
     action[sizeof(action) - 1] = '\0';
 
-    int motor_speed = -1;
+    int motor_speed_percent = -1;
     cJSON *speed_item = cJSON_GetObjectItemCaseSensitive(json, "speed");
     if (cJSON_IsNumber(speed_item))
     {
-        motor_speed = (int)speed_item->valuedouble;
-        if (motor_speed < 1) motor_speed = 1;
-        if (motor_speed > 100) motor_speed = 100;
+        motor_speed_percent = (int)speed_item->valuedouble;
+        if (motor_speed_percent < 1) motor_speed_percent = 1;
+        if (motor_speed_percent > 100) motor_speed_percent = 100;
     }
 
     cJSON_Delete(json);
@@ -1717,13 +1727,13 @@ static esp_err_t actions_handler(httpd_req_t *req)
         esp_restart();
         return ESP_OK;
     } else if (strcmp(action, "motor_fwd") == 0) {
-        uint8_t speed = (motor_speed > 0) ? (uint8_t)motor_speed : 8;
+        uint8_t speed = (motor_speed_percent > 0) ? (uint8_t)motor_speed_percent : 8;
         ESP_LOGI(TAG, "Action: motor_fwd speed=%u", speed);
         motor_set_speed(speed);
         move_fwd();
         return httpd_resp_sendstr(req, "OK: motor fwd");
     } else if (strcmp(action, "motor_bck") == 0) {
-        uint8_t speed = (motor_speed > 0) ? (uint8_t)motor_speed : 8;
+        uint8_t speed = (motor_speed_percent > 0) ? (uint8_t)motor_speed_percent : 8;
         ESP_LOGI(TAG, "Action: motor_bck speed=%u", speed);
         motor_set_speed(speed);
         move_bck();

@@ -230,7 +230,7 @@ esp_err_t config_load(config_t *config)
 static const char *BARRIER_NVS_NAMESPACE = "barrier_config";
 static const char *BARRIER_NVS_KEY = "config";
 static const uint32_t BARRIER_CONFIG_MAGIC = 0x4241524E; // 'BARN'
-static const uint8_t BARRIER_CONFIG_VERSION = 2;
+static const uint8_t BARRIER_CONFIG_VERSION = 4;
 
 static void barrier_set_defaults(barrier_config_t *cfg)
 {
@@ -238,6 +238,8 @@ static void barrier_set_defaults(barrier_config_t *cfg)
     cfg->barrier_closing_ms = 3000;
     cfg->barrier_open_ms = 5000;
     cfg->loop_active_high = 0;
+    cfg->loop_no_object_threshold_secs = 2;
+    cfg->motor_speed_percent = 8;
 }
 
 esp_err_t barrier_config_load(barrier_config_t *cfg)
@@ -269,6 +271,8 @@ esp_err_t barrier_config_load(barrier_config_t *cfg)
     cfg->barrier_closing_ms = stored.barrier_closing_ms;
     cfg->barrier_open_ms = stored.barrier_open_ms;
     cfg->loop_active_high = stored.loop_active_high;
+    cfg->loop_no_object_threshold_secs = stored.loop_no_object_threshold_secs;
+    cfg->motor_speed_percent = stored.motor_speed_percent;
 
     return ESP_OK;
 }
@@ -285,7 +289,9 @@ esp_err_t barrier_config_save(const barrier_config_t *cfg)
         .barrier_opening_ms = cfg->barrier_opening_ms,
         .barrier_closing_ms = cfg->barrier_closing_ms,
         .barrier_open_ms = cfg->barrier_open_ms,
-        .loop_active_high = cfg->loop_active_high
+        .loop_active_high = cfg->loop_active_high,
+        .loop_no_object_threshold_secs = cfg->loop_no_object_threshold_secs,
+        .motor_speed_percent = cfg->motor_speed_percent
     };
 
     nvs_handle_t nvs = 0;

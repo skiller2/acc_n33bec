@@ -129,7 +129,7 @@ function callAction(action) {
 }
 
 function callMotorAction(action) {
-  const speedInput = document.getElementById('motor_speed');
+  const speedInput = document.getElementById('motor_speed_percent');
   let speed = speedInput ? parseInt(speedInput.value, 10) : 8;
   if (isNaN(speed)) speed = 8;
   if (speed < 1) speed = 1;
@@ -531,6 +531,12 @@ function loadBarrierConfig() {
       if (cfg.loop_active_high !== undefined) {
         document.getElementById('loop_active_high').value = cfg.loop_active_high;
       }
+      if (cfg.loop_no_object_threshold_secs !== undefined) {
+        document.getElementById('loop_no_object_threshold_secs').value = cfg.loop_no_object_threshold_secs;
+      }
+      if (cfg.motor_speed_percent !== undefined) {
+        document.getElementById('motor_speed_cfg').value = cfg.motor_speed_percent;
+      }
       setStatus('Barrier config loaded', 'success');
     })
     .catch(e => setStatus('Load barrier error: ' + e, 'error'));
@@ -541,7 +547,9 @@ function saveBarrierConfig() {
     barrier_opening_ms: parseInt(document.getElementById('barrier_opening_ms').value),
     barrier_closing_ms: parseInt(document.getElementById('barrier_closing_ms').value),
     barrier_open_ms: parseInt(document.getElementById('barrier_open_ms').value),
-    loop_active_high: parseInt(document.getElementById('loop_active_high').value)
+    loop_active_high: parseInt(document.getElementById('loop_active_high').value),
+    loop_no_object_threshold_secs: parseInt(document.getElementById('loop_no_object_threshold_secs').value),
+    motor_speed_percent: parseInt(document.getElementById('motor_speed_cfg').value)
   };
 
   fetch('/barrier_config', {

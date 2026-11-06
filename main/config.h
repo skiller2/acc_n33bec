@@ -66,7 +66,9 @@ typedef struct {
     uint32_t barrier_opening_ms;
     uint32_t barrier_closing_ms;
     uint32_t barrier_open_ms;
-    uint8_t loop_active_high;  /* 0 = LOW sensed as object, 1 = HIGH sensed as object */
+uint8_t loop_active_high;  /* 0 = LOW sensed as object, 1 = HIGH sensed as object */
+    uint32_t loop_no_object_threshold_secs; /* seconds of no object to trigger not-object */
+    uint8_t motor_speed_percent; /* motor speed percent */
 } barrier_config_t;
 
 esp_err_t config_load(config_t *config);

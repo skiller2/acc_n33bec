@@ -45,6 +45,8 @@ static bool s_last_up = false;
 static bool s_last_down = false;
 static int64_t s_relay_switch_time = 0;
 static bool s_relay_switch_pending = false;
+static int64_t s_no_object_since = 0;
+static bool s_no_object_handled = false;
 
 static bool barrier_read_loop(void)
 {
@@ -78,7 +80,6 @@ static void barrier_set_relays(bool up, bool down)
     {
         gpio_set_level(RELE1_GPIO, 0);
         gpio_set_level(RELE2_GPIO, 0);
-
         motor_stp();
 
 
@@ -101,6 +102,7 @@ static void barrier_set_relays(bool up, bool down)
     gpio_set_level(RELE1_GPIO, up ? 1 : 0);
     gpio_set_level(RELE2_GPIO, down ? 1 : 0);
 
+    motor_set_speed(g_barrier_config.motor_speed_percent ? g_barrier_config.motor_speed_percent : 8);
     if (up)
         move_fwd();
     if (down)
@@ -222,6 +224,7 @@ void barrier_init(void)
     }
 
     barrier_stop_relays();
+    motor_set_speed(g_barrier_config.motor_speed_percent ? g_barrier_config.motor_speed_percent : 8);
     ESP_LOGI(TAG, "Barrier control initialized, state=%d", s_state);
 }
 
@@ -662,6 +665,7 @@ void barrier_task(void *arg)
     gpio_set_level(RELE1_GPIO, 0);
     gpio_set_level(RELE2_GPIO, 0);
     gpio_set_level(RELE3_GPIO, 0);
+    motor_stp();
 
     uint8_t last_rex1 = -1;
     uint8_t last_rex2 = -1;
@@ -700,11 +704,15 @@ void barrier_task(void *arg)
                 if (s_state == BARRIER_OPENING && !s_last_up)
                 {
                     gpio_set_level(RELE1_GPIO, 1);
+                    motor_set_speed(g_barrier_config.motor_speed_percent ? g_barrier_config.motor_speed_percent : 8);
+                    move_fwd();
                     s_last_up = true;
                 }
                 else if (s_state == BARRIER_CLOSING && !s_last_down)
                 {
                     gpio_set_level(RELE2_GPIO, 1);
+                    motor_set_speed(g_barrier_config.motor_speed_percent ? g_barrier_config.motor_speed_percent : 8);
+                    move_bck();
                     s_last_down = true;
                 }
                 s_relay_switch_pending = false;
@@ -712,6 +720,29 @@ void barrier_task(void *arg)
         }
 
         bool changed = false;
+
+        // Stabilize no-object detection
+        bool loop_triggered_now = g_barrier_config.loop_active_high ? (loop == 1) : (loop == 0);
+        if (!loop_triggered_now)
+        {
+            if (s_no_object_since == 0)
+            {
+                s_no_object_since = esp_timer_get_time();
+                s_no_object_handled = false;
+            }
+            int64_t no_obj_ms = (esp_timer_get_time() - s_no_object_since) / 1000;
+            if (!s_no_object_handled && no_obj_ms >= (int64_t)g_barrier_config.loop_no_object_threshold_secs * 1000)
+            {
+                s_open_expire_time = esp_timer_get_time() + ((int64_t)g_barrier_config.barrier_open_ms * 1000);
+                xTimerReset(s_timer, 0);
+                s_no_object_handled = true;
+            }
+        }
+        else
+        {
+            s_no_object_since = 0;
+            s_no_object_handled = false;
+        }
 
         if (rex1 != last_rex1)
         {
@@ -744,12 +775,29 @@ void barrier_task(void *arg)
             {
                 barrier_trigger_open();
                 ESP_LOGI(TAG, "Loop detector triggered finish_down:%d", finish_down);
+                s_no_object_since = 0;
+                s_no_object_handled = false;
             }
 
             if (!loop_triggered)
             {
-                s_open_expire_time = esp_timer_get_time() + ((int64_t)g_barrier_config.barrier_open_ms * 1000);
-                xTimerReset(s_timer, 0);
+                if (s_no_object_since == 0)
+                {
+                    s_no_object_since = esp_timer_get_time();
+                    s_no_object_handled = false;
+                }
+                int64_t no_obj_ms = (esp_timer_get_time() - s_no_object_since) / 1000;
+                if (!s_no_object_handled && no_obj_ms >= (int64_t)g_barrier_config.loop_no_object_threshold_secs * 1000)
+                {
+                    s_open_expire_time = esp_timer_get_time() + ((int64_t)g_barrier_config.barrier_open_ms * 1000);
+                    xTimerReset(s_timer, 0);
+                    s_no_object_handled = true;
+                }
+            }
+            else
+            {
+                s_no_object_since = 0;
+                s_no_object_handled = false;
             }
             last_loop = loop;
             changed = true;

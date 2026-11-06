@@ -335,6 +335,9 @@
         <label>Keep Open (ms):
           <input type="number" id="barrier_open_ms" min="0" max="60000">
         </label>
+        <label>Motor Speed (%):
+          <input type="number" id="motor_speed_cfg" min="1" max="100" value="8">
+        </label>
       </div>
       <div class="config-section">
         <h3>Sensor Loop Logic</h3>
@@ -343,6 +346,9 @@
             <option value="0">LOW (0 = object detected)</option>
             <option value="1">HIGH (1 = object detected)</option>
           </select>
+        </label>
+        <label>No Object Threshold (secs):
+          <input type="number" id="loop_no_object_threshold_secs" min="0" value="2">
         </label>
       </div>
       <div class="config-buttons">
