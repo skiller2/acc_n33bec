@@ -26,31 +26,21 @@ static mcpwm_timer_handle_t timer = NULL;
  */
 static portMUX_TYPE motor_lock = portMUX_INITIALIZER_UNLOCKED;
 
-/*
- * Continuous-rotation servo calibration.
- *
- * Adjust MOTOR_STOP_PULSE_US if the servo continues moving
- * when motor_stp() is called.
- *
- * Current configuration:
- *
- *   500 us  = maximum forward speed
- *   1500 us = stopped
- *   2500 us = maximum backward speed
- */
-#define MOTOR_FWD_MAX_PULSE_US      500U
-#define MOTOR_STOP_PULSE_US        1500U
-#define MOTOR_BCK_MAX_PULSE_US     2500U
+#define MOTOR_FWD_MAX_PULSE_US      1000U
+#define MOTOR_FWD_START_PULSE_US    1430U
 
-#define MOTOR_MIN_PULSE_US          500U
-#define MOTOR_MAX_PULSE_US         2500U
+#define MOTOR_STOP_PULSE_US         1500U
+
+#define MOTOR_BCK_START_PULSE_US    1541U
+#define MOTOR_BCK_MAX_PULSE_US      2000U
+
 
 /*
  * Standard servo PWM:
  *
  * 20 ms = 50 Hz
  */
-#define MOTOR_PWM_PERIOD_US       20000U
+#define MOTOR_PWM_PERIOD_US       5000U
 
 typedef enum
 {
@@ -68,34 +58,13 @@ static motor_direction_t requested_direction =
 
 static uint8_t requested_speed_percent = 0;
 
-/*
- * Clamp speed to 0-100%.
- */
-static uint8_t motor_clamp_speed(uint8_t speed_percent)
-{
-    if (speed_percent > 100U)
-    {
-        return 100U;
-    }
 
-    return speed_percent;
-}
 
 /*
  * Set comparator pulse width.
  */
 static void motor_set_pulse_us(uint32_t pulse_us)
 {
-    if (pulse_us < MOTOR_MIN_PULSE_US)
-    {
-        pulse_us = MOTOR_MIN_PULSE_US;
-    }
-
-    if (pulse_us > MOTOR_MAX_PULSE_US)
-    {
-        pulse_us = MOTOR_MAX_PULSE_US;
-    }
-
     if (comparator == NULL)
     {
         return;
@@ -145,54 +114,52 @@ static void motor_pwm_disable(void)
             true));
 }
 
-/*
- * Convert speed and direction into pulse width.
- *
- * Forward:
- *
- *   0%   = 1500 us
- *   50%  = 1000 us
- *   100% = 500 us
- *
- * Backward:
- *
- *   0%   = 1500 us
- *   50%  = 2000 us
- *   100% = 2500 us
- */
-static uint32_t motor_calculate_pulse_us(
+static uint32_t motor_calculate_pulse(
     motor_direction_t direction,
     uint8_t speed_percent)
 {
-    speed_percent = motor_clamp_speed(speed_percent);
-
     if ((direction == MOTOR_DIRECTION_STOPPED) ||
         (speed_percent == 0U))
     {
         return MOTOR_STOP_PULSE_US;
     }
 
+    if (speed_percent > 100U)
+    {
+        speed_percent = 100U;
+    }
+
+    /*
+     * Map speed 1..100% to the servo's effective movement range.
+     *
+     * 0% = STOP (1500 us)
+     * 1% = first pulse outside dead band
+     * 100% = maximum speed
+     */
+    const uint32_t position = speed_percent - 1U;
+
     if (direction == MOTOR_DIRECTION_FORWARD)
     {
         const uint32_t range =
-            MOTOR_STOP_PULSE_US - MOTOR_FWD_MAX_PULSE_US;
+            MOTOR_FWD_START_PULSE_US -
+            MOTOR_FWD_MAX_PULSE_US;
 
-        return MOTOR_STOP_PULSE_US -
-               ((range * speed_percent) / 100U);
+        return MOTOR_FWD_START_PULSE_US -
+               ((range * position) / 99U);
     }
 
     if (direction == MOTOR_DIRECTION_BACKWARD)
     {
         const uint32_t range =
-            MOTOR_BCK_MAX_PULSE_US - MOTOR_STOP_PULSE_US;
+            MOTOR_BCK_MAX_PULSE_US -
+            MOTOR_BCK_START_PULSE_US;
 
-        return MOTOR_STOP_PULSE_US +
-               ((range * speed_percent) / 100U);
+        return MOTOR_BCK_START_PULSE_US +
+               ((range * position) / 99U);
     }
 
     return MOTOR_STOP_PULSE_US;
 }
-
 /*
  * Read state atomically.
  */
@@ -233,7 +200,10 @@ static void motor_apply_command(
     motor_direction_t direction,
     uint8_t speed_percent)
 {
-    speed_percent = motor_clamp_speed(speed_percent);
+    if (speed_percent > 100U)
+    {
+        speed_percent = 100U;
+    }
 
     if (speed_percent == 0U)
     {
@@ -241,20 +211,11 @@ static void motor_apply_command(
     }
 
     const uint32_t pulse_us =
-        motor_calculate_pulse_us(
+        motor_calculate_pulse(
             direction,
             speed_percent);
 
-    /*
-     * Update the comparator first. Because update_cmp_on_tez is
-     * enabled, the new value is applied at the beginning of the
-     * next complete PWM period.
-     */
     motor_set_pulse_us(pulse_us);
-
-    /*
-     * Keep PWM active continuously.
-     */
     motor_pwm_enable();
 
     motor_store_requested_state(
@@ -460,8 +421,6 @@ void motor_set_speed(uint8_t speed_percent)
     {
         motor_init();
     }
-
-    speed_percent = motor_clamp_speed(speed_percent);
 
     motor_direction_t direction;
     uint8_t current_speed;

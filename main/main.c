@@ -741,17 +741,12 @@ void app_main()
     }
 
 
-    dpp_start();
+//    dpp_start();    //Si lo activo despues tira error cuando lo paro despues de obtener ip 
 
     if (wifi_sta_start() != ESP_OK)
     {
     }
 
-
-motor_init();
-
-motor_set_speed(6);
-move_fwd();
     //=========================================
     // Wait for valid time from NTP or RTC
 
